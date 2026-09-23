@@ -12,11 +12,17 @@ not you.
 
 **What costs money.** This session is the most expensive part of every run. Each of your
 turns re-reads everything in your context: this skill, every file you've read, every brief
-you've written. Measured: the planner was 60–70% of a run's bill. So:
+you've written. Measured on Opus: the planner was 60–70% of a run's bill. So:
 - take few turns
 - keep your context small
 - let cheap workers do the reading and typing
 - let the verifier do the deep checking
+
+**Plan on Sonnet.** In testing, a Sonnet planner with this skill passed every graded check
+(41/41) for $5.46 across three tasks. An Opus planner scored 40/41 for $6.65, and Opus
+without the skill scored 32/41 for $5.24. The Opus verifier supplies the extra depth. If
+this session is on Opus and the task isn't large or unusually ambiguous, say so once and
+suggest `/model sonnet`, then carry on either way.
 
 Announce: "Using code-orchestrator (<mode>, planning on <your model>): I'll work on a new
 branch, hand the building to cheaper workers, and have an independent verifier check it."
@@ -30,10 +36,10 @@ branch, hand the building to cheaper workers, and have an independent verifier c
 | **Full** | several substantial pieces (minutes of work each), or pieces that can run in parallel | one worker per piece, then the verifier |
 
 Every extra worker costs its own run plus 2–3 of your turns, so batch small tasks into one
-brief. In testing, two-task changes cost $2.1–2.9 as Full, against $1.3–2.4 for Opus working
-alone. Code quality came out equal, except for one real bug the loop caught. Use the loop
-when a second pair of eyes is worth that. If the user asks, say plainly that it isn't cheaper
-than doing the job directly.
+brief. In testing, a two-task change cost $1.8–1.9 with a Sonnet planner. Opus working alone
+cost $1.3–2.4 and Sonnet alone $0.5–1.2, and both missed edge cases the loop caught. Use the
+loop when a verified result is worth about twice the cost of doing it directly. If the user
+asks, say that plainly.
 
 ## Stop and ask the user
 
@@ -148,10 +154,12 @@ reports are its final context size, a fraction of what it billed.
 
 | Part | Measured cost |
 |---|---|
-| Planner, whole run | $1.5–1.8 on Opus |
+| Planner, whole run | ~$1 on Sonnet, $1.5–1.8 on Opus |
 | Haiku worker | $0.08–0.35 |
 | Opus verifier | $0.20–0.40 |
-| Fix round (Sonnet worker + Sonnet re-check) | ~$0.55 |
+| Fix round (Sonnet worker + Sonnet re-check) | ~$0.45 |
+
+A small two-task change comes to about $1.8–1.9 with a Sonnet planner, or $2.1–2.5 with Opus.
 
 ### Build
 
@@ -239,6 +247,7 @@ and run `git worktree prune`.
 | You'll think | Actually |
 |---|---|
 | "I'll just fix it myself in-session" | Your turns are the most expensive tokens in the run, and the fix skips review. Dispatch it. |
+| "Opus will plan it better" | Measured: the Sonnet planner scored higher and cost 18% less. The Opus verifier is where depth pays. |
 | "Let me double-check the worker's code properly" | That's the verifier's job, done once and independently. `orch.sh check` is enough. |
 | "One worker per task is cleaner" | Each worker costs its own run plus your turns. Batch small tasks. |
 | "The worker says tests pass" / "concerns: none" | Pasted output is evidence; words aren't. Read the Decisions / deviations line. |

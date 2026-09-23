@@ -49,6 +49,30 @@ delegated too; their subagents just inherited Opus. One run per configuration.
   staying under them. They were counting final context sizes, not usage. The skill now
   prices in dollars.
 
+## v3, cost-first: four setups compared (billed)
+
+v3 cut the planner's context and turns: half-size SKILL.md, one-call `start` and `check`,
+Lite mode as the default, references read at their step. Same three prompts, one run each.
+The "Opus, no skill" runs are the ones from the table above.
+
+| Setup | Cost (3 tasks) | Graded checks | Code checks |
+|---|---|---|---|
+| Opus, no skill | $5.24 | 32/41 | 28/29 |
+| Sonnet, no skill | $2.33 | 31/41 | 28/29 |
+| Skill v3, Opus planner | $6.65 (v2: $7.51) | 40/41 | 28/29 |
+| Skill v3, Sonnet planner | $5.46 | 41/41 | 29/29 |
+
+- **The Sonnet planner** was the only setup to fail no check. It was also the only one to
+  reject comma-only CSV rows instead of silently skipping them. It cost about the same as
+  Opus working alone, and 18% less than the Opus planner. Hence "plan on Sonnet".
+- **Every v3 run had one fix round,** because the Opus verifier found something worth fixing
+  each time. The Opus verifier and the Sonnet fix round cost about $0.30 and $0.45 per run.
+- **Where the money went:**
+  - **Opus planner runs:** $4.54 Opus, $1.32 Sonnet, $0.79 Haiku.
+  - **Sonnet planner runs:** $4.27 Sonnet, $0.83 Opus, $0.37 Haiku.
+- **Cheapest overall:** Sonnet without the skill, at $0.5–1.2 per task. The skill buys the
+  verifier, the evidence and the edge cases, at about 2.3x that.
+
 ## Worked example: the inventory task *(context size)*
 
 Condensed from an actual run of this skill on a small Python repo, with the real numbers.
