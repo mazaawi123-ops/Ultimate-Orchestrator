@@ -112,12 +112,16 @@ STATUS: DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT
 Commits: <hashes, or "uncommitted">
 Tests: <command> → <N passed, M failed>
 Concerns / blocker / question: <one or two lines, or "none">
-Decisions / deviations: <every choice the brief didn't settle, and anything you did
+Unspecified inputs: <for each input the brief gave no example for, such as empty,
+malformed, boundary or odd encoding: one line on what your code does with it>
+Decisions / deviations: <every other choice the brief didn't settle, and anything you did
 differently from the brief, or "none">
 Report: <path>
 
-If "Decisions / deviations" isn't "none", the status is DONE_WITH_CONCERNS, not DONE: the
-planner reads this reply, not the report file.
+Most workers make choices without noticing them, so "Unspecified inputs" is rarely empty.
+Check your code for each input class before answering. If "Decisions / deviations" isn't
+"none", the status is DONE_WITH_CONCERNS, not DONE: the planner reads this reply, not the
+report file.
 ```
 
 ---

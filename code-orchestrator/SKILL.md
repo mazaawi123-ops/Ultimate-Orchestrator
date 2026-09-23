@@ -124,7 +124,11 @@ UNDERSTAND → PLAN → BUILD → TEST → VERIFY → CHECK ──done──→ 
    conventions, the key files, anything surprising. Paste it into every brief. With notes,
    workers used ~30% fewer tokens.
 4. Ambiguity that changes the plan: ask once, batching every question. Settle the rest as
-   **rulings** (`Ruling: <what> — <why> — <cost if wrong>`).
+   **rulings** (`Ruling: <what> — <why> — <cost if wrong>`). When a ruling decides what
+   happens to bad or odd input, fail loudly, with an error naming the problem, unless the
+   request says to tolerate it. Don't skip, coerce or guess. Silent data loss is the
+   costliest bug to find later: planners have ruled comma-only CSV rows "blank", and the
+   rows vanished.
 
 **Code that calls external services:** the plan's clean-room command is
 `orch.sh clean-room API_URL=http://127.0.0.1:9 -- <tests>`. It runs the suite in a fresh
@@ -176,6 +180,7 @@ dispatch what it unblocked.
 |---|---|
 | `DONE` | `orch.sh check`, then continue |
 | `DONE_WITH_CONCERNS` | rule on each concern, decision or deviation: accept it as a ruling, or send it back |
+| any | read "Unspecified inputs": each line is a decision. Accept it as a ruling, or send it back if it silently drops or coerces input |
 | `BLOCKED` / `NEEDS_CONTEXT` | run `git status` first: it may have left half-done edits. Then fix the brief or plan and re-dispatch. Never re-send it unchanged |
 
 A `DONE` without pasted full-suite output isn't done; send it back once.

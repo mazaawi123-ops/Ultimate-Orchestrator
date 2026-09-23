@@ -46,6 +46,8 @@ Decisions the planner made on the user's behalf, each with its reason:
 - Ruling: <what> — <why> — <cost if wrong>
 Check the code follows each one. Behaviour that follows a ruling is not a finding. If you
 think a ruling itself is wrong, list it under Findings as `ruling challenged`, with why.
+Always challenge a ruling that silently drops, coerces or guesses at input the request didn't
+ask to tolerate.
 
 ## Do
 1. Run the tests and lint yourself. Paste the output.

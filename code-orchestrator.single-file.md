@@ -125,7 +125,11 @@ UNDERSTAND → PLAN → BUILD → TEST → VERIFY → CHECK ──done──→ 
    conventions, the key files, anything surprising. Paste it into every brief. With notes,
    workers used ~30% fewer tokens.
 4. Ambiguity that changes the plan: ask once, batching every question. Settle the rest as
-   **rulings** (`Ruling: <what> — <why> — <cost if wrong>`).
+   **rulings** (`Ruling: <what> — <why> — <cost if wrong>`). When a ruling decides what
+   happens to bad or odd input, fail loudly, with an error naming the problem, unless the
+   request says to tolerate it. Don't skip, coerce or guess. Silent data loss is the
+   costliest bug to find later: planners have ruled comma-only CSV rows "blank", and the
+   rows vanished.
 
 **Code that calls external services:** the plan's clean-room command is
 `orch.sh clean-room API_URL=http://127.0.0.1:9 -- <tests>`. It runs the suite in a fresh
@@ -177,6 +181,7 @@ dispatch what it unblocked.
 |---|---|
 | `DONE` | `orch.sh check`, then continue |
 | `DONE_WITH_CONCERNS` | rule on each concern, decision or deviation: accept it as a ruling, or send it back |
+| any | read "Unspecified inputs": each line is a decision. Accept it as a ruling, or send it back if it silently drops or coerces input |
 | `BLOCKED` / `NEEDS_CONTEXT` | run `git status` first: it may have left half-done edits. Then fix the brief or plan and re-dispatch. Never re-send it unchanged |
 
 A `DONE` without pasted full-suite output isn't done; send it back once.
@@ -499,12 +504,16 @@ STATUS: DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT
 Commits: <hashes, or "uncommitted">
 Tests: <command> → <N passed, M failed>
 Concerns / blocker / question: <one or two lines, or "none">
-Decisions / deviations: <every choice the brief didn't settle, and anything you did
+Unspecified inputs: <for each input the brief gave no example for, such as empty,
+malformed, boundary or odd encoding: one line on what your code does with it>
+Decisions / deviations: <every other choice the brief didn't settle, and anything you did
 differently from the brief, or "none">
 Report: <path>
 
-If "Decisions / deviations" isn't "none", the status is DONE_WITH_CONCERNS, not DONE: the
-planner reads this reply, not the report file.
+Most workers make choices without noticing them, so "Unspecified inputs" is rarely empty.
+Check your code for each input class before answering. If "Decisions / deviations" isn't
+"none", the status is DONE_WITH_CONCERNS, not DONE: the planner reads this reply, not the
+report file.
 ```
 
 ---
@@ -573,6 +582,8 @@ Decisions the planner made on the user's behalf, each with its reason:
 - Ruling: <what> — <why> — <cost if wrong>
 Check the code follows each one. Behaviour that follows a ruling is not a finding. If you
 think a ruling itself is wrong, list it under Findings as `ruling challenged`, with why.
+Always challenge a ruling that silently drops, coerces or guesses at input the request didn't
+ask to tolerate.
 
 ## Do
 1. Run the tests and lint yourself. Paste the output.

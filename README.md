@@ -88,6 +88,7 @@ code-orchestrator/               the skill: install this folder
     verifier-brief.md            full and scoped verifier briefs
     example-run.md               the measurements behind every rule
 agents/                          the four subagents: model and effort per role
+install.sh                       installs the skill and the agents into ~/.claude
 code-orchestrator.single-file.md the same skill as one file (references and script as appendices)
 tools/build_single_file.py       rebuilds the single-file version
 evals/
@@ -97,18 +98,17 @@ evals/
 
 ## Install
 
-- **Claude Code:**
-  - Copy `code-orchestrator/` to `~/.claude/skills/code-orchestrator/` to use it everywhere.
-    Or copy it to `.claude/skills/code-orchestrator/` in a project to use it there only.
-  - Copy `agents/*.md` to `~/.claude/agents/`. These set each role's model and effort.
-    Without them the skill still works, but runs every agent at the default effort.
-  - Plan with `/model opus` and `/effort high`. `/model sonnet` is the cheaper alternative:
-    in testing it scored as well for 18% less.
+- **Claude Code:** from this repo's folder, run
 
   ```
-  cp -r code-orchestrator ~/.claude/skills/
-  mkdir -p ~/.claude/agents && cp agents/*.md ~/.claude/agents/
+  bash install.sh
   ```
+
+  - It copies the skill to `~/.claude/skills/code-orchestrator/`, and the four agents to
+    `~/.claude/agents/`. The agents set each role's model and effort. Without them the skill
+    still works, but every agent runs at the default effort.
+  - Then plan with `/model opus` and `/effort high`. `/model sonnet` is the cheaper
+    alternative: in testing it scored as well for 18% less.
 - **Claude app:** zip the `code-orchestrator/` folder and upload it where you add custom skills.
 
 The planner needs the Agent tool to dispatch workers.
