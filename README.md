@@ -36,9 +36,11 @@ each (details in `code-orchestrator/references/example-run.md`):
 | Sonnet, no skill | $2.33 | 31/41 | 28/29 |
 | Skill, Opus planner | $6.65 | 40/41 | 28/29 |
 | **Skill, Sonnet planner** | **$5.46** | **41/41** | **29/29** |
+| Skill with the `agents/` settings (Opus high, verifier Opus extra high) | $8.76 | 40/41 | 28/29 |
 
 - **Cost:** with a Sonnet planner, the skill costs about what Opus alone does, and passes every
-  check. Plain Sonnet costs about 2.3x less, but ships the edge-case bugs the
+  check. The default `agents/` settings put the verifier on extra-high effort. That found three
+  times as many should-fix issues, for about +$0.70 per task. Plain Sonnet costs about 2.3x less, but ships the edge-case bugs the
   verifier catches.
 - **Bugs caught:** in the benchmark, the loop's verifier caught a quadratic `wrap()` that hung
   on long words, and comma-only CSV rows being silently dropped.

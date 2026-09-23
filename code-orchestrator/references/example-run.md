@@ -73,6 +73,31 @@ The "Opus, no skill" runs are the ones from the table above.
 - **Cheapest overall:** Sonnet without the skill, at $0.5–1.2 per task. The skill buys the
   verifier, the evidence and the edge cases, at about 2.3x that.
 
+## v4: per-role effort through agent files (billed)
+
+Same three tasks, with the agent files installed:
+- **Planner:** Opus, `--effort high`
+- **Workers:** `orch-worker-haiku` (Haiku); `orch-worker-sonnet` (Sonnet, medium)
+- **Verifier:** `orch-verifier` (Opus, extra high)
+- **Re-checker:** `orch-rechecker` (Sonnet, high)
+
+The logs confirm every dispatch used its agent and resolved to the right model.
+
+| | v3, Opus planner, verifier on high | v4, verifier on extra high |
+|---|---|---|
+| Cost (3 tasks) | $6.65 | $8.76 (+32%) |
+| Opus verifier per run | $0.20–0.26 | $0.47–0.75 |
+| Planner per run | $1.00–1.54 | $1.34–1.58 |
+| Verifier findings, 3 runs | 2 should-fix, 12 nits, all PASS | 6 should-fix, 9 nits, 2 FAIL |
+| Graded checks | 40/41 | 40/41 |
+
+- **Findings:** the extra-high verifier found three times as many should-fix items. Each
+  run then had one fix round, which the planner also paid for in turns.
+- **Graded result:** unchanged. Neither caught the comma-only CSV row, which the planner
+  ruled "blank" in both.
+- **In short:** extra high buys a more thorough review for about +$0.70 per task. Use high
+  when cost matters more.
+
 ## Worked example: the inventory task *(context size)*
 
 Condensed from an actual run of this skill on a small Python repo, with the real numbers.

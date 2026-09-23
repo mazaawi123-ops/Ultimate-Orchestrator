@@ -34,8 +34,8 @@ branch, hand the building to cheaper workers, and have an independent verifier c
 | **Full** | several substantial pieces (minutes of work each), or pieces that can run in parallel | one worker per piece, then the verifier |
 
 Every extra worker costs its own run plus 2–3 of your turns, so batch small tasks into one
-brief. In testing, a two-task change cost $2.1–2.5 with an Opus planner, or $1.8–1.9 with a
-Sonnet one. Opus working alone cost $1.3–2.4 and Sonnet alone $0.5–1.2, and both missed edge
+brief. In testing, a two-task change cost $2.8–3.1 with these settings, $2.1–2.5 with the
+verifier on high effort, or $1.8–1.9 with a Sonnet planner. Opus working alone cost $1.3–2.4 and Sonnet alone $0.5–1.2, and both missed edge
 cases the loop caught. Use the
 loop when a verified result is worth about twice the cost of doing it directly. If the user
 asks, say that plainly.
@@ -160,10 +160,11 @@ reports are its final context size, a fraction of what it billed.
 |---|---|
 | Planner, whole run | $1.5–1.8 on Opus (~$1 on Sonnet) |
 | Haiku worker | $0.08–0.35 |
-| Opus verifier | $0.20–0.40 at high effort; more at extra high |
-| Fix round (Sonnet worker + Sonnet re-check) | ~$0.45 |
+| Opus verifier | $0.47–0.75 at extra high ($0.20–0.26 at high) |
+| Fix round (Sonnet worker + Sonnet re-check) | $0.40–0.70 |
 
-A small two-task change came to $2.1–2.5 with an Opus planner, or $1.8–1.9 with Sonnet.
+With these settings (Opus planner on high, verifier on extra high), a small two-task change
+came to $2.8–3.1. With the verifier on high it was $2.1–2.5, and with a Sonnet planner $1.8–1.9.
 
 ### Build
 
