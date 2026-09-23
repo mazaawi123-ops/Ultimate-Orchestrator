@@ -57,6 +57,8 @@ don't cover.>
   service or needs a local secret.
 - No secrets: don't open `.env` or credential files, and don't put keys, tokens or
   passwords in code, tests or fixtures.
+- No real user data: don't open, copy or query production data or a snapshot of it, even
+  read-only. Build synthetic fixtures instead.
 - Stay inside the repo path above.
 
 ## Existing tests

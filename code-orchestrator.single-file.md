@@ -1,38 +1,51 @@
 ---
 name: code-orchestrator
-description: Hierarchical agent workflow for substantial coding work — an Opus planner, cheap Haiku/Sonnet workers in git worktrees, an independent verifier, and a loop that ends only on evidence. Use this whenever the user asks to build, implement, add, refactor, migrate, or fix something that touches several files or needs tests, and whenever they mention orchestrating, delegating, hiring agents, workers, subagents, a planner, a build/verify loop, or want it "done properly / carefully / with verification". Coding only — not for one-file edits, questions about code, or non-code deliverables.
+description: Plan-build-verify loop for coding work that spans several files and has or needs tests. It plans the change, hands the building to cheaper subagent workers, and has an independent verifier check the result before reporting. Use it when the user wants a feature, bug fix, refactor or migration across several files, and especially when they ask for the work to be orchestrated, delegated to agents, workers or subagents, planned first, or done carefully with verification. Not for single-file edits, quick fixes, questions about code, code review alone, or anything that isn't code.
 ---
 
 # Code Orchestrator
 
-You are the **planner**. You run on the most capable model; spend it on judgement —
-understanding the request, writing criteria someone else can check, splitting work into
-briefs a cheaper model executes without guessing, and ruling on what the verifier finds.
-Workers write the code. You don't, because a planner who fixes things in-session pollutes
-its own context and skips review.
+You are the **planner**. Spend your judgement where it matters:
+- understanding the request
+- writing criteria someone else can check
+- splitting the work into briefs a cheaper model can carry out without guessing
+- ruling on what the verifier finds
 
-Announce at the start: "Using code-orchestrator: I'll work on a new branch, plan, hand tasks
-to Haiku/Sonnet workers, and have an independent verifier check the result before I report."
+Workers write the code, not you: a planner who fixes things in-session fills its context
+with code and skips review.
 
-## When to use the hierarchy — and when not
+**Before anything else, check your model.** The planner is the one place the hierarchy
+spends a strong model. If this session isn't running on Opus, say so first and suggest
+switching (`/model opus`): a weaker planner writes vaguer briefs, and cheap workers get
+vague briefs wrong. Continue only if the user says to.
 
-Every agent you spawn costs ~50k tokens of fixed overhead (system prompt, tools, reading the
-repo) before it does any work. That is only worth paying when the work is larger than the
-overhead. Use the full loop when the change spans several files, needs new tests, or has an
-"and then" in it. For a single-file change of under ~50 lines with an obvious test, do it
-yourself: make the change, run the suite, paste the output, done. Announce which mode you're
-in. A single worker plus a verifier is a fair middle ground for two-file changes.
+Announce: "Using code-orchestrator: I'll work on a new branch, plan, hand tasks to
+Haiku/Sonnet workers, and have an independent verifier check the result before I report."
 
-What the trade-off looked like when measured on a small two-task change (a bug fix plus a
-CSV importer):
+The mechanical steps are in the script in Appendix E: the stray-write check, worktrees,
+the clean-room run, the old-test check and the diff. Once per run, after `.orchestrator/`
+is git-ignored, save it as `.orchestrator/orch.sh` and run it as
+`bash .orchestrator/orch.sh <command>` from inside the repo. If you can't run it, read
+it: each command is a few lines of git you can run by hand.
 
-- **One session doing it alone:** ~100k tokens, all on the planner model. It shipped a
-  silent-data-loss bug that its own tests didn't catch.
-- **The tiered hierarchy:** ~370k tokens, but only 84k of them on Opus. The rest was Haiku
-  and Sonnet. It caught and fixed that bug plus three smaller ones.
+## When to use the hierarchy, and when not
 
-The hierarchy buys correctness and moves tokens to cheaper models. It does not reduce
-total tokens. Tell the user that plainly if they ask about cost.
+Every agent re-reads its own starting context on every turn, so each worker, verifier and
+fix round costs tens of thousands of tokens before it writes a line. That only pays off
+when the work is bigger than the overhead.
+
+- **Full loop:** the change spans several files, needs new tests, or has an "and then" in it.
+- **Single worker plus verifier:** a two-file change.
+- **Do it yourself:** a single-file change of under ~50 lines with an obvious test. Make the
+  change, run the suite, and paste the output.
+
+Say which mode you're in.
+
+The hierarchy buys correctness, and it moves most tokens to cheaper models. It does **not**
+reduce total tokens. On a small two-task change, one session alone took ~100k tokens and
+shipped a data-loss bug. The tiered loop took ~370k, of which only ~84k were on Opus, and it
+caught that bug plus three smaller ones. Say this plainly if the user asks about cost.
+Appendix D has the measurements.
 
 ## Stop and ask the user
 
@@ -40,64 +53,61 @@ For almost everything, you rule and carry on. These are the exceptions. Pause an
 before any of them, even mid-loop:
 
 - **Anything irreversible.** Running migrations or scripts against a real database,
-  deleting files that existed before the run, rewriting git history (force-push, rebase, or
-  reset of the user's branches), pushing, publishing, deploying.
+  deleting files that existed before the run, rewriting git history (force-push, or a rebase
+  or reset of the user's branches), pushing, publishing, deploying.
 - **Anything involving secrets.** Reading `.env` or credential files, or using real API keys,
   even "just to test".
 - **Real user data.** Reading, copying or querying production data or a snapshot of it, even
   read-only and even for a dry run. Use synthetic fixtures until the user says yes.
 - **Anything outside the repo.** Other directories, global installs, system settings.
 - **Lifting a default constraint.** Adding a dependency or calling a real external service
-  (Appendix B lists the defaults), unless the user's request already asked for it.
-- **The plan turning out wrong.** An assumption behind the plan is false (the API doesn't
-  exist, the module is used somewhere you didn't expect) in a way that changes what gets
-  built.
+  (Appendix B lists the defaults), unless the user's request already asked
+  for it.
+- **The plan turning out wrong.** An assumption behind the plan is false in a way that
+  changes what gets built. For example, the API doesn't exist, or the module is used
+  somewhere you didn't expect.
 
 If the user isn't there to answer, do everything up to that point, write the question into
 the plan and the report, and stop. Keep this list short so a pause still means something.
 
 ## Roles
 
-| Role | Model (`Agent` tool) | Job |
+| Role | `Agent` call | Job |
 |---|---|---|
 | Planner | this session (Opus) | understand, plan, dispatch, rule, report |
-| Worker — tier 1 | `model: "haiku"` | well-specified or mechanical tasks |
-| Worker — tier 2 | `model: "sonnet"` | tasks with design latitude; fix rounds 1–2 |
-| Worker — tier 3 | `model: "opus"` | fix round 3 only |
-| Verifier — full | `model: "opus"` | first adversarial verification of the whole change |
-| Verifier — scoped | `model: "sonnet"` | after a fix round: were the findings addressed, did the fix break anything |
+| Worker, tier 1 | `model: "haiku"` | well-specified or mechanical tasks |
+| Worker, tier 2 | `model: "sonnet"` | tasks with design latitude; fix rounds 1–2 |
+| Worker, tier 3 | `model: "opus"` | fix round 3 only |
+| Verifier, full | `model: "opus"` | first adversarial verification of the whole change |
+| Verifier, scoped | `model: "sonnet"` | after a fix round: were the findings addressed, did the fix break anything |
 
-Workers get their own git worktree whenever another worker runs at the same time. The
-guard rails for that are listed under Plan.
+**Pass `model` on every dispatch.** A subagent without one inherits your model. A worker
+dispatched without `model` quietly runs on Opus and costs several times what the plan said.
 
-**Picking the worker tier** — write it on each task in the plan:
+**Picking the worker tier.** Write the tier on each task in the plan:
 
-- **Haiku** when the brief leaves no real decisions: the behaviour, the files, the interfaces
-  and the tests are all spelled out, or the work is same-shape edits (renames, adding a
-  field in several places, wiring an existing function into a new call site). In the
-  trial run, Haiku on a precise brief matched Sonnet's quality with about 20% fewer tokens,
-  and each of its tokens is much cheaper. It also took about twice as many turns and was
-  looser about the brief (it ran only its own test file instead of the full suite). So
+- **Haiku** when the brief leaves no real decisions. The behaviour, the files, the
+  interfaces and the tests are all spelled out, or the work is same-shape edits (renames,
+  a field added in several places). On a precise brief Haiku matched Sonnet's quality.
+  It is looser about the brief, though (it tends to run only its own test file), so
   check its report harder.
 - **Sonnet** when the worker has to choose something the brief can't fully settle: how to
-  structure a new module, how to handle an error case the spec is silent on, working
-  through unfamiliar code. It also handles fix rounds, because a fix means the first
-  attempt already missed something.
-- If you can't write a Haiku-grade brief without effectively writing the code yourself,
-  that's a sign the task needs Sonnet, or needs splitting.
-- A Haiku brief gives exact input → output examples for every edge case in its review
-  focus. Workers make decisions without noticing them. In testing, one used `round()` for
-  invoice amounts, which does banker's rounding (2.675 → 2.67), and reported "decisions:
-  none" even when asked to list its decisions. If you can't write the expected output, the
-  decision is still open: make it with a ruling, or ask.
+  structure a new module, an error case the spec is silent on, unfamiliar code. It also
+  handles fix rounds, because a fix means the first attempt already missed something.
+- If you can't write a Haiku-grade brief without effectively writing the code, the task
+  needs Sonnet, or needs splitting.
+- **A Haiku brief gives exact input → output examples** for every edge case in its review
+  focus. Workers make decisions without noticing them. One used `round()` on invoice
+  amounts, which rounds 2.675 down to 2.67, and still reported "decisions: none". If you
+  can't write the expected output, the decision is still open: make it with a ruling, or ask.
 
 If `Agent` has no `model` parameter, run on the default model and say so in the report. If
-there is no `Agent` tool at all, run each role yourself in sequence, with the plan, briefs and
-verifier checklist written out exactly as if they were being handed off — and say plainly
-in the report that the verification was not independent.
+there is no `Agent` tool at all, run each role yourself in sequence. Write the plan, briefs
+and verifier checklist out exactly as if handing them off, and say plainly in the report
+that the verification was not independent.
 
-Workers and verifiers never spawn agents of their own (their briefs say so). Nested
-dispatch has been observed to duplicate reviews and lose reports.
+Workers and verifiers never spawn agents of their own; their briefs say so. Nested dispatch
+has duplicated reviews and lost reports.
 
 ## The loop
 
@@ -109,65 +119,63 @@ UNDERSTAND → PLAN → BUILD → TEST → VERIFY → CHECK ──done──→ 
 
 ### Understand
 
-Read the repo: build system, test runner, lint, the files the request touches, an existing
-file to copy conventions from. Then, before any dispatch:
+Read the repo: the build system, test runner and lint, the files the request touches, and
+an existing file to copy conventions from. Then, before any dispatch:
 
 0. **Check for an earlier run.** If `.orchestrator/` already exists, a previous run was
    interrupted or kept its files. Read its plan and Log first. If it's the same request and
-   its branch hasn't moved, resume from where its Log stops. Otherwise ask the user which to
-   keep. Never overwrite or delete it silently: it's git-ignored, so git can't bring it
-   back. In testing, a run was interrupted, and the next run found its plan, briefs and
-   branch.
-1. **Work on your own branch.** Note the user's current branch, then run
-   `git switch -c orch/<short-name>`. Every worker branch, merge and fix happens there, and
-   the user's branch stays untouched until they choose to merge. If the tree has uncommitted
+   its branch hasn't moved, resume from where its Log stops. Otherwise ask the user which
+   one to keep. Never overwrite or delete it silently: it's git-ignored, so git can't bring
+   it back.
+1. **Work on your own branch.** Note the user's current branch, then
+   `git switch -c orch/<short-name>`. Every worker branch, merge and fix happens there. The
+   user's branch stays untouched until they choose to merge. If the tree has uncommitted
    changes, stop and ask whether to commit them first, stash them, or build on top of them.
-   Never stash or discard someone's work silently: stashes get forgotten, and lost work
-   can't be recovered.
-2. Run the full test suite and lint. A dirty baseline makes every later failure ambiguous;
-   record the pre-existing failures so nobody attributes them to a worker. Every brief lists
-   them as known failures. Otherwise "the full suite passes" can't be met, and in testing a
-   worker "fixed" code another developer was changing on their own branch, just to get there.
-   Also check that each command covers what it claims. For example, `node --check src/*.js`
-   checks only the first file, so loop over the files instead.
-3. `BASE=$(git rev-parse HEAD)` — every diff the verifier sees is `BASE..HEAD`, never
+   Never stash or discard someone's work silently: stashes get forgotten.
+2. **Baseline.** Run the full test suite and lint, and record the pre-existing failures so
+   nobody blames them on a worker. Every brief lists them as known failures. Without that
+   list, "the full suite passes" can't be met, and a worker will "fix" someone else's code
+   to get there. Check that each command covers what it claims: `node --check src/*.js`
+   checks only the first file.
+3. `BASE=$(git rev-parse HEAD)`. Every diff the verifier sees is `BASE..HEAD`, never
    `HEAD~1`, which silently truncates multi-commit tasks.
-4. Make sure `.orchestrator/` is git-ignored (`git check-ignore .orchestrator` — add it to
-   `.git/info/exclude` if not).
+4. Make sure `.orchestrator/` is git-ignored (`git check-ignore -q .orchestrator/x`). If it
+   isn't, add `.orchestrator/` to `.git/info/exclude`.
+5. **Write repo notes** in `.orchestrator/notes.md` as you read, in 40 lines or fewer: the
+   layout, the test and lint commands, the conventions with a file to imitate, the key
+   files, and anything surprising. Paste them into every brief, so workers don't each pay
+   to rediscover the same facts. Paste the text rather than a path: worktrees don't contain
+   `.orchestrator/`.
 
-If something is ambiguous in a way that changes the plan (which module, compatible or not,
-which of two patterns is current), ask once, batching every question. Settle the rest with
-a stated default — as a **ruling** (below).
+If something is ambiguous in a way that changes the plan (which module, whether to stay
+compatible, which of two patterns is current), ask once, batching every question. Settle the
+rest with a stated default, as a **ruling** (below).
 
-**Code that calls external services?** (HTTP APIs, payment, email, a remote database.)
-Write a **clean-room test command**: the suite run in a fresh checkout of HEAD (`git worktree
-add`), with every service's URL pointed at a closed local port (such as `127.0.0.1:9`) and no
-credentials provided. A fresh checkout has no `.env` and no other git-ignored files. Link
-installed dependencies in if the suite needs them (a symlinked `node_modules`, the same
-virtualenv): dependencies are fine, secrets aren't. For example:
+**Code that calls external services?** (HTTP APIs, payment, email, a remote database.) Use
+the clean-room run:
 
-    git worktree add -f /tmp/clean HEAD && (cd /tmp/clean && API_URL=http://127.0.0.1:9 <test command>); git worktree remove --force /tmp/clean
+    bash .orchestrator/orch.sh clean-room API_URL=http://127.0.0.1:9 -- <test command>
 
-Tests pass there only if they mock the call that leaves the process and set their own dummy
-credentials. Workers and the verifier both run it. In testing it caught two things. First,
-tests that mocked the JSON parser instead of the HTTP call: they passed, and every run made
-real, billed calls with the live key. Second, a later set that mocked the network properly
-but still read the live key from `.env` on every run, and would have crashed on a machine
-without it.
+It runs the suite in a fresh worktree of HEAD. There's no `.env` and no credential-like
+environment variables, and each service URL points at a closed port. Dependency folders are
+linked in: dependencies are fine, secrets aren't. Tests pass there only if they mock the call
+that leaves the process and set their own dummy credentials. Green tests prove neither: some
+have mocked the JSON parser while making real, billed calls. Write the exact command into the
+plan, because workers and the verifier both run it.
 
-**No test suite?** Then the first task sets one up: the smallest runner that fits the
-stack, with one smoke test proving it runs, recorded as a ruling. Prefer a runner that's
-built in (`python -m unittest`, `node --test`), because anything else is a new dependency
-and needs the user's OK (see Stop and ask). The acceptance criteria still have to be
-commands.
+**No test suite?** Then the first task sets one up: the smallest runner that fits the stack,
+with one smoke test proving it runs, recorded as a ruling. Prefer a built-in runner
+(`python -m unittest`, `node --test`), because anything else is a new dependency and needs
+the user's OK. The acceptance criteria still have to be commands.
 
 **Behaviour no command can check** (a GUI window, a layout, audio, an email actually
-arriving): split it in two. Test the logic behind it (the model, the handler, the
-formatter). Mark what only a human can judge as a `(manual)` criterion. If the stack has a
-headless mode (Qt's offscreen platform, a headless browser), use it for a smoke test. The
-verifier puts manual criteria under "Declined to judge". The report lists them under "Not
-verified", with steps for the user to check them. Never report a criterion as verified
-when nothing ran.
+arriving): split it in two.
+- Test the logic behind it: the model, the handler, the formatter.
+- Mark what only a human can judge as a `(manual)` criterion.
+- If the stack has a headless mode, use it for a smoke test.
+
+The verifier puts manual criteria under "Declined to judge". The report lists them under
+"Not verified", with steps for the user. Never report a criterion as verified when nothing ran.
 
 ### Plan
 
@@ -179,173 +187,167 @@ Write `.orchestrator/plan.md` from Appendix A. The parts that matter most:
 - **Review focus**: the input classes or failure modes the request implies but no task's
   tests will exercise (empty input, unicode, boundaries, the error path, concurrency). The
   verifier gets this list.
-- **Tasks**, each with the files it touches and an **Interfaces** block — what it consumes
+- **Tasks**, each with the files it touches and an **Interfaces** block: what it consumes
   and what it produces, with exact names and signatures. That block is the only thing that
   stops two parallel workers inventing different names for the same function.
 - **Rulings**: every decision you make on the user's behalf, as
   `Ruling: <what> — <why> — <cost if wrong>`. A ruling that lives only in your head is a
   decision made in secret.
 - **Existing tests are fixed points.** If the change really does alter behaviour that an
-  existing test pins down, name that test in the task under "Tests allowed to change", and
+  existing test pins down, name that test in the task under "Tests allowed to change" and
   add a ruling saying why. Every other pre-existing test stays exactly as it is.
-- **Default constraints**: every brief carries the "Always" block in Appendix B (no new
-  dependencies, no real external services, no secrets). Lifting one takes a ruling, and
-  some need the user (see Stop and ask).
+- **Default constraints**: every brief carries the "Always" block from
+  Appendix B: no new dependencies, no real external services, no secrets.
+  Lifting one takes a ruling, and some need the user (see Stop and ask).
 
-**Keep the plan proportionate.** In testing, two plan-only runs spent 209k and 266k tokens
-planning a reset button and a ten-line rounding function. That's more than doing either job
-in one session (~100k). Most of it went on sweeps and simulations the verifier does anyway.
-At plan time, compute only what the briefs need, such as the expected outputs for their
-exact examples, with a few quick checks. Leave sweeps, fuzzing and brute-force comparisons
-to the verifier. If the plan is costing more than the build will, you're verifying, not
-planning.
+**Keep the plan proportionate.** At plan time, compute only what the briefs need, such as
+the expected outputs for their exact examples, with a few quick checks. Leave sweeps,
+fuzzing and brute-force comparisons to the verifier, which runs them anyway. Plan-only runs
+have spent 209k and 266k tokens on a reset button and a ten-line rounding function, more
+than doing either job in one session. If the plan is costing more than the build will,
+you're verifying, not planning.
 
-Task sizing: the smallest unit a fresh worker can finish in one run and a verifier could
-reject on its own. Split where a reviewer could meaningfully reject one task while approving
-its neighbour; batch several tiny same-shape edits into one task instead of paying overhead
-per edit. A plan that says "add appropriate error handling" or "similar to task 2" has a
-placeholder where a worker needs an instruction — fix it before dispatching.
+**Task sizing:** the smallest unit a fresh worker can finish in one run and a verifier could
+reject on its own. Split where a reviewer could reject one task while approving its
+neighbour. Batch several tiny same-shape edits into one task instead of paying overhead per
+edit. A plan that says "add appropriate error handling" or "similar to task 2" has a
+placeholder where a worker needs an instruction. Fix it before dispatching.
 
-**Parallel or sequential — decide per task, not per plan.** Write it on each task
-(`mode: worktree | sequential`). Neither is the default. Parallel doesn't save tokens: every
-worker pays the same overhead either way, and merging adds a little. What it saves is
-waiting time. Sequential is slower, but each later worker reads the earlier worker's real
-code instead of guessing from your description, so it produces fewer fix rounds.
+**Parallel or sequential: decide per task, not per plan.** Write it on each task
+(`mode: worktree | sequential`); neither is the default. Parallel saves waiting time, not
+tokens. Sequential is slower, but each later worker reads the earlier worker's real code
+instead of guessing from your description, so it produces fewer fix rounds.
 
 | Run in parallel (worktrees) only when **all** hold | Run sequentially when **any** holds |
 |---|---|
 | The tasks share no files and no data structures | They edit the same file, even in unrelated places |
 | You can write their Interfaces blocks exactly before either starts | The second task depends on how the first turns out |
-| Each task is big enough (minutes of work) that waiting time matters | The tasks are small. Parallel saves seconds and adds a merge |
+| Each task is big enough (minutes of work) that waiting matters | The tasks are small: parallel saves seconds and adds a merge |
 | | It's a fix round, which builds on code that already exists |
 
-A measured test used two independent tasks, the same briefs and Haiku workers:
+If you aren't sure, choose sequential. A wrong sequential choice costs time. A wrong
+parallel choice costs a merge conflict or a fix round. Mixed plans are normal: a backend
+endpoint and a frontend page in parallel, and the integration task after both.
 
-- **Time:** parallel finished the build in 84s. Sequential took 127s.
-- **Tokens:** about the same (+7% for parallel).
-- **Quality:** the verifier found the same things in both runs.
-- **Safety:** one of the two parallel workers also wrote its changes into the main tree,
-  which blocked the merge.
+**Guard rails for parallel workers.** Unguarded, one of two parallel workers wrote into the
+main tree as well as its worktree. With these rails, none of six did.
 
-So parallel buys time, and it needs the guard rails below. Tested over three more parallel
-runs (6 workers), none of the workers strayed, every merge was clean, and the suite was
-green after each merge.
+- **Main tree clean and stamped before dispatch:** run `orch.sh stamp`. It refuses a dirty
+  tree, then marks the time. When the workers return, run `orch.sh stray`. It lists every
+  file in the main tree written since the stamp, git-ignored ones included, which
+  `git status` alone misses. Any hit means a worker left its worktree: compare the change
+  with that worker's branch, discard it, and log it.
+- **One worktree per parallel worker:** `orch.sh wt-add <task>` creates
+  `.orchestrator/worktrees/<task>` on its own branch and prints the path. It sits inside the
+  repo, so workers can edit it without extra permission prompts, and it's git-ignored along
+  with `.orchestrator/`.
+- **Every path in a parallel brief points inside that worker's worktree**: the repo, the
+  files, and the report file (`<worktree>/.orchestrator/task-N-report.md`). A single
+  main-tree path invites the worker to work there. In testing, the report path was the one
+  that did it.
+- **Merge one branch at a time**, running the full suite after each merge, so a break points
+  to one task. Then run `orch.sh wt-finish <task>`. It copies the worker's report into
+  `.orchestrator/reports/<task>/` before removing the worktree, because removal deletes the
+  report along with the worktree. It then deletes the merged branch.
 
-- **Main tree clean before dispatch, and snapshotted.** `git status --porcelain` must be
-  empty. It doesn't see git-ignored files, and that includes `.orchestrator/`, so also take
-  a checksum snapshot:
-  `find . -path ./.git -prune -o -type f -print | sort | xargs sha1sum > /tmp/main.sha`.
-  Compare against it when the workers return. Any difference means a worker left its
-  worktree: compare the change with that worker's branch, discard it, and log it.
-- **Every path in a parallel brief points inside that worker's worktree.** That covers the
-  repo, the files, and the report file (`<worktree>/.orchestrator/task-N-report.md`). A
-  single main-tree path in the brief invites the worker to work there. In the test, the
-  report path was the one that did it.
-- **Creating worktrees.** `isolation: "worktree"` on the `Agent` call only works for the
-  repo this session runs in. For any other repo, create them yourself with
-  `git worktree add ../wt-<task> -b <task>` and give the worker the absolute path. After
-  merging, copy the worker's report into the main tree's `.orchestrator/`, then run
-  `git worktree remove ../wt-<task>` and delete the branch. Removing the worktree deletes
-  the report with it, because the report sits in a git-ignored folder.
-- **Merge one branch at a time**, running the full suite after each merge, so a break
-  points to one task.
-
-Mixed plans are normal. A backend endpoint and a frontend page can run in parallel, with the
-integration task queued after both. The frontier in BUILD handles this: a sequential task
-simply depends on the task before it. If you aren't sure, choose sequential. A wrong
-sequential choice only costs time. A wrong parallel choice costs a merge conflict or a fix
-round.
+**Tell the user the cost before the first dispatch,** in one line. Count the agents by
+model, and allow one fix round. For example: "2 Haiku workers, an Opus verifier, and
+probably one Sonnet fix round with a Sonnet re-check: roughly 400k tokens, about 100k of
+them on Opus." Take the per-agent figures from Appendix D (Cost per
+agent). If the user is there and the estimate is more than they'd expect for the job, offer
+direct mode. Otherwise carry on.
 
 ### Build
 
 Fill Appendix B for each task, with the task's tier as the `model`.
 Dispatch every task whose dependencies are met **in one message**, each in its own worktree
-when more than one runs at once. When a worker lands, dispatch
-whatever it just unblocked. The frontier moves as tasks finish; don't wait to send fixed
-batches.
+when more than one runs at once. When a worker lands, dispatch whatever it just unblocked.
+The frontier moves as tasks finish; don't wait to send fixed batches.
 
 The brief is why a cheap model can do this job: it removes every decision the worker would
-otherwise make. Everything you know that the worker needs — the user's preference, why a
-constraint exists, which pattern in the codebase is current — goes in the brief in plain
-words. Explaining *why* lets the worker make the right call in the case you didn't foresee.
+otherwise make. Put everything you know that the worker needs in the brief, in plain words:
+the user's preference, why a constraint exists, which pattern in the codebase is current.
+Explaining *why* lets the worker make the right call in a case you didn't foresee.
 
-Workers return one of four statuses and a short summary; the full report is a file
+Workers return one of four statuses and a short summary. The full report goes in a file
 (`.orchestrator/task-N-report.md`), so your context holds only what you need to decide:
 
 | Status | What it means | What you do |
 |---|---|---|
 | `DONE` | criteria met, tests pasted green | merge, continue |
 | `DONE_WITH_CONCERNS` | done, but the worker flagged something, made a decision the brief didn't settle, or deviated from it | rule on each one: accept it as a ruling, or send it back |
-| `BLOCKED` | can't finish in scope | fix the brief or the plan, re-dispatch — never "try again" unchanged |
+| `BLOCKED` | can't finish in scope | fix the brief or the plan and re-dispatch. Never "try again" unchanged |
 | `NEEDS_CONTEXT` | a question the brief should have answered | answer it in the brief, re-dispatch |
 
-A worker that stops with `NEEDS_CONTEXT` or `BLOCKED` may leave half-done, failing edits
-in its tree. In testing, one stopped correctly and still left the suite red. Run
-`git status` in that tree before anything else runs there. Keep the edits only if the
+A worker that stops with `NEEDS_CONTEXT` or `BLOCKED` may leave half-done, failing edits in
+its tree. Run `git status` there before anything else runs in it. Keep the edits only if the
 re-dispatched brief builds on them; otherwise `git restore` them.
 
-A `DONE` without pasted **full-suite** output is not `DONE`. A run of only the worker's
-own test file doesn't count either; Haiku workers do this. Send it back once for the output.
+A `DONE` without pasted **full-suite** output is not `DONE`. A run of only the worker's own
+test file doesn't count either. Send it back once for the output.
 
 ### Test
 
-If workers ran in parallel, first confirm the main tree is still clean. Then merge their
-branches one at a time, running the full suite after each merge, and remove the worktrees.
-A conflict means two tasks weren't independent. Resolve it if it's trivial; otherwise redo
-the smaller task sequentially on top of the merged result.
-Either way, once everything is in, run the **whole** suite and lint yourself: workers test
-their task, you test the system. If the plan has a clean-room test command, run it too.
-If the suite is red here, skip the verifier and go to CHECK with the failure.
+If workers ran in parallel, run `orch.sh stray` first. Then merge their branches one at a
+time, running the full suite after each merge, and finish each worktree. A conflict means
+two tasks weren't independent. Resolve it if it's trivial; otherwise redo the smaller task
+sequentially on top of the merged result.
+
+Once everything is in, run the **whole** suite and lint yourself: workers test their task,
+you test the system. Run the clean-room command too, if the plan has one. If the suite is red
+here, skip the verifier and go to CHECK with the failure.
 
 Then check for edits to tests that existed before the run:
-`git diff --numstat $BASE..HEAD -- <test paths>`.
-- A file with 0 in the second column (deleted lines) only had tests added, which is fine.
-- For a file with deleted lines, read them with `git diff $BASE..HEAD -- <file>`. A changed
-  import line is fine.
-- A removed, changed or loosened assertion or test that the plan doesn't allow goes back to
-  its worker. Editing an old test is the easiest way for broken code to pass.
+`orch.sh old-tests $BASE <test paths>`. It prints only the lines deleted from test files
+that existed at BASE, so tests that were only added don't show. A changed import line is
+fine. A removed, changed or loosened assertion or test that the plan doesn't allow goes back
+to its worker. Editing an old test is the easiest way for broken code to pass.
 
 ### Verify
 
-Write the diff to a file: `git diff -U10 $BASE..HEAD -- . ':!.orchestrator' > .orchestrator/diff-N.patch`.
-Fill Appendix C (the **full** variant) and dispatch on Opus. It gets the
-criteria, the review focus, the commands, and the diff file — **not** the worker reports or
-your reasoning. Independence is the whole value; don't leak the answer key, and never tell
-a verifier what not to flag.
+Write the diff with `orch.sh diff $BASE <N>`, which writes `.orchestrator/diff-<N>.patch`.
+Fill the **full** variant of Appendix C and dispatch it with
+`model: "opus"`. It gets the criteria, the review focus, the commands, the rulings and the
+diff file. It does **not** get the worker reports or your reasoning. Independence is the whole value,
+so don't leak the answer key, and never tell a verifier what not to flag. The rulings are
+decisions, not an answer key. The verifier checks that the code follows them, and may still
+challenge one. Without them, it re-litigates choices already made and flags them as findings.
 
-The verifier reports PASS/FAIL per criterion with evidence, findings outside the criteria
-with severity, and a "declined to judge" list so nothing is dropped silently.
+The verifier reports PASS or FAIL per criterion with evidence, findings outside the criteria
+with a severity, and a "declined to judge" list, so nothing is dropped silently.
 
 ### Check
 
-Read the verifier's report as the planner, not the author. Per finding:
+Read the verifier's report as the planner, not the author. For each finding:
 
-- Criterion `FAIL` or a `blocker` → fix round (below).
-- `should-fix` → fix round if cheap, else list it for the user with a ruling.
-- `nit` → the report. A stated rationale in a report never downgrades a finding's severity.
-- A finding that is really a new requirement → the user's call; don't grow scope silently.
+- A criterion `FAIL` or a `blocker` → fix round (below).
+- `should-fix` → fix round if cheap; otherwise list it for the user with a ruling.
+- `nit` → the report. A rationale stated in a report never downgrades a finding's severity.
+- A `ruling challenged` → re-decide it. Change the ruling or keep it, and log why.
+- A finding that is really a new requirement → the user's call. Don't grow scope silently.
 
-Verifiers don't always agree on severity. Across three runs of the same code, one issue was
-rated should-fix twice and a nit once. The verifier's label is input, not the decision:
-you rule, and the Ruling line records why.
+Verifiers don't always agree on severity: the same issue has been rated should-fix twice and
+a nit once across three runs of the same code. The verifier's label is input, not the
+decision. You rule, and the Ruling line records why.
 
-Nothing left → REPORT. Otherwise log what failed and **why** (root cause: "worker assumed
-IDs were ints", not "test_x failed") and start a fix round.
+Nothing left → REPORT. Otherwise log what failed and **why**, as a root cause ("worker
+assumed IDs were ints", not "test_x failed"), and start a fix round.
 
 **Fix rounds** are per finding, not a global counter:
 
-- Rounds 1–2: a Sonnet worker (even if the task started on Haiku) with the finding
-  verbatim and the missing context added to the brief. If the same finding comes back, the
-  brief was the problem — rewrite it, don't re-send it with "be more careful".
-- Round 3: a fresh worker on Opus with the whole history.
-- After that, stop looping: rule on it — park it with a stated cost, or stop and tell the
+- **Rounds 1–2:** a Sonnet worker, even if the task started on Haiku. Give it the finding
+  verbatim and add the missing context to the brief. If the same finding comes back, the
+  brief was the problem: rewrite it. Don't re-send it with "be more careful".
+- **Round 3:** a fresh worker on Opus, with the whole history.
+- **After that, stop looping:** rule on it. Park it with a stated cost, or stop and tell the
   user the plan is wrong. Past round 3 the failure is structural, not effort.
 
-After each fix round: full suite, then a **scoped** re-verify on Sonnet
-(Appendix C, scoped variant) — it gets the previous findings verbatim,
-marks each `ADDRESSED | NOT ADDRESSED`, and reads only the fix diff for new breakage.
-"Attempted" is not addressed. The scoped check is where regressions hiding behind green
-tests get caught, so it isn't optional because the fix was small.
+After each fix round, run the full suite, then a **scoped** re-verify with
+`model: "sonnet"` (the scoped variant of Appendix C). It gets the
+previous findings verbatim, marks each `ADDRESSED` or `NOT ADDRESSED` ("attempted" is not
+addressed), and reads only the fix diff for new breakage. The scoped check is where regressions hiding behind green tests get caught. A one-line fix
+has moved a boundary that 25 green tests missed, so it isn't optional just because the fix
+was small.
 
 ### Report
 
@@ -353,7 +355,7 @@ tests get caught, so it isn't optional because the fix was small.
 ## Result: <done | stopped: reason>
 - Built: <2–4 lines>
 - Acceptance criteria: N/M verified — <failed ones with evidence>
-- Tests: <command> → <result>   Lint: <result>
+- Tests: <command> → <result>   Lint: <result>   Clean-room: <result or n/a>
 - Files changed: <main ones>
 - Iterations: N — <one line each: what failed, root cause, what changed>
 - Rulings I made: <each Ruling line, or "none">
@@ -362,11 +364,13 @@ tests get caught, so it isn't optional because the fix was small.
   user to check it> or "none"
 - Branch: orch/<name>, based on <user's branch> at <BASE>. Not pushed. To take it:
   `git merge orch/<name>`
-- Mode: <full hierarchy | single worker + verifier | direct> — models used
+- Mode: <full hierarchy | single worker + verifier | direct> — agents dispatched, by model
+  (e.g. "2 Haiku workers, 1 Opus verifier, 1 Sonnet fix, 1 Sonnet re-check"), against the
+  estimate given before the run
 ```
 
-Then remove `.orchestrator/` and any leftover worktrees (`git worktree list`) unless the
-user wants them kept.
+Then, unless the user wants them kept, finish any leftover worktrees (`git worktree list`),
+remove `.orchestrator/`, and run `git worktree prune`.
 
 ## Rationalisations to refuse
 
@@ -374,25 +378,25 @@ user wants them kept.
 |---|---|
 | "It's a small fix, I'll do it myself in-session" | Your context fills with code and the fix skips review. Dispatch it. |
 | "The worker says tests pass" | Words aren't evidence. Pasted output is. |
-| "The fix was tiny, skip the re-verify" | The tiny fix in the live trial introduced a regression 25 green tests missed. |
+| "The fix was tiny, skip the re-verify" | Tiny fixes move boundaries that green tests don't sit on. |
 | "One more fix round will converge" | Past round 3 the problem is the plan, not the worker. Rule or stop. |
 | "The verifier will figure out what matters" | It works from the criteria and review focus you wrote. Vague in, vague out. |
-| "Parallel is faster, so it's better" | It's faster, not cheaper, and only safe when the tasks share nothing. Otherwise you get three half-understandings and a merge conflict. Choose per task. |
-| "Each worker knows which worktree is its own" | Without the guard rails, one of two parallel workers wrote into the main tree as well. With them, none of six did. Keep the snapshot check anyway: it costs one command. |
-| "Haiku is cheapest, give it everything" | Haiku works when the brief leaves no decisions. Given an open question, it guesses, and each guess becomes a Sonnet fix round plus a re-verify. |
-| "The user didn't say, so I'll pick" | Pick — and write the Ruling line so they can see and reverse it. |
+| "Each worker knows which worktree is its own" | Unguarded, one in two didn't. Run `stamp` and `stray`: it costs two commands. |
+| "Haiku is cheapest, give it everything" | Haiku works when the brief leaves no decisions. Given an open question, it guesses, and each guess becomes a fix round plus a re-verify. |
+| "I'll leave out `model`, the default is fine" | The default is your model: Opus. |
+| "The user didn't say, so I'll pick" | Pick, and write the Ruling line so they can see and reverse it. |
 | "The old test was wrong, so updating it is fine" | Maybe. But that's for the plan to decide, with a ruling. A worker quietly editing an old test is how broken code passes. |
 | "I'll just stash their changes, they won't mind" | Stashes get forgotten. Ask first. |
-| "The tests mock the API" | Prove it: run the clean-room test command. In testing, tests that "mocked" the API made 41 real, billed calls, and a later set that mocked it properly still read the live key from `.env` on every run. |
-| "More analysis now saves a fix round later" | The verifier runs the sweeps anyway. In testing, a 266k-token plan for a ten-line function did work the verifier then repeated. |
-| "The worker said concerns: none" | Also check the report's Deviations section. In testing, one worker changed code it had been told not to touch, listed it there, and replied "concerns: none". |
+| "The tests mock the API" | Prove it with the clean-room run. "Mocked" tests have made real, billed calls and read live keys from `.env`. |
+| "The worker said concerns: none" | Check the Decisions / deviations line and the report too. Workers have changed code they were told not to touch and still replied "concerns: none". |
 
 ## Appendices
 
-- Appendix A — plan template, with an example filled in
-- Appendix B — the worker brief; fill every section
-- Appendix C — full and scoped verifier briefs
-- Appendix D — real runs with token counts: tiered loop, parallel vs sequential, guard-rail trials, safety traps, red-team rounds
+- Appendix A: the plan template, with an example filled in
+- Appendix B: the worker brief. Fill every section
+- Appendix C: the full and scoped verifier briefs
+- Appendix D: real runs, with token counts and cost per agent
+- Appendix E: orch.sh, the helper script
 
 Read the appendix you need when you reach that step; you don't need all of them up front.
 
@@ -413,8 +417,10 @@ One paragraph in your own words: what the user wants and what "done" means to th
 - BASE: <sha>
 - tests at BASE: <command> → <result>; pre-existing failures: <list or "none">
 - lint at BASE: <command> → <result> (checked that it covers every file it claims to)
-- clean-room test command: <suite in a fresh worktree of HEAD, each external service's URL at a
-  closed port, no credentials; or "n/a: no external services">
+- clean-room test command: <`bash .orchestrator/orch.sh clean-room SERVICE_URL=http://127.0.0.1:9 -- <tests>`,
+  or "n/a: no external services">
+- repo notes: .orchestrator/notes.md (pasted into every brief)
+- estimate given to the user: <agents by model, tokens, share on Opus>
 
 # Acceptance criteria
 - AC1: <checkable by a stranger with a command or an observation>
@@ -436,6 +442,7 @@ Input classes / failure modes implied by the request that no task's tests are li
 
 # Tasks
 ## T1 <title> — tier: haiku | sonnet — mode: worktree | sequential — AC: AC1
+- Worktree: <path from `orch.sh wt-add T1`, or "main tree">
 - Files: <paths>
 - Depends on: <task ids or "none">
 - Interfaces:
@@ -466,6 +473,9 @@ tasks are sequential, or their Interfaces blocks must match exactly.
 - Every Haiku task leaves no decisions open. If one does, move it to Sonnet.
 - Every Haiku brief gives exact input → output examples for each edge case its review focus
   names. If you can't write the expected output, the decision is still open.
+- Every dispatch names its `model`.
+- Before a parallel dispatch: `orch.sh stamp`, and every path in each brief is inside that
+  worker's worktree.
 
 ### Example (abridged, from a real run)
 
@@ -508,8 +518,8 @@ order; rows of only commas
 
 Fill every section. A worker has no memory of the conversation and no access to your
 reasoning — if it isn't in the brief, it doesn't exist. Dispatch with the task's tier from
-the plan (`"haiku"` for fully specified work, `"sonnet"` for judgement and fix rounds 1–2,
-`"opus"` for round 3). When other workers run at the same time, give this one its own
+the plan as an explicit `model` (`"haiku"` for fully specified work, `"sonnet"` for judgement
+and fix rounds 1–2, `"opus"` for round 3). Leave `model` out and the worker runs on your model. When other workers run at the same time, give this one its own
 worktree, and make **every** path in the brief point inside it, including the report path.
 A path into the main tree invites the worker to edit there. In testing, that happened.
 
@@ -545,6 +555,11 @@ look arbitrary. This is what lets you make the right call in a case the brief di
 - known failures at BASE: <tests that already fail before your task, and why, or "none">.
   They aren't yours: leave those tests and the code behind them alone.
 
+## Repo notes
+<paste .orchestrator/notes.md: layout, commands, conventions, key files, surprises. Trust
+these instead of re-exploring the repo; read the files you'll touch, and anything the notes
+don't cover.>
+
 ## Always (unless this brief explicitly says otherwise)
 - No new dependencies: don't install packages or edit dependency files (package.json
   dependencies, requirements*.txt, pyproject.toml, lockfiles).
@@ -558,6 +573,8 @@ look arbitrary. This is what lets you make the right call in a case the brief di
   service or needs a local secret.
 - No secrets: don't open `.env` or credential files, and don't put keys, tokens or
   passwords in code, tests or fixtures.
+- No real user data: don't open, copy or query production data or a snapshot of it, even
+  read-only. Build synthetic fixtures instead.
 - Stay inside the repo path above.
 
 ## Existing tests
@@ -640,7 +657,9 @@ on `model: "opus"`. The **scoped** verifier runs after every fix round, on
 `model: "sonnet"`: it checks the findings were addressed and the fix broke nothing.
 
 Neither gets the worker reports or your reasoning. Don't tell a verifier what not to flag.
-Write the diff to a file first: `git diff -U10 $BASE..HEAD -- . ':!.orchestrator' > .orchestrator/diff-N.patch`.
+The full verifier does get the plan's rulings: they are decisions, not an answer key, and it
+may challenge them. Write the diff to a file first: `orch.sh diff $BASE <N>`, which runs
+`git diff -U10 $BASE..HEAD -- . ':!.orchestrator' > .orchestrator/diff-<N>.patch`.
 
 ---
 
@@ -674,6 +693,12 @@ instead of guessing.
 Input classes and failure modes the request implies but the tests may not cover:
 - <e.g. empty input, unicode, boundary values, the error path, concurrency, CRLF, ...>
 
+## Rulings
+Decisions the planner made on the user's behalf, each with its reason:
+- Ruling: <what> — <why> — <cost if wrong>
+Check the code follows each one. Behaviour that follows a ruling is not a finding. If you
+think a ruling itself is wrong, list it under Findings as `ruling challenged`, with why.
+
 ## Do
 1. Run the tests and lint yourself. Paste the output.
 2. For each criterion, check it directly — run the code, call the function, hit the
@@ -699,7 +724,7 @@ Input classes and failure modes the request implies but the tests may not cover:
 ### Test run
 <verbatim tail of test + lint output>
 ### Findings outside the criteria
-- <blocker | should-fix | nit> <file:line> <what, and why it matters>
+- <blocker | should-fix | nit | ruling challenged> <file:line> <what, and why it matters>
 ### Declined to judge
 - <anything you couldn't check or felt unqualified to rule on, and why> or "none"
 ### If FAIL: smallest change that would make it pass
@@ -766,6 +791,23 @@ Read-only on tracked files; scratch in /tmp. You do not dispatch subagents.
 ---
 
 ## Appendix D — Worked examples: real runs
+
+### Cost per agent
+
+Use these to give the user an estimate before the first dispatch. They are per-agent totals
+the `Agent` tool reported for small tasks (a bug fix, a CSV importer, a string helper) in the
+runs below:
+
+| Agent | Tokens per dispatch |
+|---|---|
+| Haiku worker, precise brief | 50–65k |
+| Sonnet worker, fix round | ~90k |
+| Opus full verifier | 85–95k |
+| Sonnet scoped re-verify | 85–90k |
+| Planner (this session) | not measured in these runs; over-planned plan-only runs took 150–270k |
+
+A typical small run (two Haiku workers, one Opus verify, one Sonnet fix round with its
+re-check) comes to ~370k tokens, ~85k of them on Opus. Each extra fix round adds ~180k.
 
 Condensed from an actual run of this skill on a small Python repo, with the real numbers.
 Expect three things: the verifier finds what green tests miss, fix rounds are normal, and
@@ -866,6 +908,10 @@ Tokens by model: Haiku 111k, Sonnet 178k, Opus 84k.
   although 25 tests were green.
 - **Result:** it took two fix rounds instead of one, and 487k tokens in total, 205k of
   them on Opus.
+
+Against Sonnet on the same precise brief, the Haiku workers used about 20% fewer tokens and
+took about twice as many turns. They also ran only their own test file instead of the full
+suite, which is why the planner re-runs the suite itself.
 
 Neither worker tier is reliably bug-free on the first round. That is why the verifier
 exists and why the scoped re-verify runs even when a fix looks small. The cost win comes
@@ -970,8 +1016,239 @@ These traps targeted parts of the skill no earlier test had exercised.
 - **Weakened old test:** the verifier flagged it as a blocker.
 - **Tempting library:** no third-party package pulled in for a table formatter.
 
+**Nested dispatch:** workers or verifiers spawning agents of their own were seen to
+duplicate reviews and lose reports, so briefs forbid it.
+
 **Side finding:** the verifier noticed that `node --check src/*.js` checks only the first
 file.
 
 **Cost:** roughly 2M tokens over the three rounds. The Opus planner runs were most of it,
 at 150–270k each.
+
+---
+
+## Appendix E — orch.sh
+
+Save this as `.orchestrator/orch.sh` (the folder is git-ignored) and run it with `bash`.
+
+````bash
+#!/usr/bin/env bash
+# orch.sh: the mechanical steps of the code-orchestrator loop, so the planner runs one
+# command instead of retyping (and occasionally mistyping) a pipeline.
+# Portable: bash 3.2+ (the macOS default), GNU or BSD tools, git 2.20+.
+# Run it from anywhere inside the repo; it works on the repo's top level.
+set -u
+
+usage() {
+  cat <<'EOF'
+usage: orch.sh <command> [args]
+
+  stamp
+      Before dispatching parallel workers. Fails if the main tree has uncommitted changes;
+      otherwise marks "now" in .orchestrator/stamp.
+  stray
+      When the workers return. Lists every file in the main tree written since the stamp
+      (git-ignored files included, .git and worktrees excluded), plus `git status`.
+      Exit 1 if anything outside .orchestrator/ changed: a worker left its worktree.
+  wt-add <task>
+      Creates the worktree .orchestrator/worktrees/<task> on a new branch orch-wt/<task> from
+      HEAD, links node_modules/.venv/venv in if the main tree has them, and prints its path.
+      Inside the repo, so editing it needs no extra permission; git-ignored with .orchestrator/.
+  wt-finish <task>
+      After merging. Copies the worktree's .orchestrator/ (its report) to
+      .orchestrator/reports/<task>/, removes the worktree, and deletes its branch if merged.
+  clean-room [VAR=value ...] -- <test command ...>
+      Runs the tests in a fresh detached worktree of HEAD: no .env or other ignored files,
+      secret-looking environment variables unset, and each VAR=value set (point service
+      URLs at a closed port, e.g. API_URL=http://127.0.0.1:9). Exits with the tests' status.
+      For pipelines or &&, pass: -- bash -c '<command>'
+  old-tests <BASE> <test path> [...]
+      Shows every line deleted from test files that existed at BASE. Exit 1 if there are any.
+  diff <BASE> <N>
+      Writes the verifier's diff, BASE..HEAD without .orchestrator/, to .orchestrator/diff-<N>.patch.
+EOF
+}
+
+die() { echo "orch.sh: $*" >&2; exit 2; }
+
+ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || die "not inside a git repo"
+cd "$ROOT" || die "cannot cd to $ROOT"
+
+wt_dir() { echo "$ROOT/.orchestrator/worktrees/$1"; }
+
+# Link dependency folders from the main tree into a worktree, and hide the links from git.
+# Dependencies are fine to share; secrets (.env) are not, so only these names are linked.
+link_deps() {
+  local dest=$1 d exclude
+  exclude=$(git rev-parse --git-path info/exclude)
+  case "$exclude" in /*) ;; *) exclude="$ROOT/$exclude" ;; esac
+  mkdir -p "$(dirname "$exclude")"
+  for d in node_modules .venv venv; do
+    if [ -e "$ROOT/$d" ] && [ ! -e "$dest/$d" ]; then
+      ln -s "$ROOT/$d" "$dest/$d"
+      grep -qx "/$d" "$exclude" 2>/dev/null || echo "/$d" >> "$exclude"
+    fi
+  done
+}
+
+cmd_stamp() {
+  local dirty
+  dirty=$(git status --porcelain)
+  if [ -n "$dirty" ]; then
+    echo "main tree is not clean; commit or restore these before dispatching:" >&2
+    echo "$dirty" >&2
+    exit 1
+  fi
+  mkdir -p .orchestrator
+  : > .orchestrator/stamp
+  # Some filesystems keep coarse timestamps, so a write right after the stamp could share
+  # its mtime and look "not newer". Wait a second so every later write is strictly newer.
+  sleep 1
+  echo "stamped $(date '+%H:%M:%S'); run 'orch.sh stray' when the workers return"
+}
+
+cmd_stray() {
+  [ -f .orchestrator/stamp ] || die "no .orchestrator/stamp; run 'orch.sh stamp' before dispatching"
+  local prune line rel files outside inside status
+  prune=(-path ./.git -o -path ./.claude/worktrees)
+  # Worktrees nested inside the main tree are the workers' own; skip them.
+  while IFS= read -r line; do
+    case "$line" in
+      "worktree $ROOT/"*) rel=${line#"worktree $ROOT/"}; prune+=(-o -path "./$rel") ;;
+    esac
+  done < <(git worktree list --porcelain)
+  files=$(find . \( "${prune[@]}" \) -prune -o -type f -newer .orchestrator/stamp -print | sed 's|^\./||' | sort)
+  outside=$(printf '%s\n' "$files" | grep -v '^\.orchestrator/' | grep -v '^$')
+  inside=$(printf '%s\n' "$files" | grep '^\.orchestrator/' | grep -v '^\.orchestrator/stamp$')
+  status=$(git status --porcelain)
+  if [ -n "$inside" ]; then
+    echo "written in .orchestrator/ since the stamp (fine if you wrote them yourself; a worker's report here means it left its worktree):"
+    printf '%s\n' "$inside" | sed 's/^/  /'
+  fi
+  if [ -z "$outside" ] && [ -z "$status" ]; then
+    echo "OK: nothing outside .orchestrator/ written in the main tree since the stamp"
+    return 0
+  fi
+  echo "STRAY: the main tree changed while workers ran. Compare each file with the worker's branch, discard it, and log it."
+  [ -n "$outside" ] && { echo "files written since the stamp:"; printf '%s\n' "$outside" | sed 's/^/  /' | head -50; }
+  [ -n "$status" ] && { echo "git status --porcelain:"; printf '%s\n' "$status" | sed 's/^/  /'; }
+  exit 1
+}
+
+cmd_wt_add() {
+  [ $# -eq 1 ] || die "usage: orch.sh wt-add <task>"
+  local task=$1 dir
+  dir=$(wt_dir "$task")
+  [ -e "$dir" ] && die "$dir already exists"
+  git check-ignore -q .orchestrator/worktrees || die ".orchestrator/ isn't git-ignored; add it to .git/info/exclude first"
+  mkdir -p "$(dirname "$dir")"
+  git show-ref --verify --quiet "refs/heads/orch-wt/$task" && die "branch orch-wt/$task already exists"
+  git worktree add -q "$dir" -b "orch-wt/$task" HEAD || die "git worktree add failed"
+  mkdir -p "$dir/.orchestrator"
+  link_deps "$dir"
+  echo "$dir"
+}
+
+cmd_wt_finish() {
+  [ $# -eq 1 ] || die "usage: orch.sh wt-finish <task>"
+  local task=$1 dir left
+  dir=$(wt_dir "$task")
+  [ -d "$dir" ] || die "no worktree at $dir"
+  left=$(git -C "$dir" status --porcelain)
+  if [ -n "$left" ]; then
+    echo "worktree has uncommitted changes; merge or discard them first:" >&2
+    echo "$left" >&2
+    exit 1
+  fi
+  # Reports live in the worktree's git-ignored .orchestrator/, which removal deletes.
+  if [ -d "$dir/.orchestrator" ]; then
+    mkdir -p ".orchestrator/reports/$task"
+    cp -R "$dir/.orchestrator/." ".orchestrator/reports/$task/"
+    echo "copied reports to .orchestrator/reports/$task/"
+  fi
+  git worktree remove "$dir" || die "git worktree remove failed"
+  if git branch -d "orch-wt/$task" >/dev/null 2>&1; then
+    echo "removed $dir and branch orch-wt/$task"
+  else
+    echo "removed $dir; kept branch orch-wt/$task because it isn't merged into $(git rev-parse --abbrev-ref HEAD)"
+  fi
+}
+
+cmd_clean_room() {
+  local assigns=() drop=() v upper tmp status
+  while [ $# -gt 0 ] && [ "$1" != "--" ]; do
+    case "$1" in
+      *=*) assigns+=("$1") ;;
+      *) die "expected VAR=value or --, got '$1'" ;;
+    esac
+    shift
+  done
+  [ "${1:-}" = "--" ] || die "usage: orch.sh clean-room [VAR=value ...] -- <test command ...>"
+  shift
+  [ $# -gt 0 ] || die "no test command after --"
+  # No credentials: collect every variable that looks like one. GIT_* is left alone because
+  # git's own settings live there (GIT_CONFIG_KEY_0 is not a secret).
+  for v in $(env | sed -n 's/^\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p'); do
+    upper=$(printf '%s' "$v" | tr '[:lower:]' '[:upper:]')
+    case "$upper" in
+      GIT_*) ;;
+      *KEY*|*TOKEN*|*SECRET*|*PASSWORD*|*PASSWD*|*CREDENTIAL*|*AUTH*|DATABASE_URL|*_DSN) drop+=("$v") ;;
+    esac
+  done
+  tmp=$(mktemp -d "${TMPDIR:-/tmp}/orch-clean.XXXXXX") || die "mktemp failed"
+  git worktree add -q --detach "$tmp/repo" HEAD || { rm -rf "$tmp"; die "git worktree add failed"; }
+  trap 'git -C "$ROOT" worktree remove --force "$tmp/repo" >/dev/null 2>&1; rm -rf "$tmp"; git -C "$ROOT" worktree prune' EXIT
+  link_deps "$tmp/repo"
+  echo "clean room: $tmp/repo (HEAD $(git rev-parse --short HEAD))${assigns[0]+, with ${assigns[*]}}; ${#drop[@]} credential-like variable(s) unset"
+  (
+    for v in ${drop[@]+"${drop[@]}"}; do unset "$v" 2>/dev/null; done
+    cd "$tmp/repo" && env ${assigns[@]+"${assigns[@]}"} "$@"
+  )
+  status=$?
+  echo "clean room: exit $status"
+  exit $status
+}
+
+cmd_old_tests() {
+  [ $# -ge 2 ] || die "usage: orch.sh old-tests <BASE> <test path> [...]"
+  local base=$1 add del path found=0
+  shift
+  git rev-parse --verify --quiet "$base^{commit}" >/dev/null || die "unknown BASE '$base'"
+  while IFS=$'\t' read -r add del path; do
+    [ -z "$path" ] && continue
+    [ "$del" = "0" ] && continue
+    git cat-file -e "$base:$path" 2>/dev/null || continue   # file is new since BASE
+    found=1
+    echo "== $path: $del line(s) deleted or changed since BASE"
+    git diff --no-renames "$base"..HEAD -- "$path" | grep '^-' | grep -v '^---' | sed 's/^/  /'
+  done < <(git diff --no-renames --numstat "$base"..HEAD -- "$@")
+  if [ $found -eq 0 ]; then
+    echo "OK: no lines deleted from tests that existed at BASE"
+    return 0
+  fi
+  echo "Read each line above. A changed import is fine; a removed, changed or loosened assertion or test the plan doesn't allow goes back to its worker."
+  exit 1
+}
+
+cmd_diff() {
+  [ $# -eq 2 ] || die "usage: orch.sh diff <BASE> <N>"
+  mkdir -p .orchestrator
+  git diff -U10 "$1"..HEAD -- . ':!.orchestrator' > ".orchestrator/diff-$2.patch" || die "git diff failed"
+  echo "$ROOT/.orchestrator/diff-$2.patch ($(wc -l < ".orchestrator/diff-$2.patch" | tr -d ' ') lines)"
+}
+
+[ $# -ge 1 ] || { usage; exit 2; }
+sub=$1
+shift
+case "$sub" in
+  stamp) cmd_stamp "$@" ;;
+  stray) cmd_stray "$@" ;;
+  wt-add) cmd_wt_add "$@" ;;
+  wt-finish) cmd_wt_finish "$@" ;;
+  clean-room) cmd_clean_room "$@" ;;
+  old-tests) cmd_old_tests "$@" ;;
+  diff) cmd_diff "$@" ;;
+  -h|--help|help) usage ;;
+  *) usage; exit 2 ;;
+esac
+````
