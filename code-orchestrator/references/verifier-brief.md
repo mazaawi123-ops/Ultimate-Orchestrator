@@ -5,7 +5,9 @@ on `model: "opus"`. The **scoped** verifier runs after every fix round, on
 `model: "sonnet"`: it checks the findings were addressed and the fix broke nothing.
 
 Neither gets the worker reports or your reasoning. Don't tell a verifier what not to flag.
-Write the diff to a file first: `git diff -U10 $BASE..HEAD -- . ':!.orchestrator' > .orchestrator/diff-N.patch`.
+The full verifier does get the plan's rulings: they are decisions, not an answer key, and it
+may challenge them. Write the diff to a file first: `orch.sh diff $BASE <N>`, which runs
+`git diff -U10 $BASE..HEAD -- . ':!.orchestrator' > .orchestrator/diff-<N>.patch`.
 
 ---
 
@@ -39,6 +41,12 @@ instead of guessing.
 Input classes and failure modes the request implies but the tests may not cover:
 - <e.g. empty input, unicode, boundary values, the error path, concurrency, CRLF, ...>
 
+## Rulings
+Decisions the planner made on the user's behalf, each with its reason:
+- Ruling: <what> — <why> — <cost if wrong>
+Check the code follows each one. Behaviour that follows a ruling is not a finding. If you
+think a ruling itself is wrong, list it under Findings as `ruling challenged`, with why.
+
 ## Do
 1. Run the tests and lint yourself. Paste the output.
 2. For each criterion, check it directly — run the code, call the function, hit the
@@ -64,7 +72,7 @@ Input classes and failure modes the request implies but the tests may not cover:
 ### Test run
 <verbatim tail of test + lint output>
 ### Findings outside the criteria
-- <blocker | should-fix | nit> <file:line> <what, and why it matters>
+- <blocker | should-fix | nit | ruling challenged> <file:line> <what, and why it matters>
 ### Declined to judge
 - <anything you couldn't check or felt unqualified to rule on, and why> or "none"
 ### If FAIL: smallest change that would make it pass

@@ -13,8 +13,10 @@ One paragraph in your own words: what the user wants and what "done" means to th
 - BASE: <sha>
 - tests at BASE: <command> → <result>; pre-existing failures: <list or "none">
 - lint at BASE: <command> → <result> (checked that it covers every file it claims to)
-- clean-room test command: <suite in a fresh worktree of HEAD, each external service's URL at a
-  closed port, no credentials; or "n/a: no external services">
+- clean-room test command: <`bash <skill-dir>/scripts/orch.sh clean-room SERVICE_URL=http://127.0.0.1:9 -- <tests>`,
+  or "n/a: no external services">
+- repo notes: .orchestrator/notes.md (pasted into every brief)
+- estimate given to the user: <agents by model, tokens, share on Opus>
 
 # Acceptance criteria
 - AC1: <checkable by a stranger with a command or an observation>
@@ -36,6 +38,7 @@ Input classes / failure modes implied by the request that no task's tests are li
 
 # Tasks
 ## T1 <title> — tier: haiku | sonnet — mode: worktree | sequential — AC: AC1
+- Worktree: <path from `orch.sh wt-add T1`, or "main tree">
 - Files: <paths>
 - Depends on: <task ids or "none">
 - Interfaces:
@@ -66,6 +69,9 @@ tasks are sequential, or their Interfaces blocks must match exactly.
 - Every Haiku task leaves no decisions open. If one does, move it to Sonnet.
 - Every Haiku brief gives exact input → output examples for each edge case its review focus
   names. If you can't write the expected output, the decision is still open.
+- Every dispatch names its `model`.
+- Before a parallel dispatch: `orch.sh stamp`, and every path in each brief is inside that
+  worker's worktree.
 
 ## Example (abridged, from a real run)
 

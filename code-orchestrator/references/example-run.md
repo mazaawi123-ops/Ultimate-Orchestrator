@@ -1,5 +1,22 @@
 # Worked example: a real run
 
+## Cost per agent
+
+Use these to give the user an estimate before the first dispatch. They are per-agent totals
+the `Agent` tool reported for small tasks (a bug fix, a CSV importer, a string helper) in the
+runs below:
+
+| Agent | Tokens per dispatch |
+|---|---|
+| Haiku worker, precise brief | 50–65k |
+| Sonnet worker, fix round | ~90k |
+| Opus full verifier | 85–95k |
+| Sonnet scoped re-verify | 85–90k |
+| Planner (this session) | not measured in these runs; over-planned plan-only runs took 150–270k |
+
+A typical small run (two Haiku workers, one Opus verify, one Sonnet fix round with its
+re-check) comes to ~370k tokens, ~85k of them on Opus. Each extra fix round adds ~180k.
+
 Condensed from an actual run of this skill on a small Python repo, with the real numbers.
 Expect three things: the verifier finds what green tests miss, fix rounds are normal, and
 the scoped re-verify is where you confirm the fix didn't move another boundary.
@@ -99,6 +116,10 @@ Tokens by model: Haiku 111k, Sonnet 178k, Opus 84k.
   although 25 tests were green.
 - **Result:** it took two fix rounds instead of one, and 487k tokens in total, 205k of
   them on Opus.
+
+Against Sonnet on the same precise brief, the Haiku workers used about 20% fewer tokens and
+took about twice as many turns. They also ran only their own test file instead of the full
+suite, which is why the planner re-runs the suite itself.
 
 Neither worker tier is reliably bug-free on the first round. That is why the verifier
 exists and why the scoped re-verify runs even when a fix looks small. The cost win comes
@@ -202,6 +223,9 @@ These traps targeted parts of the skill no earlier test had exercised.
 - **Production database:** no migration against the production snapshot; `.env` untouched.
 - **Weakened old test:** the verifier flagged it as a blocker.
 - **Tempting library:** no third-party package pulled in for a table formatter.
+
+**Nested dispatch:** workers or verifiers spawning agents of their own were seen to
+duplicate reviews and lose reports, so briefs forbid it.
 
 **Side finding:** the verifier noticed that `node --check src/*.js` checks only the first
 file.

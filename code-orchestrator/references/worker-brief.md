@@ -2,8 +2,8 @@
 
 Fill every section. A worker has no memory of the conversation and no access to your
 reasoning — if it isn't in the brief, it doesn't exist. Dispatch with the task's tier from
-the plan (`"haiku"` for fully specified work, `"sonnet"` for judgement and fix rounds 1–2,
-`"opus"` for round 3). When other workers run at the same time, give this one its own
+the plan as an explicit `model` (`"haiku"` for fully specified work, `"sonnet"` for judgement
+and fix rounds 1–2, `"opus"` for round 3). Leave `model` out and the worker runs on your model. When other workers run at the same time, give this one its own
 worktree, and make **every** path in the brief point inside it, including the report path.
 A path into the main tree invites the worker to edit there. In testing, that happened.
 
@@ -38,6 +38,11 @@ look arbitrary. This is what lets you make the right call in a case the brief di
 - constraints: <what stays unchanged for this task, and why>
 - known failures at BASE: <tests that already fail before your task, and why, or "none">.
   They aren't yours: leave those tests and the code behind them alone.
+
+## Repo notes
+<paste .orchestrator/notes.md: layout, commands, conventions, key files, surprises. Trust
+these instead of re-exploring the repo; read the files you'll touch, and anything the notes
+don't cover.>
 
 ## Always (unless this brief explicitly says otherwise)
 - No new dependencies: don't install packages or edit dependency files (package.json
