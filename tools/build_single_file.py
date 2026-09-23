@@ -19,11 +19,9 @@ REFS = [
     ("references/example-run.md", "D", "Worked examples: real runs"),
 ]
 SCRIPT_NOTE = (
-    "The mechanical steps are in the script in Appendix E: the stray-write check, worktrees,\n"
-    "the clean-room run, the old-test check and the diff. Once per run, after `.orchestrator/`\n"
-    "is git-ignored, save it as `.orchestrator/orch.sh` and run it as\n"
-    "`bash .orchestrator/orch.sh <command>` from inside the repo. If you can't run it, read\n"
-    "it: each command is a few lines of git you can run by hand."
+    "`bash .orchestrator/orch.sh <command>` does the mechanical\n"
+    "  steps. Before `start`, save Appendix E as `/tmp/orch.sh` and run `bash /tmp/orch.sh start`;\n"
+    "  then copy it to `.orchestrator/orch.sh` (git-ignored). `help` lists the commands."
 )
 
 
@@ -47,7 +45,8 @@ def fix_refs(text):
 
 def main():
     s = open(os.path.join(SKILL, "SKILL.md")).read()
-    s, n = re.subn(r"The mechanical steps are in `scripts/orch.sh`.*?by hand\.", SCRIPT_NOTE, s, count=1, flags=re.S)
+    s, n = re.subn(r"`bash <skill-dir>/scripts/orch.sh <command>` does the mechanical\s+steps; `help` lists them\.",
+                   lambda m: SCRIPT_NOTE, s, count=1)
     assert n == 1, "script paragraph not found in SKILL.md"
     s = fix_refs(s)
     s, n = re.subn(
