@@ -30,9 +30,9 @@ it: each command is a few lines of git you can run by hand.
 
 ## When to use the hierarchy, and when not
 
-Every agent re-reads its own starting context on every turn, so each worker, verifier and
-fix round costs tens of thousands of tokens before it writes a line. That only pays off
-when the work is bigger than the overhead.
+Every agent re-reads its whole context on every turn, so each worker, verifier and fix
+round processes hundreds of thousands of tokens, mostly cheap cache reads. That only pays
+off when the work is bigger than the overhead.
 
 - **Full loop:** the change spans several files, needs new tests, or has an "and then" in it.
 - **Single worker plus verifier:** a two-file change.
@@ -41,11 +41,13 @@ when the work is bigger than the overhead.
 
 Say which mode you're in.
 
-The hierarchy buys correctness, and it moves most tokens to cheaper models. It does **not**
-reduce total tokens. On a small two-task change, one session alone took ~100k tokens and
-shipped a data-loss bug. The tiered loop took ~370k, of which only ~84k were on Opus, and it
-caught that bug plus three smaller ones. Say this plainly if the user asks about cost.
-Appendix D has the measurements.
+The hierarchy buys evidence and a second pair of eyes, not savings. On three small
+two-task changes, the loop cost $2.1–2.9 per task. The same prompt without the skill, with
+Opus doing its own delegating, cost $1.3–2.4. Code correctness came out equal on every
+graded check. The loop's verifier caught one real bug the other run shipped: a `wrap()`
+that hung on long words. The loop also produced written criteria, per-criterion evidence
+and visible rulings. Haiku did most of the building, but the Opus planner and verifier were
+still 68–87% of the bill. Say this plainly if the user asks about cost.
 
 ## Stop and ask the user
 
@@ -251,11 +253,21 @@ main tree as well as its worktree. With these rails, none of six did.
   report along with the worktree. It then deletes the merged branch.
 
 **Tell the user the cost before the first dispatch,** in one line. Count the agents by
-model, and allow one fix round. For example: "2 Haiku workers, an Opus verifier, and
-probably one Sonnet fix round with a Sonnet re-check: roughly 400k tokens, about 100k of
-them on Opus." Take the per-agent figures from Appendix D (Cost per
-agent). If the user is there and the estimate is more than they'd expect for the job, offer
-direct mode. Otherwise carry on.
+model, allow one fix round, and price it from these figures. They were measured on small
+tasks: each run's bill per model, split across its agents by tokens processed.
+
+| Part of the run | Cost |
+|---|---|
+| Planner (this session, Opus), whole run | $1.5–1.8 |
+| Haiku worker | $0.08–0.35 |
+| Opus full verifier | $0.20–0.40 |
+| Fix round: Sonnet worker plus Sonnet re-check | ~$0.55 |
+
+For example: "2 Haiku workers, an Opus verifier, and maybe one Sonnet fix round: about
+$2–3." Estimate in dollars or relative terms, not tokens. The token counts an agent reports
+are its final context size, which is a small fraction of what it actually processed. If the
+user is there and the estimate is more than they'd expect for the job, offer direct mode.
+Otherwise carry on.
 
 ### Build
 
@@ -351,6 +363,10 @@ was small.
 
 ### Report
 
+Reply with this report, and save a copy as `.orchestrator/report.md`. Plain sentences are
+fine, but keep the Acceptance criteria, Tests and Rulings lines. They are the evidence, and
+the user scans for them.
+
 ```
 ## Result: <done | stopped: reason>
 - Built: <2–4 lines>
@@ -365,7 +381,7 @@ was small.
 - Branch: orch/<name>, based on <user's branch> at <BASE>. Not pushed. To take it:
   `git merge orch/<name>`
 - Mode: <full hierarchy | single worker + verifier | direct> — agents dispatched, by model
-  (e.g. "2 Haiku workers, 1 Opus verifier, 1 Sonnet fix, 1 Sonnet re-check"), against the
+  (e.g. "2 Haiku workers, 1 Opus verifier, 1 Sonnet fix, 1 Sonnet re-check"), and the
   estimate given before the run
 ```
 
@@ -792,22 +808,56 @@ Read-only on tracked files; scratch in /tmp. You do not dispatch subagents.
 
 ## Appendix D — Worked examples: real runs
 
-### Cost per agent
+The skill's rules come from real runs. This file has the numbers: first the end-to-end
+benchmark in billed terms, then the original worked example and the traps that shaped each
+rule.
 
-Use these to give the user an estimate before the first dispatch. They are per-agent totals
-the `Agent` tool reported for small tasks (a bug fix, a CSV importer, a string helper) in the
-runs below:
+**About the token figures.** Sections marked *(context size)* come from the skill's first
+version. Their "tokens" are each agent's final context size, as the `Agent` tool reports it.
+They are not tokens processed or billed. A planner reported as "266k" had actually processed
+4.9M tokens, mostly cheap cache reads. Ratios between those runs hold roughly; the absolute
+numbers understate usage by 10–20x. The benchmark below uses billed usage per model.
 
-| Agent | Tokens per dispatch |
-|---|---|
-| Haiku worker, precise brief | 50–65k |
-| Sonnet worker, fix round | ~90k |
-| Opus full verifier | 85–95k |
-| Sonnet scoped re-verify | 85–90k |
-| Planner (this session) | not measured in these runs; over-planned plan-only runs took 150–270k |
+### End-to-end benchmark (billed)
 
-A typical small run (two Haiku workers, one Opus verify, one Sonnet fix round with its
-re-check) comes to ~370k tokens, ~85k of them on Opus. Each extra fix round adds ~180k.
+Each run was a real `claude -p` session on Opus 5.5 (`--effort high`), given the prompt of
+one of the three evals in `evals/evals.json`, on a fresh copy of the fixture repo. Every
+prompt asks for planning, delegation and verification. So the runs without the skill
+delegated too; their subagents just inherited Opus. One run per configuration.
+
+| Task | With skill | Without skill | Opus share with skill | Graded checks with / without |
+|---|---|---|---|---|
+| todo: due dates | $2.48, 10.6 min | $1.26, 2.7 min | 78% | 13/13 / 11/13 |
+| inventory: bug fix + CSV import | $2.12, 8.4 min | $2.38, 7.6 min | 87% | 13/14 / 11/14 |
+| textkit: truncate + wrap fix | $2.91, 10.8 min | $1.60, 4.9 min | 68% | 14/14 / 10/14 |
+| **Total** | **$7.51** | **$5.24** | 76% | 98% / 78% |
+
+- **Correctness:** equal on every graded code check. The whole difference in graded checks
+  is process: written criteria, per-criterion verdicts, the test command in the report, and
+  open items surfaced.
+- **Not graded, but real:** without the skill, textkit's `wrap()` was quadratic on long words
+  (a 200k-character word: 4.5s; a 1M one: minutes). With the skill, the Opus verifier found a
+  stack overflow in the same code path, and a Sonnet fix round made it linear (1M characters
+  in under 20ms).
+- **Rulings made visible:** both inventory runs skip comma-only rows as blank. The skill run
+  recorded that as a ruling in its report, and the other run didn't mention it.
+- **Where the money goes** (each run's bill per model, split across agents by tokens
+  processed):
+  - **Planner (Opus):** $1.5–1.8 per run, 20–24 API calls, 1.3–1.9M tokens processed.
+  - **Haiku workers:** $0.08–0.35 each, 13–48 calls.
+  - **Opus full verifier:** $0.19–0.41.
+  - **Sonnet fix plus Sonnet re-check:** $0.56.
+  - Without the skill the planner processed 0.5–1.1M tokens. The skill's planner costs more
+    because it loads the skill and its references and re-reads them on every turn. Hence
+    "read each reference when you reach its step".
+- **Guard rails, in the one parallel run:** the planner ran `stamp`, `wt-add` for both tasks,
+  `stray`, `wt-finish` for both, `old-tests` and `diff`, as designed. Main stayed clean, and
+  both reports were kept.
+- **Agents' own estimates:** planners estimated "~200k" and "~400k tokens", and reported
+  staying under them. They were counting final context sizes, not usage. The skill now
+  prices in dollars.
+
+### Worked example: the inventory task *(context size)*
 
 Condensed from an actual run of this skill on a small Python repo, with the real numbers.
 Expect three things: the verifier finds what green tests miss, fix rounds are normal, and
@@ -900,7 +950,7 @@ both."*
 
 Tokens by model: Haiku 111k, Sonnet 178k, Opus 84k.
 
-### What the same task looked like with Sonnet workers and Opus verifiers throughout
+### The same task with Sonnet workers and Opus verifiers throughout *(context size)*
 
 - **First round:** Sonnet made a different first-round mistake. It got line numbers wrong
   for quoted fields containing newlines.
@@ -917,7 +967,7 @@ Neither worker tier is reliably bug-free on the first round. That is why the ver
 exists and why the scoped re-verify runs even when a fix looks small. The cost win comes
 from moving the building to cheap models and keeping Opus for the one full verification.
 
-### Parallel vs sequential, measured
+### Parallel vs sequential *(context size)*
 
 Second test: a Node string library, with two independent tasks. T1 added `truncate()` in new
 files. T2 made `wrap()` hard-break long words in `wrap.js`. The two tasks shared no files.
@@ -939,7 +989,7 @@ main tree before merging.
 Takeaway: parallel saved a third of the build time at the same cost and quality. The only
 risk was the worker's paths.
 
-### Guard rails re-tested, and the loop run to convergence
+### Guard rails re-tested, and the loop run to convergence *(context size)*
 
 The same task ran as three more parallel runs (6 Haiku workers), this time with the guard
 rails. Every brief path pointed inside the worker's worktree, including the report file.
@@ -1043,6 +1093,15 @@ usage() {
   cat <<'EOF'
 usage: orch.sh <command> [args]
 
+  start <name>
+      Starts a run in one step. Stops (exit 3) if .orchestrator/plan.md exists: an earlier
+      run to resume, shown with the tail of its plan. Stops (exit 4) if the tree has
+      uncommitted changes: ask the user. Otherwise git-ignores .orchestrator/, creates and
+      switches to orch/<name>, saves BASE to .orchestrator/base, and lists the tracked files.
+  check <BASE> [test path ...] -- <test command ...>
+      After each worker, in one step: the test command's tail and exit code, leftover
+      uncommitted files, commits and diffstat since BASE, and the old-tests check on the
+      given test paths. Exit 1 if the tests fail or an old test lost lines.
   stamp
       Before dispatching parallel workers. Fails if the main tree has uncommitted changes;
       otherwise marks "now" in .orchestrator/stamp.
@@ -1089,6 +1148,62 @@ link_deps() {
       grep -qx "/$d" "$exclude" 2>/dev/null || echo "/$d" >> "$exclude"
     fi
   done
+}
+
+cmd_start() {
+  [ $# -eq 1 ] || die "usage: orch.sh start <name>"
+  local name=$1 dirty from base
+  if [ -f .orchestrator/plan.md ]; then
+    echo "EARLIER RUN FOUND: .orchestrator/plan.md exists (current branch: $(git rev-parse --abbrev-ref HEAD))."
+    echo "Read it. Same request and its branch unmoved: resume from where the Log stops. Otherwise ask which to keep."
+    echo "--- tail of .orchestrator/plan.md ---"
+    tail -25 .orchestrator/plan.md
+    exit 3
+  fi
+  dirty=$(git status --porcelain -- . ':!.orchestrator')
+  if [ -n "$dirty" ]; then
+    echo "UNCOMMITTED CHANGES: ask the user whether to commit them, stash them, or build on top."
+    echo "$dirty"
+    exit 4
+  fi
+  if ! git check-ignore -q .orchestrator/x; then
+    mkdir -p "$(dirname "$(git rev-parse --git-path info/exclude)")"
+    echo ".orchestrator/" >> "$(git rev-parse --git-path info/exclude)"
+  fi
+  from=$(git rev-parse --abbrev-ref HEAD)
+  git switch -q -c "orch/$name" || die "could not create branch orch/$name"
+  base=$(git rev-parse HEAD)
+  mkdir -p .orchestrator
+  echo "$base" > .orchestrator/base
+  echo "branch: orch/$name, from $from at BASE=$base (saved in .orchestrator/base)"
+  echo "tracked files ($(git ls-files | wc -l | tr -d ' ')):"
+  git ls-files | head -150
+}
+
+cmd_check() {
+  [ $# -ge 3 ] || die "usage: orch.sh check <BASE> [test path ...] -- <test command ...>"
+  local base=$1 paths=() out rc left bad=0
+  shift
+  while [ $# -gt 0 ] && [ "$1" != "--" ]; do paths+=("$1"); shift; done
+  [ "${1:-}" = "--" ] || die "missing -- before the test command"
+  shift
+  [ $# -gt 0 ] || die "no test command after --"
+  git rev-parse --verify --quiet "$base^{commit}" >/dev/null || die "unknown BASE '$base'"
+  echo "== tests: $*"
+  out=$("$@" 2>&1); rc=$?
+  printf '%s\n' "$out" | tail -15
+  echo "exit $rc"
+  [ $rc -eq 0 ] || bad=1
+  left=$(git status --porcelain)
+  echo "== uncommitted: ${left:-none}"
+  echo "== commits since BASE:"
+  git log --oneline "$base"..HEAD
+  git diff --stat "$base"..HEAD -- . ':!.orchestrator' | tail -12
+  if [ ${#paths[@]} -gt 0 ]; then
+    echo "== old tests:"
+    ( cmd_old_tests "$base" "${paths[@]}" ) || bad=1
+  fi
+  exit $bad
 }
 
 cmd_stamp() {
@@ -1241,6 +1356,8 @@ cmd_diff() {
 sub=$1
 shift
 case "$sub" in
+  start) cmd_start "$@" ;;
+  check) cmd_check "$@" ;;
   stamp) cmd_stamp "$@" ;;
   stray) cmd_stray "$@" ;;
   wt-add) cmd_wt_add "$@" ;;

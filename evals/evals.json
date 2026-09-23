@@ -62,7 +62,7 @@
         "npm test passes with zero failures",
         "New tests added (suite grew beyond the original 3)",
         "truncate is exported from index.js",
-        "truncate output length never exceeds max (ellipsis included)",
+        "truncate output length never exceeds max (ellipsis included), in UTF-16 units or code points",
         "truncate never splits a surrogate pair (emoji input)",
         "truncate returns text unchanged when it fits, and 'abcd…' for ('abcdefgh',5)",
         "wrap hard-breaks long words so no line exceeds width, content preserved",

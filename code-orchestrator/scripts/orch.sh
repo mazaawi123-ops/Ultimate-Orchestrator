@@ -9,6 +9,15 @@ usage() {
   cat <<'EOF'
 usage: orch.sh <command> [args]
 
+  start <name>
+      Starts a run in one step. Stops (exit 3) if .orchestrator/plan.md exists: an earlier
+      run to resume, shown with the tail of its plan. Stops (exit 4) if the tree has
+      uncommitted changes: ask the user. Otherwise git-ignores .orchestrator/, creates and
+      switches to orch/<name>, saves BASE to .orchestrator/base, and lists the tracked files.
+  check <BASE> [test path ...] -- <test command ...>
+      After each worker, in one step: the test command's tail and exit code, leftover
+      uncommitted files, commits and diffstat since BASE, and the old-tests check on the
+      given test paths. Exit 1 if the tests fail or an old test lost lines.
   stamp
       Before dispatching parallel workers. Fails if the main tree has uncommitted changes;
       otherwise marks "now" in .orchestrator/stamp.
@@ -55,6 +64,62 @@ link_deps() {
       grep -qx "/$d" "$exclude" 2>/dev/null || echo "/$d" >> "$exclude"
     fi
   done
+}
+
+cmd_start() {
+  [ $# -eq 1 ] || die "usage: orch.sh start <name>"
+  local name=$1 dirty from base
+  if [ -f .orchestrator/plan.md ]; then
+    echo "EARLIER RUN FOUND: .orchestrator/plan.md exists (current branch: $(git rev-parse --abbrev-ref HEAD))."
+    echo "Read it. Same request and its branch unmoved: resume from where the Log stops. Otherwise ask which to keep."
+    echo "--- tail of .orchestrator/plan.md ---"
+    tail -25 .orchestrator/plan.md
+    exit 3
+  fi
+  dirty=$(git status --porcelain -- . ':!.orchestrator')
+  if [ -n "$dirty" ]; then
+    echo "UNCOMMITTED CHANGES: ask the user whether to commit them, stash them, or build on top."
+    echo "$dirty"
+    exit 4
+  fi
+  if ! git check-ignore -q .orchestrator/x; then
+    mkdir -p "$(dirname "$(git rev-parse --git-path info/exclude)")"
+    echo ".orchestrator/" >> "$(git rev-parse --git-path info/exclude)"
+  fi
+  from=$(git rev-parse --abbrev-ref HEAD)
+  git switch -q -c "orch/$name" || die "could not create branch orch/$name"
+  base=$(git rev-parse HEAD)
+  mkdir -p .orchestrator
+  echo "$base" > .orchestrator/base
+  echo "branch: orch/$name, from $from at BASE=$base (saved in .orchestrator/base)"
+  echo "tracked files ($(git ls-files | wc -l | tr -d ' ')):"
+  git ls-files | head -150
+}
+
+cmd_check() {
+  [ $# -ge 3 ] || die "usage: orch.sh check <BASE> [test path ...] -- <test command ...>"
+  local base=$1 paths=() out rc left bad=0
+  shift
+  while [ $# -gt 0 ] && [ "$1" != "--" ]; do paths+=("$1"); shift; done
+  [ "${1:-}" = "--" ] || die "missing -- before the test command"
+  shift
+  [ $# -gt 0 ] || die "no test command after --"
+  git rev-parse --verify --quiet "$base^{commit}" >/dev/null || die "unknown BASE '$base'"
+  echo "== tests: $*"
+  out=$("$@" 2>&1); rc=$?
+  printf '%s\n' "$out" | tail -15
+  echo "exit $rc"
+  [ $rc -eq 0 ] || bad=1
+  left=$(git status --porcelain)
+  echo "== uncommitted: ${left:-none}"
+  echo "== commits since BASE:"
+  git log --oneline "$base"..HEAD
+  git diff --stat "$base"..HEAD -- . ':!.orchestrator' | tail -12
+  if [ ${#paths[@]} -gt 0 ]; then
+    echo "== old tests:"
+    ( cmd_old_tests "$base" "${paths[@]}" ) || bad=1
+  fi
+  exit $bad
 }
 
 cmd_stamp() {
@@ -207,6 +272,8 @@ cmd_diff() {
 sub=$1
 shift
 case "$sub" in
+  start) cmd_start "$@" ;;
+  check) cmd_check "$@" ;;
   stamp) cmd_stamp "$@" ;;
   stray) cmd_stray "$@" ;;
   wt-add) cmd_wt_add "$@" ;;

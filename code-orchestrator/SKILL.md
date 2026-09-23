@@ -29,9 +29,9 @@ it: each command is a few lines of git you can run by hand.
 
 ## When to use the hierarchy, and when not
 
-Every agent re-reads its own starting context on every turn, so each worker, verifier and
-fix round costs tens of thousands of tokens before it writes a line. That only pays off
-when the work is bigger than the overhead.
+Every agent re-reads its whole context on every turn, so each worker, verifier and fix
+round processes hundreds of thousands of tokens, mostly cheap cache reads. That only pays
+off when the work is bigger than the overhead.
 
 - **Full loop:** the change spans several files, needs new tests, or has an "and then" in it.
 - **Single worker plus verifier:** a two-file change.
@@ -40,11 +40,13 @@ when the work is bigger than the overhead.
 
 Say which mode you're in.
 
-The hierarchy buys correctness, and it moves most tokens to cheaper models. It does **not**
-reduce total tokens. On a small two-task change, one session alone took ~100k tokens and
-shipped a data-loss bug. The tiered loop took ~370k, of which only ~84k were on Opus, and it
-caught that bug plus three smaller ones. Say this plainly if the user asks about cost.
-`references/example-run.md` has the measurements.
+The hierarchy buys evidence and a second pair of eyes, not savings. On three small
+two-task changes, the loop cost $2.1–2.9 per task. The same prompt without the skill, with
+Opus doing its own delegating, cost $1.3–2.4. Code correctness came out equal on every
+graded check. The loop's verifier caught one real bug the other run shipped: a `wrap()`
+that hung on long words. The loop also produced written criteria, per-criterion evidence
+and visible rulings. Haiku did most of the building, but the Opus planner and verifier were
+still 68–87% of the bill. Say this plainly if the user asks about cost.
 
 ## Stop and ask the user
 
@@ -250,11 +252,21 @@ main tree as well as its worktree. With these rails, none of six did.
   report along with the worktree. It then deletes the merged branch.
 
 **Tell the user the cost before the first dispatch,** in one line. Count the agents by
-model, and allow one fix round. For example: "2 Haiku workers, an Opus verifier, and
-probably one Sonnet fix round with a Sonnet re-check: roughly 400k tokens, about 100k of
-them on Opus." Take the per-agent figures from `references/example-run.md` (Cost per
-agent). If the user is there and the estimate is more than they'd expect for the job, offer
-direct mode. Otherwise carry on.
+model, allow one fix round, and price it from these figures. They were measured on small
+tasks: each run's bill per model, split across its agents by tokens processed.
+
+| Part of the run | Cost |
+|---|---|
+| Planner (this session, Opus), whole run | $1.5–1.8 |
+| Haiku worker | $0.08–0.35 |
+| Opus full verifier | $0.20–0.40 |
+| Fix round: Sonnet worker plus Sonnet re-check | ~$0.55 |
+
+For example: "2 Haiku workers, an Opus verifier, and maybe one Sonnet fix round: about
+$2–3." Estimate in dollars or relative terms, not tokens. The token counts an agent reports
+are its final context size, which is a small fraction of what it actually processed. If the
+user is there and the estimate is more than they'd expect for the job, offer direct mode.
+Otherwise carry on.
 
 ### Build
 
@@ -350,6 +362,10 @@ was small.
 
 ### Report
 
+Reply with this report, and save a copy as `.orchestrator/report.md`. Plain sentences are
+fine, but keep the Acceptance criteria, Tests and Rulings lines. They are the evidence, and
+the user scans for them.
+
 ```
 ## Result: <done | stopped: reason>
 - Built: <2–4 lines>
@@ -364,7 +380,7 @@ was small.
 - Branch: orch/<name>, based on <user's branch> at <BASE>. Not pushed. To take it:
   `git merge orch/<name>`
 - Mode: <full hierarchy | single worker + verifier | direct> — agents dispatched, by model
-  (e.g. "2 Haiku workers, 1 Opus verifier, 1 Sonnet fix, 1 Sonnet re-check"), against the
+  (e.g. "2 Haiku workers, 1 Opus verifier, 1 Sonnet fix, 1 Sonnet re-check"), and the
   estimate given before the run
 ```
 
@@ -391,10 +407,13 @@ remove `.orchestrator/`, and run `git worktree prune`.
 
 ## Files
 
+Read each reference when you reach its step, not all of them up front. Everything you load
+is re-read on every later turn of the run.
+
 - `scripts/orch.sh`: stamp and stray check, worktrees, clean-room run, old-test check,
   verifier diff
 - `references/plan-template.md`: the plan file, with an example filled in
 - `references/worker-brief.md`: the brief a worker receives. Fill every section
 - `references/verifier-brief.md`: the full and scoped verifier briefs
-- `references/example-run.md`: real runs end to end, with token counts and cost per agent,
-  and the tests behind each rule in this file
+- `references/example-run.md`: the measurements and tests behind the rules in this file.
+  Background reading; you don't need it during a run

@@ -1,21 +1,55 @@
-# Worked example: a real run
+# Measurements behind the skill
 
-## Cost per agent
+The skill's rules come from real runs. This file has the numbers: first the end-to-end
+benchmark in billed terms, then the original worked example and the traps that shaped each
+rule.
 
-Use these to give the user an estimate before the first dispatch. They are per-agent totals
-the `Agent` tool reported for small tasks (a bug fix, a CSV importer, a string helper) in the
-runs below:
+**About the token figures.** Sections marked *(context size)* come from the skill's first
+version. Their "tokens" are each agent's final context size, as the `Agent` tool reports it.
+They are not tokens processed or billed. A planner reported as "266k" had actually processed
+4.9M tokens, mostly cheap cache reads. Ratios between those runs hold roughly; the absolute
+numbers understate usage by 10–20x. The benchmark below uses billed usage per model.
 
-| Agent | Tokens per dispatch |
-|---|---|
-| Haiku worker, precise brief | 50–65k |
-| Sonnet worker, fix round | ~90k |
-| Opus full verifier | 85–95k |
-| Sonnet scoped re-verify | 85–90k |
-| Planner (this session) | not measured in these runs; over-planned plan-only runs took 150–270k |
+## End-to-end benchmark (billed)
 
-A typical small run (two Haiku workers, one Opus verify, one Sonnet fix round with its
-re-check) comes to ~370k tokens, ~85k of them on Opus. Each extra fix round adds ~180k.
+Each run was a real `claude -p` session on Opus 5.5 (`--effort high`), given the prompt of
+one of the three evals in `evals/evals.json`, on a fresh copy of the fixture repo. Every
+prompt asks for planning, delegation and verification. So the runs without the skill
+delegated too; their subagents just inherited Opus. One run per configuration.
+
+| Task | With skill | Without skill | Opus share with skill | Graded checks with / without |
+|---|---|---|---|---|
+| todo: due dates | $2.48, 10.6 min | $1.26, 2.7 min | 78% | 13/13 / 11/13 |
+| inventory: bug fix + CSV import | $2.12, 8.4 min | $2.38, 7.6 min | 87% | 13/14 / 11/14 |
+| textkit: truncate + wrap fix | $2.91, 10.8 min | $1.60, 4.9 min | 68% | 14/14 / 10/14 |
+| **Total** | **$7.51** | **$5.24** | 76% | 98% / 78% |
+
+- **Correctness:** equal on every graded code check. The whole difference in graded checks
+  is process: written criteria, per-criterion verdicts, the test command in the report, and
+  open items surfaced.
+- **Not graded, but real:** without the skill, textkit's `wrap()` was quadratic on long words
+  (a 200k-character word: 4.5s; a 1M one: minutes). With the skill, the Opus verifier found a
+  stack overflow in the same code path, and a Sonnet fix round made it linear (1M characters
+  in under 20ms).
+- **Rulings made visible:** both inventory runs skip comma-only rows as blank. The skill run
+  recorded that as a ruling in its report, and the other run didn't mention it.
+- **Where the money goes** (each run's bill per model, split across agents by tokens
+  processed):
+  - **Planner (Opus):** $1.5–1.8 per run, 20–24 API calls, 1.3–1.9M tokens processed.
+  - **Haiku workers:** $0.08–0.35 each, 13–48 calls.
+  - **Opus full verifier:** $0.19–0.41.
+  - **Sonnet fix plus Sonnet re-check:** $0.56.
+  - Without the skill the planner processed 0.5–1.1M tokens. The skill's planner costs more
+    because it loads the skill and its references and re-reads them on every turn. Hence
+    "read each reference when you reach its step".
+- **Guard rails, in the one parallel run:** the planner ran `stamp`, `wt-add` for both tasks,
+  `stray`, `wt-finish` for both, `old-tests` and `diff`, as designed. Main stayed clean, and
+  both reports were kept.
+- **Agents' own estimates:** planners estimated "~200k" and "~400k tokens", and reported
+  staying under them. They were counting final context sizes, not usage. The skill now
+  prices in dollars.
+
+## Worked example: the inventory task *(context size)*
 
 Condensed from an actual run of this skill on a small Python repo, with the real numbers.
 Expect three things: the verifier finds what green tests miss, fix rounds are normal, and
@@ -26,7 +60,7 @@ InsufficientStock. Fix that, and add `Inventory.import_csv(path)` that reads sku
 skips blank lines, and raises a clear error naming the line number for bad rows. Tests for
 both."*
 
-## Understand
+### Understand
 
 - **Repo:** `inventory/stock.py`, `tests/test_stock.py`, pytest.
 - **Baseline:** 4 passed. BASE recorded, `.orchestrator/` excluded from git.
@@ -34,7 +68,7 @@ both."*
 - **Rulings:** a header row is required, and the import is all-or-nothing (see
   `plan-template.md`).
 
-## Plan
+### Plan
 
 - **Tasks:** T1 fixes `ship()` and T2 adds `import_csv()`. Both edit `stock.py`, so they
   run sequentially.
@@ -43,13 +77,13 @@ both."*
 - **Review focus:** CRLF and bare CR, blank lines before a bad row, quoted fields
   containing newlines, BOM, rows of only commas, qty forms like `1_000` and `+5`.
 
-## Build → Test
+### Build → Test
 
 - **T1 (Haiku, ~30s, 49k tokens):** DONE, but it ran only its own test file. The planner
   ran the full suite: green.
 - **T2 (Haiku, ~2 min, 63k tokens):** DONE, 28 passed. Full suite green.
 
-## Verify (full, Opus, 84k tokens)
+### Verify (full, Opus, 84k tokens)
 
 - **Verdict: FAIL on AC3.** Rows `,` / ` , ` / `"",""` were dropped silently as "blank"
   instead of raising "missing sku".
@@ -61,7 +95,7 @@ both."*
   record's line number should be its first or last line. It flagged both as should-fix
   rather than AC failures, which is the right call.
 
-## Check → fix round 1 (Sonnet, 92k tokens)
+### Check → fix round 1 (Sonnet, 92k tokens)
 
 - **Rulings:** fix the AC3 failure and all three should-fix items, since each is cheap and
   touches the same function. Qty is plain ASCII digits. Error line = the line where the
@@ -75,7 +109,7 @@ both."*
   - The input cases each fix must pass.
 - **Result:** DONE, 38 passed. The report file had RED and GREEN output for each new test.
 
-## Scoped re-verify (Sonnet, 86k tokens)
+### Scoped re-verify (Sonnet, 86k tokens)
 
 - **Findings:** all 4 ADDRESSED, each with a reproduced case.
 - **Must-still-hold:** AC1–AC3 PASS.
@@ -87,7 +121,7 @@ both."*
   - The `try/except` around `int()` is now dead code.
   - The planner lists both as nits.
 
-## Report
+### Report
 
 ```
 ## Result: done
@@ -108,7 +142,7 @@ both."*
 
 Tokens by model: Haiku 111k, Sonnet 178k, Opus 84k.
 
-## What the same task looked like with Sonnet workers and Opus verifiers throughout
+## The same task with Sonnet workers and Opus verifiers throughout *(context size)*
 
 - **First round:** Sonnet made a different first-round mistake. It got line numbers wrong
   for quoted fields containing newlines.
@@ -125,7 +159,7 @@ Neither worker tier is reliably bug-free on the first round. That is why the ver
 exists and why the scoped re-verify runs even when a fix looks small. The cost win comes
 from moving the building to cheap models and keeping Opus for the one full verification.
 
-## Parallel vs sequential, measured
+## Parallel vs sequential *(context size)*
 
 Second test: a Node string library, with two independent tasks. T1 added `truncate()` in new
 files. T2 made `wrap()` hard-break long words in `wrap.js`. The two tasks shared no files.
@@ -147,7 +181,7 @@ main tree before merging.
 Takeaway: parallel saved a third of the build time at the same cost and quality. The only
 risk was the worker's paths.
 
-## Guard rails re-tested, and the loop run to convergence
+## Guard rails re-tested, and the loop run to convergence *(context size)*
 
 The same task ran as three more parallel runs (6 Haiku workers), this time with the guard
 rails. Every brief path pointed inside the worker's worktree, including the report file.
