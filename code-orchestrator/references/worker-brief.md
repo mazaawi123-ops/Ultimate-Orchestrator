@@ -1,9 +1,10 @@
 # Worker brief
 
 Fill every section. A worker has no memory of the conversation and no access to your
-reasoning — if it isn't in the brief, it doesn't exist. Dispatch with the task's tier from
-the plan as an explicit `model` (`"haiku"` for fully specified work, `"sonnet"` for judgement
-and fix rounds 1–2, `"opus"` for round 3). Leave `model` out and the worker runs on your model. When other workers run at the same time, give this one its own
+reasoning — if it isn't in the brief, it doesn't exist. Dispatch to the task's worker agent
+from the plan: `orch-worker-haiku` for fully specified work, `orch-worker-sonnet` for judgement
+and fix rounds 1–2, and `orch-worker-sonnet` with `model: "opus"` for round 3. Without the
+agents, pass `model` instead. Name neither and the worker runs on your model. When other workers run at the same time, give this one its own
 worktree, and make **every** path in the brief point inside it, including the report path.
 A path into the main tree invites the worker to edit there. In testing, that happened.
 

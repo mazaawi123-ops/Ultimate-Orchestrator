@@ -13,10 +13,12 @@ The goal is a verified result at the lowest cost. The skill's name inside the fi
 
 | Role | Model | Job |
 |---|---|---|
-| Planner | the session: Sonnet recommended | Understands the request, writes checkable criteria and precise briefs, rules on findings |
-| Workers | Haiku for fully specified tasks, Sonnet for judgement and fix rounds, Opus for a third fix round | Write the code and tests, in their own git worktrees when running in parallel |
-| Verifier (full) | Opus | Runs once, after the first green build, and tries to show the change does *not* meet the criteria |
-| Verifier (scoped) | Sonnet | After each fix round: were the findings addressed, and did anything else break |
+| Planner | the session: Opus, high effort | Understands the request, writes checkable criteria and precise briefs, rules on findings |
+| Workers | `orch-worker-haiku` (Haiku) for fully specified tasks; `orch-worker-sonnet` (Sonnet, medium effort) for judgement and fix rounds; Opus for a third fix round | Write the code and tests, in their own git worktrees when running in parallel |
+| Verifier (full) | `orch-verifier`: Opus, extra-high effort | Runs once, after the first green build, and tries to show the change does *not* meet the criteria |
+| Verifier (scoped) | `orch-rechecker`: Sonnet, high effort | After each fix round: were the findings addressed, and did anything else break |
+
+Each agent's model and effort are set in `agents/*.md`.
 
 The planner picks the cheapest mode that fits:
 - **Direct:** a one-file change; no agents.
@@ -83,6 +85,7 @@ code-orchestrator/               the skill: install this folder
     worker-brief.md              the brief every worker gets
     verifier-brief.md            full and scoped verifier briefs
     example-run.md               the measurements behind every rule
+agents/                          the four subagents: model and effort per role
 code-orchestrator.single-file.md the same skill as one file (references and script as appendices)
 tools/build_single_file.py       rebuilds the single-file version
 evals/
@@ -94,8 +97,16 @@ evals/
 
 - **Claude Code:**
   - Copy `code-orchestrator/` to `~/.claude/skills/code-orchestrator/` to use it everywhere.
-  - Or copy it to `.claude/skills/code-orchestrator/` in a project to use it there only.
-  - For the cheapest runs, switch the session to Sonnet (`/model sonnet`).
+    Or copy it to `.claude/skills/code-orchestrator/` in a project to use it there only.
+  - Copy `agents/*.md` to `~/.claude/agents/`. These set each role's model and effort.
+    Without them the skill still works, but runs every agent at the default effort.
+  - Plan with `/model opus` and `/effort high`. `/model sonnet` is the cheaper alternative:
+    in testing it scored as well for 18% less.
+
+  ```
+  cp -r code-orchestrator ~/.claude/skills/
+  mkdir -p ~/.claude/agents && cp agents/*.md ~/.claude/agents/
+  ```
 - **Claude app:** zip the `code-orchestrator/` folder and upload it where you add custom skills.
 
 The planner needs the Agent tool to dispatch workers.

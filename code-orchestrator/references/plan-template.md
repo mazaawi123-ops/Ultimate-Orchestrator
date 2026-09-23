@@ -69,7 +69,7 @@ tasks are sequential, or their Interfaces blocks must match exactly.
 - Every Haiku task leaves no decisions open. If one does, move it to Sonnet.
 - Every Haiku brief gives exact input → output examples for each edge case its review focus
   names. If you can't write the expected output, the decision is still open.
-- Every dispatch names its `model`.
+- Every dispatch names its agent (`orch-worker-haiku`, `orch-worker-sonnet`, ...) or its `model`.
 - Before a parallel dispatch: `orch.sh stamp`, and every path in each brief is inside that
   worker's worktree.
 

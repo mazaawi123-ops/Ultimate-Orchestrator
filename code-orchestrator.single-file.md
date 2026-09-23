@@ -1,6 +1,6 @@
 ---
 name: code-orchestrator
-description: Plan-build-verify loop for coding work that spans several files and has or needs tests. It plans the change, hands the building to cheaper subagent workers, and has an independent verifier check the result before reporting. Use it when the user wants a feature, bug fix, refactor or migration across several files, and especially when they ask for the work to be orchestrated, delegated to agents, workers or subagents, planned first, or done carefully with verification. Not for single-file edits, quick fixes, questions about code, code review alone, or anything that isn't code.
+description: Plan-build-verify loop for multi-file coding work with tests. It plans the change with acceptance criteria, hands the building to cheaper subagent workers, and has an independent verifier check the result before reporting. Use it whenever the user wants a feature, bug fix, refactor, migration or cross-cutting change across several files done carefully — they ask for a plan or acceptance criteria before code, for the work to be delegated to agents, workers or subagents, or for it to be verified, reviewed or double-checked before it's called done. Load it before exploring the repo. Not for single-file edits, quick fixes, questions about code, reviewing an existing PR, or anything that isn't code.
 ---
 
 # Code Orchestrator
@@ -18,11 +18,9 @@ you've written. Measured on Opus: the planner was 60–70% of a run's bill. So:
 - let cheap workers do the reading and typing
 - let the verifier do the deep checking
 
-**Plan on Sonnet.** In testing, a Sonnet planner with this skill passed every graded check
-(41/41) for $5.46 across three tasks. An Opus planner scored 40/41 for $6.65, and Opus
-without the skill scored 32/41 for $5.24. The Opus verifier supplies the extra depth. If
-this session is on Opus and the task isn't large or unusually ambiguous, say so once and
-suggest `/model sonnet`, then carry on either way.
+**Plan on Opus, high effort.** Your model and effort are the session's. If either differs,
+say so once, suggest `/model opus` and `/effort high`, then carry on. A Sonnet planner is the
+cheaper option: in testing it scored as well for 18% less. Mention it if the user asks about cost.
 
 Announce: "Using code-orchestrator (<mode>, planning on <your model>): I'll work on a new
 branch, hand the building to cheaper workers, and have an independent verifier check it."
@@ -36,8 +34,9 @@ branch, hand the building to cheaper workers, and have an independent verifier c
 | **Full** | several substantial pieces (minutes of work each), or pieces that can run in parallel | one worker per piece, then the verifier |
 
 Every extra worker costs its own run plus 2–3 of your turns, so batch small tasks into one
-brief. In testing, a two-task change cost $1.8–1.9 with a Sonnet planner. Opus working alone
-cost $1.3–2.4 and Sonnet alone $0.5–1.2, and both missed edge cases the loop caught. Use the
+brief. In testing, a two-task change cost $2.1–2.5 with an Opus planner, or $1.8–1.9 with a
+Sonnet one. Opus working alone cost $1.3–2.4 and Sonnet alone $0.5–1.2, and both missed edge
+cases the loop caught. Use the
 loop when a verified result is worth about twice the cost of doing it directly. If the user
 asks, say that plainly.
 
@@ -61,16 +60,21 @@ and the report, and stop.
 
 ## Roles and models
 
-| Role | `Agent` call | Use |
-|---|---|---|
-| Worker | `model: "haiku"` | the brief leaves no decisions |
-| Worker | `model: "sonnet"` | design latitude, unfamiliar code, fix rounds 1–2 |
-| Worker | `model: "opus"` | fix round 3 only |
-| Verifier, full | `model: "opus"` | once, after the first green build |
-| Verifier, scoped | `model: "sonnet"` | after each fix round |
+| Role | `subagent_type` | Model, effort | Use |
+|---|---|---|---|
+| Worker | `orch-worker-haiku` | Haiku | the brief leaves no decisions |
+| Worker | `orch-worker-sonnet` | Sonnet, medium | design latitude, unfamiliar code, fix rounds 1–2 |
+| Worker | `orch-worker-sonnet` with `model: "opus"` | Opus | fix round 3 only |
+| Verifier, full | `orch-verifier` | Opus, extra high | once, after the first green build |
+| Verifier, scoped | `orch-rechecker` | Sonnet, high | after each fix round |
 
-**Pass `model` on every dispatch.** Without it a subagent inherits your model, and a worker
-that was meant to be Haiku runs at planner prices.
+These agents are defined in the repo's `agents/` folder and installed into
+`~/.claude/agents/`. That's where each one's model and effort are set. If they aren't
+available, dispatch with `model` instead (`"haiku"`, `"sonnet"`, `"opus"`), and say in the
+report that effort levels were the defaults.
+
+**Name the agent or the model on every dispatch.** Without one, a subagent inherits your
+model, and a worker meant to be Haiku runs at planner prices.
 
 **Haiku needs exact examples.** Give input → output for every edge case in the review focus.
 Workers make decisions without noticing: one used `round()` on invoices (2.675 → 2.67) and
@@ -155,17 +159,17 @@ reports are its final context size, a fraction of what it billed.
 
 | Part | Measured cost |
 |---|---|
-| Planner, whole run | ~$1 on Sonnet, $1.5–1.8 on Opus |
+| Planner, whole run | $1.5–1.8 on Opus (~$1 on Sonnet) |
 | Haiku worker | $0.08–0.35 |
-| Opus verifier | $0.20–0.40 |
+| Opus verifier | $0.20–0.40 at high effort; more at extra high |
 | Fix round (Sonnet worker + Sonnet re-check) | ~$0.45 |
 
-A small two-task change comes to about $1.8–1.9 with a Sonnet planner, or $2.1–2.5 with Opus.
+A small two-task change came to $2.1–2.5 with an Opus planner, or $1.8–1.9 with Sonnet.
 
 ### Build
 
-Read Appendix B, fill it for each task, and dispatch with the task's
-`model`. Dispatch every task whose dependencies are met in one message; as each lands,
+Read Appendix B, fill it for each task, and dispatch it to the task's
+worker agent. Dispatch every task whose dependencies are met in one message; as each lands,
 dispatch what it unblocked.
 
 | Status | What you do |
@@ -196,7 +200,7 @@ verifying.
 ### Verify
 
 Run `orch.sh diff <BASE> 1`, then read Appendix C and dispatch the
-**full** variant on Opus. It gets the criteria, the review focus, the commands, the rulings
+**full** variant (`orch-verifier`). It gets the criteria, the review focus, the commands, the rulings
 and the diff file, and never the worker reports or your reasoning. Never tell it what not to
 flag. Rulings are decisions, not an answer key: it may challenge one.
 
@@ -212,13 +216,13 @@ For each finding:
 The verifier's severity is input; you rule.
 
 **Fix rounds** go per finding:
-- **Rounds 1–2:** Sonnet, with the finding verbatim and the missing context added to the
+- **Rounds 1–2:** `orch-worker-sonnet`, with the finding verbatim and the missing context added to the
   brief.
-- **Round 3:** Opus, with the whole history.
+- **Round 3:** `orch-worker-sonnet` with `model: "opus"`, with the whole history.
 - **After that:** rule, or tell the user the plan is wrong.
 
 If the same finding comes back, the brief was the problem: rewrite it. After each fix: run
-`orch.sh check`, then a **scoped** re-verify on Sonnet. It marks each finding `ADDRESSED` or
+`orch.sh check`, then a **scoped** re-verify (`orch-rechecker`). It marks each finding `ADDRESSED` or
 `NOT ADDRESSED` and reads the fix diff for new breakage. Don't skip it for a small fix: small
 fixes move boundaries.
 
@@ -248,12 +252,11 @@ and run `git worktree prune`.
 | You'll think | Actually |
 |---|---|
 | "I'll just fix it myself in-session" | Your turns are the most expensive tokens in the run, and the fix skips review. Dispatch it. |
-| "Opus will plan it better" | Measured: the Sonnet planner scored higher and cost 18% less. The Opus verifier is where depth pays. |
 | "Let me double-check the worker's code properly" | That's the verifier's job, done once and independently. `orch.sh check` is enough. |
 | "One worker per task is cleaner" | Each worker costs its own run plus your turns. Batch small tasks. |
 | "The worker says tests pass" / "concerns: none" | Pasted output is evidence; words aren't. Read the Decisions / deviations line. |
 | "The fix was tiny, skip the re-verify" | Tiny fixes move boundaries green tests don't sit on. |
-| "I'll leave out `model`" | Then the worker runs on your model and your price. |
+| "I'll leave out the agent or `model`" | Then the worker runs on your model and your price. |
 | "The old test was wrong, so updating it is fine" | That's for the plan to decide, with a ruling. |
 | "The tests mock the API" | Prove it with the clean-room run. |
 
@@ -340,7 +343,7 @@ tasks are sequential, or their Interfaces blocks must match exactly.
 - Every Haiku task leaves no decisions open. If one does, move it to Sonnet.
 - Every Haiku brief gives exact input → output examples for each edge case its review focus
   names. If you can't write the expected output, the decision is still open.
-- Every dispatch names its `model`.
+- Every dispatch names its agent (`orch-worker-haiku`, `orch-worker-sonnet`, ...) or its `model`.
 - Before a parallel dispatch: `orch.sh stamp`, and every path in each brief is inside that
   worker's worktree.
 
@@ -384,9 +387,10 @@ order; rows of only commas
 ## Appendix B — Worker brief
 
 Fill every section. A worker has no memory of the conversation and no access to your
-reasoning — if it isn't in the brief, it doesn't exist. Dispatch with the task's tier from
-the plan as an explicit `model` (`"haiku"` for fully specified work, `"sonnet"` for judgement
-and fix rounds 1–2, `"opus"` for round 3). Leave `model` out and the worker runs on your model. When other workers run at the same time, give this one its own
+reasoning — if it isn't in the brief, it doesn't exist. Dispatch to the task's worker agent
+from the plan: `orch-worker-haiku` for fully specified work, `orch-worker-sonnet` for judgement
+and fix rounds 1–2, and `orch-worker-sonnet` with `model: "opus"` for round 3. Without the
+agents, pass `model` instead. Name neither and the worker runs on your model. When other workers run at the same time, give this one its own
 worktree, and make **every** path in the brief point inside it, including the report path.
 A path into the main tree invites the worker to edit there. In testing, that happened.
 
@@ -997,6 +1001,23 @@ negative, no header, a blank line before a bad row, old tests untouched, and the
 - **Silent decisions:** all 9 workers replied "Decisions / deviations: none", yet each chose
   how to handle BOM, missing headers and comma-only rows without being told. That is why the
   verifier and exact examples exist.
+
+### Trigger description (tested)
+
+Twenty realistic prompts were each run twice with the skill installed, on Sonnet. Ten should
+start the skill; ten are near-misses that share its words but shouldn't: "review this PR",
+"orchestrate kubernetes pods", "delegate my team's campaign", a one-line fix. A prompt counts
+as triggered when Claude's first action is loading the skill.
+
+- **Earlier description:** 17/20. It missed requests that asked for rigour without naming agents,
+  such as "a plan with acceptance criteria before any code".
+- **Current description:** 20/20. It names plan-first, acceptance-criteria and verify-before-done
+  requests, and says to load the skill before exploring the repo.
+- **Caveat:** the current description was written against these same prompts, so treat
+  20/20 as optimistic.
+- **Tooling gap:** skill-creator's `run_loop` optimiser reported 0% triggering for every
+  description here. It installs the skill as a `.claude/commands/` file, which this Claude
+  Code version doesn't offer as a skill. So its scores weren't used.
 
 
 ---

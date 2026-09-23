@@ -336,3 +336,20 @@ negative, no header, a blank line before a bad row, old tests untouched, and the
   how to handle BOM, missing headers and comma-only rows without being told. That is why the
   verifier and exact examples exist.
 
+## Trigger description (tested)
+
+Twenty realistic prompts were each run twice with the skill installed, on Sonnet. Ten should
+start the skill; ten are near-misses that share its words but shouldn't: "review this PR",
+"orchestrate kubernetes pods", "delegate my team's campaign", a one-line fix. A prompt counts
+as triggered when Claude's first action is loading the skill.
+
+- **Earlier description:** 17/20. It missed requests that asked for rigour without naming agents,
+  such as "a plan with acceptance criteria before any code".
+- **Current description:** 20/20. It names plan-first, acceptance-criteria and verify-before-done
+  requests, and says to load the skill before exploring the repo.
+- **Caveat:** the current description was written against these same prompts, so treat
+  20/20 as optimistic.
+- **Tooling gap:** skill-creator's `run_loop` optimiser reported 0% triggering for every
+  description here. It installs the skill as a `.claude/commands/` file, which this Claude
+  Code version doesn't offer as a skill. So its scores weren't used.
+
