@@ -1,7 +1,8 @@
 """Build one self-contained Markdown file for an independent reviewer: the report, the whole
 skill, the evidence and the verification code.
 
-usage: python3 tools/build_review_bundle.py [output path]
+usage: python3 tools/build_review_bundle.py [output path] [--core]
+  --core  only Parts 1-3 (report, skill, evidence), for reviewers with a smaller context
 """
 import csv
 import json
@@ -11,7 +12,9 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "code-orchestrator-review-bundle.md"
+ARGS = [a for a in sys.argv[1:] if a != "--core"]
+CORE = "--core" in sys.argv
+OUT = Path(ARGS[0]) if ARGS else ROOT / "code-orchestrator-review-bundle.md"
 LANG = {".py": "python", ".sh": "bash", ".json": "json", ".md": "markdown", ".tsv": "text", ".log": "text"}
 
 
@@ -107,6 +110,13 @@ def main():
                 out.append(re.sub(r"^# ", "### ", text, count=1, flags=re.M))
             else:
                 out.append(fenced(path, text))
+    if CORE:
+        out.append("\n---\n\nThis is the core edition: Parts 4-9 (reviewer replies and final reports verbatim, "
+                   "trigger results, verification code, historical measurements, earlier reviews) are in the full bundle "
+                   "and the repository.\n")
+        OUT.write_text("\n".join(out))
+        print(f"wrote {OUT} ({OUT.stat().st_size // 1024} KB, core)")
+        return
     out.append("\n---\n\n## Part 4. Pilot reviewer replies, verbatim\n")
     out.append("Every `orch-verifier` and `orch-rechecker` reply from the 12 pilot runs, as the main "
                "session received it. The run `schedule-weekday / reviewed-run-1` has no reply: its "
