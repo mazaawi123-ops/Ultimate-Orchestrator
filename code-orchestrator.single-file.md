@@ -99,7 +99,10 @@ Blocked or Partial.
    practical. Run targeted tests while editing. Commit the intended files by name, never
    `git add -A`. Never weaken, skip or delete a test to get green. When an existing test
    must change because the requested behaviour changes, record it:
-   `path  reason` in `.orchestrator/approved-test-changes`.
+   `path  reason` in `.orchestrator/approved-test-changes`. When the skipped or executed
+   count moves for a reason you can name (a new test that skips without an optional
+   dependency, like its neighbours), record `count:skipped  reason` or
+   `count:executed  reason`. The report lists every approval.
 
 6. **Check the exact candidate.** `orch.sh check -- <test command>`. It refuses leftovers,
    freezes HEAD as the candidate, runs the suite against it, voids the result if the run
@@ -335,7 +338,8 @@ You are an independent reviewer. Someone else wrote a change; check whether it d
 user asked, without breaking what already worked. Treat claims in comments, commit messages
 and docstrings as unverified.
 
-Don't edit tracked files: put scratch scripts in /tmp. Don't delegate.
+Don't edit tracked files: put scratch scripts in /tmp. Don't install packages or change the
+environment; if a tool is missing, list that check under Not verified. Don't delegate.
 
 ## The user's request (verbatim)
 <paste .orchestrator/request.md>
@@ -392,8 +396,8 @@ findings. A clean review, with no findings, is a valid and useful result.
 ### Targeted re-check (after a repair)
 
 ```
-You are an independent reviewer re-checking a repair. Don't edit tracked files; don't
-delegate.
+You are an independent reviewer re-checking a repair. Don't edit tracked files, install
+packages or delegate.
 
 Request (verbatim): <paste>
 Candidate: <commit>, patch <path>; the previous candidate was <commit>.
@@ -805,13 +809,19 @@ audit_tests() {
     if [ "$brn" = unknown ] || [ "$crn" = unknown ] || [ "$bs" = "?" ] || [ "$cs" = "?" ]; then
       echo "  counts: the runner's summary couldn't be read, so skipped/executed changes weren't measured"
     else
-      if [ "$cs" -gt "$bs" ]; then n=$((n + 1)); u=$((u + 1)); echo "  FLAG      skipped tests rose from $bs at BASE to $cs"; fi
-      if [ "$cr" -lt "$br" ]; then n=$((n + 1)); u=$((u + 1)); echo "  FLAG      executed tests fell from $br at BASE to $cr"; fi
+      if [ "$cs" -gt "$bs" ]; then n=$((n + 1))
+        if r=$(approved count:skipped); then echo "  approved  skipped tests rose from $bs at BASE to $cs ($r)"
+        else u=$((u + 1)); echo "  FLAG      skipped tests rose from $bs at BASE to $cs"; fi
+      fi
+      if [ "$cr" -lt "$br" ]; then n=$((n + 1))
+        if r=$(approved count:executed); then echo "  approved  executed tests fell from $br at BASE to $cr ($r)"
+        else u=$((u + 1)); echo "  FLAG      executed tests fell from $br at BASE to $cr"; fi
+      fi
     fi
   elif [ -z "$bc" ]; then echo "  counts: no baseline recorded (start with '-- <test command>'), so skipped/executed changes weren't measured"
   fi
   [ $n -eq 0 ] && echo "  OK: no changes to existing tests, runner configuration or fixtures"
-  [ $u -gt 0 ] && echo "  $u unapproved flag(s). A flag is a signal to review, not proof: approve deliberate changes in $O/approved-test-changes, revert the rest."
+  [ $u -gt 0 ] && echo "  $u unapproved flag(s). A flag is a signal to review, not proof: approve deliberate changes in $O/approved-test-changes ('<path>  <reason>', or 'count:skipped  <reason>' / 'count:executed  <reason>' for the counts), revert the rest."
   UNAPPROVED=$u
 }
 

@@ -22,7 +22,8 @@ You are an independent reviewer. Someone else wrote a change; check whether it d
 user asked, without breaking what already worked. Treat claims in comments, commit messages
 and docstrings as unverified.
 
-Don't edit tracked files: put scratch scripts in /tmp. Don't delegate.
+Don't edit tracked files: put scratch scripts in /tmp. Don't install packages or change the
+environment; if a tool is missing, list that check under Not verified. Don't delegate.
 
 ## The user's request (verbatim)
 <paste .orchestrator/request.md>
@@ -79,8 +80,8 @@ findings. A clean review, with no findings, is a valid and useful result.
 ## Targeted re-check (after a repair)
 
 ```
-You are an independent reviewer re-checking a repair. Don't edit tracked files; don't
-delegate.
+You are an independent reviewer re-checking a repair. Don't edit tracked files, install
+packages or delegate.
 
 Request (verbatim): <paste>
 Candidate: <commit>, patch <path>; the previous candidate was <commit>.

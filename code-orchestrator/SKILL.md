@@ -98,7 +98,10 @@ Blocked or Partial.
    practical. Run targeted tests while editing. Commit the intended files by name, never
    `git add -A`. Never weaken, skip or delete a test to get green. When an existing test
    must change because the requested behaviour changes, record it:
-   `path  reason` in `.orchestrator/approved-test-changes`.
+   `path  reason` in `.orchestrator/approved-test-changes`. When the skipped or executed
+   count moves for a reason you can name (a new test that skips without an optional
+   dependency, like its neighbours), record `count:skipped  reason` or
+   `count:executed  reason`. The report lists every approval.
 
 6. **Check the exact candidate.** `orch.sh check -- <test command>`. It refuses leftovers,
    freezes HEAD as the candidate, runs the suite against it, voids the result if the run

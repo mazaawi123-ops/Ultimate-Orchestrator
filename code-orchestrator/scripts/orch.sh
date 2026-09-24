@@ -386,13 +386,19 @@ audit_tests() {
     if [ "$brn" = unknown ] || [ "$crn" = unknown ] || [ "$bs" = "?" ] || [ "$cs" = "?" ]; then
       echo "  counts: the runner's summary couldn't be read, so skipped/executed changes weren't measured"
     else
-      if [ "$cs" -gt "$bs" ]; then n=$((n + 1)); u=$((u + 1)); echo "  FLAG      skipped tests rose from $bs at BASE to $cs"; fi
-      if [ "$cr" -lt "$br" ]; then n=$((n + 1)); u=$((u + 1)); echo "  FLAG      executed tests fell from $br at BASE to $cr"; fi
+      if [ "$cs" -gt "$bs" ]; then n=$((n + 1))
+        if r=$(approved count:skipped); then echo "  approved  skipped tests rose from $bs at BASE to $cs ($r)"
+        else u=$((u + 1)); echo "  FLAG      skipped tests rose from $bs at BASE to $cs"; fi
+      fi
+      if [ "$cr" -lt "$br" ]; then n=$((n + 1))
+        if r=$(approved count:executed); then echo "  approved  executed tests fell from $br at BASE to $cr ($r)"
+        else u=$((u + 1)); echo "  FLAG      executed tests fell from $br at BASE to $cr"; fi
+      fi
     fi
   elif [ -z "$bc" ]; then echo "  counts: no baseline recorded (start with '-- <test command>'), so skipped/executed changes weren't measured"
   fi
   [ $n -eq 0 ] && echo "  OK: no changes to existing tests, runner configuration or fixtures"
-  [ $u -gt 0 ] && echo "  $u unapproved flag(s). A flag is a signal to review, not proof: approve deliberate changes in $O/approved-test-changes, revert the rest."
+  [ $u -gt 0 ] && echo "  $u unapproved flag(s). A flag is a signal to review, not proof: approve deliberate changes in $O/approved-test-changes ('<path>  <reason>', or 'count:skipped  <reason>' / 'count:executed  <reason>' for the counts), revert the rest."
   UNAPPROVED=$u
 }
 

@@ -21,6 +21,10 @@ for run in map(Path, sys.argv[1:]):
             l = json.loads(raw)
         except Exception:
             continue
+        # An agent that runs in the background replies through a task notification.
+        if l.get("type") == "system" and l.get("subtype") == "task_notification" and l.get("tool_use_id"):
+            results[l["tool_use_id"]] = l.get("summary") or ""
+            continue
         if l.get("parent_tool_use_id"):
             continue
         for b in (l.get("message") or {}).get("content") or []:
@@ -29,7 +33,7 @@ for run in map(Path, sys.argv[1:]):
             if l.get("type") == "assistant" and b.get("type") == "tool_use" and b.get("name") in ("Agent", "Task"):
                 calls.append(b)
             if l.get("type") == "user" and b.get("type") == "tool_result":
-                results[b.get("tool_use_id")] = text_of(b.get("content"))
+                results.setdefault(b.get("tool_use_id"), text_of(b.get("content")))
     out = [f"# Agents dispatched in {run.parent.parent.name}/{run.parent.name}/{run.name}\n"]
     for i, c in enumerate(calls, 1):
         inp = c.get("input") or {}

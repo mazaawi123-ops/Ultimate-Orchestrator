@@ -272,6 +272,20 @@ class ReviewD_TestChanges(Base):
         self.assertNotEqual(res.returncode, 0)
         self.assertIn("deleted or changed", res.stdout)
 
+    TZ = "import unittest\n\n\n@unittest.skipUnless(False, 'needs pytz')\nclass TZ(unittest.TestCase):\n    def test_one(self):\n        pass\n"
+
+    def test_skipped_count_rise_can_be_approved(self):
+        # A new test inside an already-skipped class raises only the skipped count.
+        r = self.started(dict(APP, **{"test_tz.py": self.TZ}))
+        r.commit("tz test", {"test_tz.py": self.TZ + "\n    def test_two(self):\n        pass\n"})
+        res = r.orch("check", "--", *UNITTEST)
+        self.assertNotEqual(res.returncode, 0)
+        self.assertIn("skipped tests rose from 1 at BASE to 2", res.stdout)
+        (r.root / ".orchestrator/approved-test-changes").write_text("count:skipped  new test_two needs pytz, like test_one\n")
+        res = r.orch("check", "--", *UNITTEST)
+        self.assertEqual(res.returncode, 0, res.stdout)
+        self.assertIn("approved  skipped tests rose from 1 at BASE to 2 (new test_two needs pytz", res.stdout)
+
     def test_runner_configuration_change_is_flagged(self):
         r = self.started(dict(APP, **{"setup.cfg": "[tool:pytest]\ntestpaths = .\n"}))
         r.commit("narrow discovery", {"setup.cfg": "[tool:pytest]\ntestpaths = nothing\n"})
