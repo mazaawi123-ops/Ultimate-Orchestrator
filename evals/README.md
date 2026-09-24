@@ -80,6 +80,20 @@ caught, and 3 harmless edits pass. Writing it found four problems, all fixed:
 
 The qs reference is a wrapper, so the lint check is excluded for it alone.
 
+## Trigger tests
+
+`trigger/dev.json` holds the 20 prompts the description was tuned on. `trigger/heldout.json`
+holds 20 more, written before the final description and run once against it. Each set has
+10 prompts that should load the skill and 10 near-misses that shouldn't.
+
+```
+python3 evals/runner/trigger_eval.py --skill code-orchestrator --evals evals/trigger/heldout.json --runs 3
+```
+
+A run counts as triggered when the session's first tool call loads the skill. That's strict:
+a session that reads a named file first and loads the skill second counts as a miss. Results
+are in `results/trigger/`.
+
 ## Records
 
 `results/records/` holds the runs behind `results/measurements.md` (iterations v2–v5 and the

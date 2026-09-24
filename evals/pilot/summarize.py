@@ -42,18 +42,34 @@ def manifest(run):
     return dict(l.split("=", 1) for l in mf.read_text().splitlines() if "=" in l) if mf.exists() else {}
 
 
-def grade_commit(run, commit, grader):
-    """Grade the tree at `commit` in a scratch copy of the run's repo."""
+def grade_commit(run, commit, grader, patch=None):
+    """Grade the tree at `commit` (plus `patch`, if given) in a scratch copy of the run's repo."""
     d = Path(tempfile.mkdtemp(prefix="pilot-candidate-"))
     try:
         shutil.copytree(run / "repo", d / "repo", symlinks=True, ignore=shutil.ignore_patterns(".orchestrator"))
-        subprocess.run(["git", "-C", str(d / "repo"), "checkout", "-q", "-f", commit], check=True)
-        subprocess.run(["git", "-C", str(d / "repo"), "clean", "-q", "-fdx", "-e", ".claude"], check=True)
+        git = ["git", "-C", str(d / "repo")]
+        subprocess.run(git + ["checkout", "-q", "-f", commit], check=True)
+        subprocess.run(git + ["clean", "-q", "-fdx", "-e", ".claude"], check=True)
+        if patch:
+            subprocess.run(git + ["apply", "--whitespace=nowarn", str(patch)], check=True)
         shutil.copy(run / "base.txt", d / "base.txt")
         (d / "outputs").mkdir()
         return grade_repos.grade(grader, str(d))
     finally:
         shutil.rmtree(d, ignore_errors=True)
+
+
+def first_candidate(run, ev, mf):
+    """The code the first review saw, as (commit, patch), or None when it's the delivered code.
+    Current skill: the commit of the first review-diff row. Previous skill: BASE + diff-1.patch."""
+    first_diff = next((e for e in ev if e["kind"] == "review-diff"), None)
+    if first_diff:
+        return None if first_diff["commit"] == mf.get("candidate") else (first_diff["commit"], None)
+    old = run / "outputs/orchestrator/diff-1.patch"
+    if old.exists():
+        final = (run / "outputs/changes.patch").read_text() if (run / "outputs/changes.patch").exists() else ""
+        return None if not final.strip() else ((run / "base.txt").read_text().strip(), old)
+    return None
 
 
 def main():
@@ -65,7 +81,6 @@ def main():
         grading, timing = json.load(open(g)), json.load(open(run / "timing.json"))
         ev, mf = evidence(run), manifest(run)
         reviews = [e for e in ev if e["kind"] in ("review", "recheck")]
-        first_diff = next((e for e in ev if e["kind"] == "review-diff"), None)
         row = {
             "task": task, "config": config, "run": run.name,
             "task_success": grading["task_success"],
@@ -76,10 +91,14 @@ def main():
             "reviews": [f"{e['kind']}:{e['status']}" for e in reviews],
             "repair_cycles": mf.get("repair_cycles", "-"),
         }
-        if with_candidates and first_diff and first_diff["commit"] != mf.get("candidate", "").split(" ")[0]:
-            cand = grade_commit(run, first_diff["commit"], TASKS[task]["grader"])
-            row["first_candidate_success"] = cand["task_success"]
-            row["first_candidate_failed"] = [x["text"] for x in cand["expectations"] if not x["passed"]]
+        fc = first_candidate(run, ev, mf) if with_candidates else None
+        if fc:
+            try:
+                cand = grade_commit(run, fc[0], TASKS[task]["grader"], fc[1])
+                row["first_candidate_success"] = cand["task_success"]
+                row["first_candidate_failed"] = [x["text"] for x in cand["expectations"] if not x["passed"]]
+            except subprocess.CalledProcessError as e:
+                row["first_candidate_success"] = f"not reconstructable: {e}"
         rows.append(row)
         print(json.dumps(row))
     print()
@@ -92,12 +111,15 @@ def main():
               f"${statistics.mean(costs):.2f} (${min(costs):.2f}–${max(costs):.2f}) | {statistics.mean(r['wall_min'] for r in rs):.1f} | "
               f"{', '.join(r['reported'] for r in rs)} | {'; '.join(','.join(r['dispatches']) or 'none' for r in rs)} |")
     print()
-    print("| Arm | Runs | Task success | Est. cost total | Est. cost per run (mean) | Wall min (mean) |")
-    print("|---|---|---|---|---|---|")
+    print("| Arm | Runs | Task success | Est. cost total | Est. cost per run (mean) | Est. cost per success | Wall min (mean) |")
+    print("|---|---|---|---|---|---|---|")
     for config in sorted({r["config"] for r in rows}):
         rs = [r for r in rows if r["config"] == config]
-        print(f"| {config} | {len(rs)} | {sum(r['task_success'] for r in rs)}/{len(rs)} | ${sum(r['cost'] for r in rs):.2f} | "
-              f"${statistics.mean(r['cost'] for r in rs):.2f} | {statistics.mean(r['wall_min'] for r in rs):.1f} |")
+        wins = sum(r["task_success"] for r in rs)
+        total = sum(r["cost"] for r in rs)
+        per_success = f"${total / wins:.2f}" if wins else "n/a"  # failed attempts' cost stays in the numerator
+        print(f"| {config} | {len(rs)} | {wins}/{len(rs)} | ${total:.2f} | "
+              f"${statistics.mean(r['cost'] for r in rs):.2f} | {per_success} | {statistics.mean(r['wall_min'] for r in rs):.1f} |")
     json.dump(rows, open(out / "summary.json", "w"), indent=1)
 
 
