@@ -1,127 +1,89 @@
 # Ultimate Orchestrator
 
-A Claude skill for coding work that spans several files and needs tests. Claude plans the
-change and hands the building to cheaper models. An independent reviewer checks the result,
-and the loop runs until every acceptance criterion is verified and the test suite is green:
+A Claude Code skill for coding work, named `code-orchestrator` inside the files. It finishes a
+change and proves it: every test result, review and report refers to one frozen candidate,
+and "done" is refused when the evidence is missing, stale or doesn't match what's delivered.
+It delegates to worker agents or adds an independent reviewer only when that earns its cost.
 
-**plan → build → test → verify → check → (fix → re-verify) → report**
+## How it works
 
-The goal is a verified result at the lowest cost. The skill's name inside the files is
-`code-orchestrator`.
+Two decisions are made separately:
 
-## Roles
-
-| Role | Model | Job |
+| Decision | Default | Increase it when |
 |---|---|---|
-| Planner | the session: Opus, high effort | Understands the request, writes checkable criteria and precise briefs, rules on findings |
-| Workers | `orch-worker-haiku` (Haiku) for fully specified tasks; `orch-worker-sonnet` (Sonnet, medium effort) for judgement and fix rounds; Opus for a third fix round | Write the code and tests, in their own git worktrees when running in parallel |
-| Verifier (full) | `orch-verifier`: Opus, extra-high effort | Runs once, after the first green build, and tries to show the change does *not* meet the criteria |
-| Verifier (scoped) | `orch-rechecker`: Sonnet, high effort | After each fix round: were the findings addressed, and did anything else break |
+| How many builders? | The main session plans and builds | Substantial independent pieces, useful context separation, or the user asks |
+| How much review? | Automated checks and the main session's own inspection | Uncertain behaviour, serious consequences, weak tests, hard integration, or the user asks |
 
-Each agent's model and effort are set in `agents/*.md`.
+That gives three routes:
+- **Direct:** the main session builds and checks.
+- **Reviewed:** the main session builds, then one fresh reviewer checks the candidate against
+  the original request, with at most two repair cycles.
+- **Parallel:** a few workers on independent pieces, with the main session owning integration.
 
-The planner picks the cheapest mode that fits:
-- **Direct:** a one-file change; no agents.
-- **Lite:** the default. One worker, then the verifier.
-- **Full:** a worker per substantial piece, in parallel when the pieces are independent.
+| Role | Model and effort (this repo's settings) |
+|---|---|
+| Main session | whatever you choose. Mo's setting is `/model opus`, then `/effort high` |
+| `orch-worker-haiku` | Haiku: bounded mechanical tasks |
+| `orch-worker-sonnet` | Sonnet, medium effort: substantial delegated pieces, repairs |
+| `orch-verifier` | Opus, extra-high effort: independent review |
+| `orch-rechecker` | Sonnet, high effort: targeted re-review after a risky repair |
 
-## Measured
+The agent files in `agents/` set each role's model, effort, turn cap and tool limits. The
+runtime enforces those limits: reviewers have no Edit, Write or Agent tools, and no agent can
+delegate further. Bash can still write, so reviewers aren't strictly read-only. The helper
+catches any change they make to the tree. The model and effort choices are candidates, not
+proven optima.
 
-These are billed costs from real `claude -p` runs on three small two-task changes, one run
-each (details in `code-orchestrator/references/example-run.md`):
+## What the helper guarantees
 
-| Setup | Cost (3 tasks) | Graded checks | Code checks |
-|---|---|---|---|
-| Opus, no skill | $5.24 | 32/41 | 28/29 |
-| Sonnet, no skill | $2.33 | 31/41 | 28/29 |
-| Skill, Opus planner | $6.65 | 40/41 | 28/29 |
-| **Skill, Sonnet planner** | **$5.46** | **41/41** | **29/29** |
-| Skill with the `agents/` settings (Opus high, verifier Opus extra high) | $8.76 | 40/41 | 28/29 |
+`code-orchestrator/scripts/orch.sh` runs on bash 3.2+, on macOS and Linux. It's tested by
+`tests/helper/` (30 tests).
 
-- **Cost:** with a Sonnet planner, the skill costs about what Opus alone does, and passes every
-  check. The default `agents/` settings put the verifier on extra-high effort. That found three
-  times as many should-fix issues, for about +$0.70 per task. Plain Sonnet costs about 2.3x less, but ships the edge-case bugs the
-  verifier catches.
-- **Real repos:** on humanize, click and qs, final quality was equal for the skill and Opus alone,
-  and the skill cost 1.6x more ($11.36 against $7.06). The verifier caught real bugs, but ones
-  the delegated code had introduced. So for well-specified changes in well-tested repos, the
-  skill now offers Direct mode.
-- **Bugs caught:** in the benchmark, the loop's verifier caught a quadratic `wrap()` that hung
-  on long words, and comma-only CSV rows being silently dropped.
-- **Trap tests:** 4 red-team rounds against planners, workers and verifiers. Every gap found
-  has a fix, and every fix has been re-tested. These include not touching production data,
-  resuming an interrupted run, and keeping the plan cheap. All pass except one, and that one
-  only partly: workers now report a typo in nearby code, but still missed a nearby crash.
-- **Worker briefs:** pasting 15 lines of repo notes into each brief cut worker tokens by ~30%.
-  "You are a senior developer" made no difference.
+| Guarantee | How |
+|---|---|
+| Tests, review and report concern the same code | `check` refuses uncommitted or untracked leftovers, freezes HEAD as the candidate, and records every command against it with exit code, time, environment fingerprint and log. A command that changes the tree voids its own evidence. `diff` only covers BASE..candidate. |
+| No "done" on bad evidence | `gate` and `finish done` refuse missing, stale, failing or mismatched evidence, a required review that wasn't recorded, and unverified manual checks. |
+| Old failures aren't blamed on the change | `start -- <tests>` records the baseline. Later failures are split into pre-existing and new. |
+| Weakened tests are noticed | The audit flags deleted lines and added `skip`/`only`/`xfail` markers in existing tests, runner and discovery configuration, fixtures and snapshots, and changes in skipped or executed counts. Deliberate changes are approved, with a reason, in `.orchestrator/approved-test-changes`. |
+| No network when promised | `--offline` uses `unshare -n` on Linux or `sandbox-exec` on macOS, and first proves with a loopback probe that the connection is blocked. It refuses (exit 5) where it can't enforce this. |
+| Honest environment checks | `fresh` runs a fresh checkout of the candidate with an allowlisted environment and a temporary HOME. It says plainly that it is **not** a filesystem sandbox. |
+| Workers don't share mutable dependencies | Worktrees get a copy of `node_modules` or the venv (copy-on-write where supported), not a writable link. |
+| Bounded repair | `repair` allows 2 whole cycles per run. It's advisory: it records and warns. |
+| An auditable record | `.orchestrator/` keeps the manifest, evidence table and logs after the run; only finished worktrees are removed. |
 
-## What it guards against
+## Evidence so far
 
-- **Real repos:**
-  - It works on an `orch/<name>` branch and never pushes.
-  - It asks before touching uncommitted work, and resumes an interrupted run instead of
-    overwriting it.
-- **Stop and ask:**
-  - irreversible actions
-  - secrets
-  - production data, even read-only
-  - anything outside the repo
-  - new dependencies or real services
-  - a plan that turns out wrong
-- **Tests that lie:**
-  - Existing tests are fixed points: any deleted assertion is flagged.
-  - A clean-room run with no `.env`, no credentials and service URLs at a closed port catches
-    tests that call real services.
-- **Parallel workers:** a timestamp check catches any worker that writes outside its own
-  worktree.
-- **Cheap-model mistakes:**
-  - Haiku briefs carry exact input → output examples.
-  - Workers list their decisions.
-  - The verifier is the backstop.
+- **The independent review's four reproduced helper flaws are fixed.** The reviewer's own
+  script reproduces 4 of 4 on revision 919240501; the same scenarios reproduce 0 of 4 on the
+  current helper. See `docs/review/`.
+- **The current routing policy has been piloted on held-out tasks** (`evals/pilot/`).
+  Earlier designs' measurements are in `evals/results/measurements.md`, with their limits
+  stated: dollar figures are Claude Code's local estimates, not bills; the "no skill" runs
+  were prompted to delegate; most configurations ran once.
+
+## Install
+
+From this repo's folder:
+
+```
+bash install.sh
+```
+
+It copies the skill to `~/.claude/skills/code-orchestrator/` and the agents to
+`~/.claude/agents/`. Without the agents the skill still works, but every agent runs at the
+default effort.
 
 ## Repo layout
 
 ```
-code-orchestrator/               the skill: install this folder
-  SKILL.md
-  scripts/orch.sh                one-call helpers: start, check, stamp/stray, worktrees,
-                                 clean-room, old-tests, diff (bash 3.2+, macOS and Linux)
-  references/
-    plan-template.md             plan template with a filled-in example
-    worker-brief.md              the brief every worker gets
-    verifier-brief.md            full and scoped verifier briefs
-    example-run.md               the measurements behind every rule
-agents/                          the four subagents: model and effort per role
-install.sh                       installs the skill and the agents into ~/.claude
-code-orchestrator.single-file.md the same skill as one file (references and script as appendices)
-tools/build_single_file.py       rebuilds the single-file version
-evals/
-  evals.json                     3 test tasks with assertions
-  make_fixtures.py               creates the 3 small repos the evals run against
+code-orchestrator/               the skill (installed)
+  SKILL.md                       routing, stop-and-ask, the loop, report, agents
+  scripts/orch.sh                the helper
+  references/                    run-record, worker-brief, reviewer-brief (loaded only when needed)
+agents/                          the four agents: model, effort, tool limits, turn caps
+install.sh
+code-orchestrator.single-file.md the skill as one file (tools/build_single_file.py rebuilds it)
+tests/helper/                    helper regression tests and the review's reproductions
+evals/                           benchmark tasks, runner, graders with self-tests, results
+docs/review/                     the independent review, the vNext proposal, before/after results
 ```
-
-## Install
-
-- **Claude Code:** from this repo's folder, run
-
-  ```
-  bash install.sh
-  ```
-
-  - It copies the skill to `~/.claude/skills/code-orchestrator/`, and the four agents to
-    `~/.claude/agents/`. The agents set each role's model and effort. Without them the skill
-    still works, but every agent runs at the default effort.
-  - Then plan with `/model opus` and `/effort high`. `/model sonnet` is the cheaper
-    alternative: in testing it scored as well for 18% less.
-- **Claude app:** zip the `code-orchestrator/` folder and upload it where you add custom skills.
-
-The planner needs the Agent tool to dispatch workers.
-
-## Running the evals
-
-```
-python evals/make_fixtures.py   # creates evals/fixtures/{todo-cli,inventory,textkit}
-```
-
-Then give Claude each prompt in `evals/evals.json`, with the skill installed, and grade the
-result against that eval's assertions.
