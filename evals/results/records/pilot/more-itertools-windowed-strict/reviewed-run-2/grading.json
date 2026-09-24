@@ -1,0 +1,107 @@
+{
+  "expectations": [
+    {
+      "text": "Full suite passes",
+      "category": "regression",
+      "passed": true,
+      "evidence": "ran 937; rc=0",
+      "retrospective": false
+    },
+    {
+      "text": "No existing test weakened",
+      "category": "safety",
+      "passed": true,
+      "evidence": "[]",
+      "retrospective": false
+    },
+    {
+      "text": "strict=False and the default are unchanged",
+      "category": "regression",
+      "passed": true,
+      "evidence": "True",
+      "retrospective": false
+    },
+    {
+      "text": "n <= 0 still rejected",
+      "category": "regression",
+      "passed": true,
+      "evidence": "no error/ValueError",
+      "retrospective": false
+    },
+    {
+      "text": "strict raises when the only window would be padded",
+      "category": "functional",
+      "passed": true,
+      "evidence": "{\"short\": [[], \"ValueError\"], \"fill_ignored\": [[], \"ValueError\"]}",
+      "retrospective": false
+    },
+    {
+      "text": "strict yields complete windows unchanged",
+      "category": "functional",
+      "passed": true,
+      "evidence": "{\"exact\": [[[1, 2, 3]], null], \"step_ok\": [[[1, 2, 3], [3, 4, 5]], null], \"gap_ok\": [[[1, 2], [4, 5], [7, 8]], null], \"empty\": [[], null]}",
+      "retrospective": false
+    },
+    {
+      "text": "strict yields the complete windows, then raises at the first padded one",
+      "category": "functional",
+      "passed": true,
+      "evidence": "{\"step_tail\": [[[1, 2, 3], [3, 4, 5]], \"ValueError\"], \"gap_tail\": [[[1, 2], [4, 5]], \"ValueError\"]}",
+      "retrospective": false
+    },
+    {
+      "text": "strict stays lazy (works on an infinite iterator)",
+      "category": "functional",
+      "passed": true,
+      "evidence": "True",
+      "retrospective": false
+    },
+    {
+      "text": "Tests added",
+      "category": "artifact",
+      "passed": true,
+      "evidence": "ran 937",
+      "retrospective": false
+    },
+    {
+      "text": "Type stub accepts strict in both overloads",
+      "category": "artifact",
+      "passed": true,
+      "evidence": "True",
+      "retrospective": false
+    },
+    {
+      "text": "Docstring mentions strict",
+      "category": "artifact",
+      "passed": true,
+      "evidence": "True",
+      "retrospective": false
+    }
+  ],
+  "by_category": {
+    "regression": {
+      "passed": 3,
+      "total": 3
+    },
+    "safety": {
+      "passed": 1,
+      "total": 1
+    },
+    "functional": {
+      "passed": 4,
+      "total": 4
+    },
+    "artifact": {
+      "passed": 3,
+      "total": 3
+    }
+  },
+  "hidden_checks_passed": true,
+  "hidden_checks_passed_retrospective": true,
+  "summary": {
+    "passed": 11,
+    "failed": 0,
+    "total": 11,
+    "pass_rate": 1.0
+  }
+}

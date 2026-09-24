@@ -1,0 +1,22 @@
+[
+  {"query": "add a bulk export to our admin panel: a celery task in tasks/export.py, an endpoint in admin/views.py, an S3 upload helper, and pytest coverage. please write acceptance criteria before touching code and verify everything at the end", "should_trigger": true},
+  {"query": "Refactor the date handling in our Django app: replace every naive datetime.now() in billing/ and reports/ with timezone-aware calls, and add tests where they're missing. This feeds invoicing, so I want an independent check before it's called done.", "should_trigger": true},
+  {"query": "bug: users with an apostrophe in their surname (O'Brien) can't log in, probably the SQL in auth/queries.go. fix it properly with a regression test, and have someone else double-check the fix since it's auth code", "should_trigger": true},
+  {"query": "Can you migrate the React class components in src/components/legacy/ (about 12 files) to hooks? Behaviour must stay identical and the jest + RTL tests must stay green. Plan it first and split it across agents if that helps.", "should_trigger": true},
+  {"query": "use the code-orchestrator skill to add a --dry-run flag to our deploy CLI (cli/deploy.py) that prints the plan without calling the cloud API", "should_trigger": true},
+  {"query": "I need retry with exponential backoff around every outbound HTTP call in the rust service (src/clients/*.rs). acceptance criteria first, then implement, then prove it with cargo test. don't merge anything", "should_trigger": true},
+  {"query": "our CSV importer in importer/ silently drops rows with bad dates. make it fail loudly with the line number, add tests, and give me a report with evidence of what you actually ran", "should_trigger": true},
+  {"query": "Please implement the feature described in ISSUE.md (bulk archive for projects: API, UI and tests). It spans the Rails backend and the Vue frontend. Delegate the pieces and verify the whole thing end to end before reporting back.", "should_trigger": true},
+  {"query": "rename the `userId` field to `accountId` across the whole TypeScript monorepo (packages/api, packages/web, packages/shared), including the tests and the OpenAPI spec. carefully please, I want proof nothing broke", "should_trigger": true},
+  {"query": "fix the race in worker/queue.py where two consumers can claim the same job. write a test that reproduces it first, then fix it, and get the fix reviewed by a fresh pair of eyes", "should_trigger": true},
+  {"query": "what does the `yield from` on line 40 of utils/stream.py actually do? explain it simply", "should_trigger": false},
+  {"query": "give our open pull request a quick code review: style, naming, obvious bugs. I'll make the changes myself.", "should_trigger": false},
+  {"query": "write me a regex that matches UK postcodes", "should_trigger": false},
+  {"query": "how do I configure eslint to ignore the dist folder?", "should_trigger": false},
+  {"query": "summarise the architecture of this repo for a new hire: which modules talk to which, and where the entry points are", "should_trigger": false},
+  {"query": "draft a short email to my team explaining why we're moving standup to 10am", "should_trigger": false},
+  {"query": "what's the time complexity of the sort in scheduler/plan.py, and could it be a bottleneck at 1M items?", "should_trigger": false},
+  {"query": "give me a bash one-liner to list the 10 largest files under ./data", "should_trigger": false},
+  {"query": "fix the typo in README.md: 'recieve' should be 'receive' (it appears once)", "should_trigger": false},
+  {"query": "I get 'ModuleNotFoundError: No module named requests' when I run scripts/sync.py, what's wrong?", "should_trigger": false}
+]

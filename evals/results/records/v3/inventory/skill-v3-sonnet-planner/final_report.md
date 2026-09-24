@@ -1,0 +1,12 @@
+## Result: done
+- **Built:** `ship()` now raises `InsufficientStock` (with a sku/qty/level message) instead of driving stock negative; qty == level still succeeds. Added `Inventory.import_csv(path)` — parses a `sku,qty` CSV via the stdlib `csv` module, skips blank lines, calls `receive()` per row, and raises `ValueError` naming the exact physical line for any bad row (wrong header, wrong column count, empty sku, non-integer/non-positive qty), including correctly through embedded-newline quoted fields and CRLF.
+- **Acceptance criteria:** 4/4 verified — ship() boundary/overdraw behavior, CSV happy path, line-numbered errors on every bad-row class, full suite green.
+- **Tests:** `python -m pytest -q` → 26 passed, 0 failed. Lint: n/a (no lint config in repo). Clean-room: n/a (stdlib-only, no external services).
+- **Iterations:** first pass (Haiku worker) passed all planned tests, but the Opus verifier caught two real edge-case bugs in `import_csv`'s line counting: (1) a hand-rolled per-record counter went wrong on a quoted field containing an embedded newline, and (2) rows like `,` or `,,` were treated as "blank" and silently skipped instead of raising. A Sonnet fix round corrected both (switched to `reader.line_num`, opened the file with `newline=''`, narrowed the blank-row check to true empty rows), plus picked up cheap related fixes: `from e` exception chaining, a UTF-8 BOM tolerance, a more informative header-mismatch message, and a message on `InsufficientStock`. A scoped Sonnet re-verify confirmed all 7 findings addressed with no new breakage and no pre-existing test touched.
+- **Rulings I made:** import_csv doesn't roll back partial imports on error (fail-fast, matches `receive()`); header must be exact `sku,qty`; a `receive()` validation failure (qty ≤ 0) is wrapped into the same line-numbered format; `int()`'s native looseness (`1_000`, `+5`) is left as-is; a bad row inside a multi-line quoted field reports the line where the record *ends* (`reader.line_num`), not where it starts.
+- **Open items:** none.
+- **Not verified:** none — everything was checkable by command.
+- **Branch:** `orch/inventory-fix-csv-import` from `main` at `167b0db3`. Not pushed. To take it: `git merge orch/inventory-fix-csv-import`. Commits: `285012b`, `f62b414`.
+- **Mode:** Lite — 1 Haiku worker, 1 Sonnet fix-round worker, 1 Opus full verifier, 1 Sonnet scoped re-verify; planning on Sonnet (this session).
+
+Plan, notes, and worker/verifier reports are kept in `.orchestrator/` in the repo, as requested.

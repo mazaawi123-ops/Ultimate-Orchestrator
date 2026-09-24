@@ -1,0 +1,6 @@
+{
+ "ruff_format": true,
+ "ruff_check": true,
+ "stubtest": true,
+ "nonstrict_time_vs_base": 1.01
+}

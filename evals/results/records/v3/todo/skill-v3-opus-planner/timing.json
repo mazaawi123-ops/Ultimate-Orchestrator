@@ -1,0 +1,85 @@
+{
+  "cost_usd_estimate": 2.0562,
+  "cost_note": "Claude Code local estimate at list price; not a billing record",
+  "num_turns": 7,
+  "subtype": "success",
+  "per_model": {
+    "opus": {
+      "input": 48,
+      "output": 27773,
+      "cache_read": 1053699,
+      "cache_write": 70895,
+      "cost_usd_estimate": 1.2605
+    },
+    "haiku": {
+      "input": 306,
+      "output": 16276,
+      "cache_read": 1399935,
+      "cache_write": 52655,
+      "cost_usd_estimate": 0.2875
+    },
+    "sonnet": {
+      "input": 50,
+      "output": 12696,
+      "cache_read": 979349,
+      "cache_write": 74135,
+      "cost_usd_estimate": 0.5083
+    }
+  },
+  "usage_by_agent": {
+    "main|opus": {
+      "requests": 16,
+      "input": 34,
+      "output_at_start": 276,
+      "cache_read": 813120,
+      "cache_write": 46534
+    },
+    "model:haiku|haiku": {
+      "requests": 38,
+      "input": 306,
+      "output_at_start": 89,
+      "cache_read": 1399935,
+      "cache_write": 52655
+    },
+    "model:opus|opus": {
+      "requests": 6,
+      "input": 12,
+      "output_at_start": 75,
+      "cache_read": 198932,
+      "cache_write": 21864
+    },
+    "model:sonnet|sonnet": {
+      "requests": 23,
+      "input": 46,
+      "output_at_start": 144,
+      "cache_read": 884666,
+      "cache_write": 70983
+    }
+  },
+  "dispatches": [
+    {
+      "agent": "model:haiku",
+      "model_param": "haiku",
+      "description": "T1 due dates worker"
+    },
+    {
+      "agent": "model:opus",
+      "model_param": "opus",
+      "description": "Full verify due dates"
+    },
+    {
+      "agent": "model:sonnet",
+      "model_param": "sonnet",
+      "description": "Fix round 1: test gaps"
+    },
+    {
+      "agent": "model:sonnet",
+      "model_param": "sonnet",
+      "description": "Scoped re-verify fix 1"
+    }
+  ],
+  "skill_used": true,
+  "wall_seconds": 497,
+  "source": "skill v3 (commit ce2a613), Opus planner",
+  "usage_note": "per_model has complete token counts. usage_by_agent splits requests, input and cache tokens exactly; output_at_start is the stream's start-of-message output count, a lower bound."
+}

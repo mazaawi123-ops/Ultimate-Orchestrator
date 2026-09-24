@@ -1,0 +1,78 @@
+{
+  "cost_usd_estimate": 2.9035,
+  "cost_note": "Claude Code local estimate at list price; not a billing record",
+  "num_turns": 6,
+  "subtype": "success",
+  "per_model": {
+    "opus": {
+      "input": 66,
+      "output": 40113,
+      "cache_read": 1572024,
+      "cache_write": 94723,
+      "cost_usd_estimate": 1.7674
+    },
+    "sonnet": {
+      "input": 122,
+      "output": 30761,
+      "cache_read": 2776440,
+      "cache_write": 109182,
+      "cost_usd_estimate": 1.1361
+    }
+  },
+  "usage_by_agent": {
+    "main|opus": {
+      "requests": 18,
+      "input": 40,
+      "output_at_start": 306,
+      "cache_read": 1044088,
+      "cache_write": 58945
+    },
+    "orch-worker-sonnet|sonnet": {
+      "requests": 49,
+      "input": 98,
+      "output_at_start": 451,
+      "cache_read": 2339491,
+      "cache_write": 61175
+    },
+    "orch-verifier|opus": {
+      "requests": 13,
+      "input": 26,
+      "output_at_start": 93,
+      "cache_read": 527936,
+      "cache_write": 35778
+    },
+    "orch-rechecker|sonnet": {
+      "requests": 10,
+      "input": 20,
+      "output_at_start": 62,
+      "cache_read": 351057,
+      "cache_write": 46026
+    }
+  },
+  "dispatches": [
+    {
+      "agent": "orch-worker-sonnet",
+      "model_param": null,
+      "description": "Build click.Duration type"
+    },
+    {
+      "agent": "orch-verifier",
+      "model_param": null,
+      "description": "Verify click.Duration change"
+    },
+    {
+      "agent": "orch-worker-sonnet",
+      "model_param": null,
+      "description": "Fix Duration overflow leak"
+    },
+    {
+      "agent": "orch-rechecker",
+      "model_param": null,
+      "description": "Re-check Duration overflow fix"
+    }
+  ],
+  "skill_used": true,
+  "wall_seconds": 680,
+  "source": "skill v5 plus a local rule sending work to the Sonnet worker (not committed)",
+  "usage_note": "per_model has complete token counts. usage_by_agent splits requests, input and cache tokens exactly; output_at_start is the stream's start-of-message output count, a lower bound."
+}

@@ -1,0 +1,90 @@
+{
+  "cost_usd_estimate": 1.8884,
+  "cost_note": "Claude Code local estimate at list price; not a billing record",
+  "num_turns": 3,
+  "subtype": "success",
+  "per_model": {
+    "sonnet": {
+      "input": 94,
+      "output": 47959,
+      "cache_read": 2880991,
+      "cache_write": 109631,
+      "cost_usd_estimate": 1.4405
+    },
+    "haiku": {
+      "input": 324,
+      "output": 14417,
+      "cache_read": 1066675,
+      "cache_write": 35301,
+      "cost_usd_estimate": 0.2232
+    },
+    "opus": {
+      "input": 10,
+      "output": 5565,
+      "cache_read": 138471,
+      "cache_write": 17133,
+      "cost_usd_estimate": 0.2247
+    }
+  },
+  "usage_by_agent": {
+    "main|sonnet": {
+      "requests": 29,
+      "input": 58,
+      "output_at_start": 184,
+      "cache_read": 2277790,
+      "cache_write": 73618
+    },
+    "model:haiku|haiku": {
+      "requests": 40,
+      "input": 324,
+      "output_at_start": 79,
+      "cache_read": 1066675,
+      "cache_write": 35301
+    },
+    "model:opus|opus": {
+      "requests": 5,
+      "input": 10,
+      "output_at_start": 39,
+      "cache_read": 138471,
+      "cache_write": 17133
+    },
+    "model:sonnet|sonnet": {
+      "requests": 18,
+      "input": 36,
+      "output_at_start": 134,
+      "cache_read": 603201,
+      "cache_write": 36013
+    }
+  },
+  "dispatches": [
+    {
+      "agent": "model:haiku",
+      "model_param": "haiku",
+      "description": "T1: add truncate() to textkit"
+    },
+    {
+      "agent": "model:haiku",
+      "model_param": "haiku",
+      "description": "T2: fix wrap() hard-break"
+    },
+    {
+      "agent": "model:opus",
+      "model_param": "opus",
+      "description": "Verify truncate() and wrap() fix"
+    },
+    {
+      "agent": "model:sonnet",
+      "model_param": "sonnet",
+      "description": "Fix wrap() emoji overflow and width<=0 hang"
+    },
+    {
+      "agent": "model:sonnet",
+      "model_param": "sonnet",
+      "description": "Scoped re-verify of wrap() fix"
+    }
+  ],
+  "skill_used": true,
+  "wall_seconds": 556,
+  "source": "skill v3 (commit ce2a613), Sonnet planner",
+  "usage_note": "per_model has complete token counts. usage_by_agent splits requests, input and cache tokens exactly; output_at_start is the stream's start-of-message output count, a lower bound."
+}

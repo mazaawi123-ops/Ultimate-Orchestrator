@@ -1,0 +1,255 @@
+{
+  "bundle_commit": "77e8ff3",
+  "helper_sha256": "2085273a94628d9ab929c6e58dd0b31dee8d53741ec111f6a3b34ddc18a57c0f",
+  "scope": "Synthetic local fixtures; no paid agent runs or live benchmark reruns.",
+  "cases": [
+    {
+      "case": "failed_CI_does_not_block_done",
+      "reproduced": false,
+      "commands": [
+        {
+          "args": [
+            "run",
+            "ci-format",
+            "--",
+            "bash",
+            "-c",
+            "printf 'CI formatting failed\\n'; exit 2"
+          ],
+          "exit": 1,
+          "stdout": "== run 'ci-format': exit 2, fail, 0s, counts passed/failed/skipped/ran/runner = ?/?/?/?/unknown\n  | CI formatting failed\n  log: .orchestrator/logs/003-ci-format.log\n",
+          "stderr": ""
+        },
+        {
+          "args": [
+            "gate"
+          ],
+          "exit": 1,
+          "stdout": "GATE: FAIL\n  - run:ci-format latest result (003) is fail: fix it and run it again, or waive it with a reason if it no longer applies\n",
+          "stderr": ""
+        },
+        {
+          "args": [
+            "finish",
+            "done"
+          ],
+          "exit": 1,
+          "stdout": "REFUSED: the gate fails, so this run isn't done:\n  - run:ci-format latest result (003) is fail: fix it and run it again, or waive it with a reason if it no longer applies\nFix it, or finish as partial or blocked.\n",
+          "stderr": ""
+        }
+      ]
+    },
+    {
+      "case": "earlier_fresh_pass_overrides_later_failure",
+      "reproduced": false,
+      "commands": [
+        {
+          "args": [
+            "fresh",
+            "--",
+            "/usr/local/bin/python3",
+            "-m",
+            "unittest",
+            "-q"
+          ],
+          "exit": 0,
+          "stdout": "fresh checkout of c30c862ffb27; environment: allowlist of 8 variables, temporary HOME; filesystem: NOT sandboxed; network: NOT isolated\n== fresh 'fresh': exit 0, pass, 0s, counts passed/failed/skipped/ran/runner = 1/0/0/1/unittest\n  | ----------------------------------------------------------------------\n  | Ran 1 test in 0.000s\n  | \n  | OK\n  log: .orchestrator/logs/003-fresh.log\n",
+          "stderr": ""
+        },
+        {
+          "args": [
+            "fresh",
+            "--",
+            "bash",
+            "-c",
+            "printf 'fresh validation failed\\n'; exit 2"
+          ],
+          "exit": 1,
+          "stdout": "fresh checkout of c30c862ffb27; environment: allowlist of 8 variables, temporary HOME; filesystem: NOT sandboxed; network: NOT isolated\n== fresh 'fresh': exit 2, fail, 0s, counts passed/failed/skipped/ran/runner = ?/?/?/?/unknown\n  | fresh validation failed\n  log: .orchestrator/logs/004-fresh.log\n  new failures (not in the baseline):\n    (unidentified: exit 2)\n",
+          "stderr": ""
+        },
+        {
+          "args": [
+            "gate"
+          ],
+          "exit": 1,
+          "stdout": "GATE: FAIL\n  - fresh:fresh latest result (004) is fail: fix it and run it again\n  - fresh-checkout run required: none passing for this candidate\n",
+          "stderr": ""
+        }
+      ]
+    },
+    {
+      "case": "manual_pass_reused_after_candidate_changes",
+      "reproduced": false,
+      "manual_commit": "aba365b15405a8e325b2d78cb5ff0e0f019f7a95",
+      "current_commit": "ab2f5a819d9420ae7915155b8dcaebcee4594931",
+      "commands": [
+        {
+          "args": [
+            "record",
+            "manual",
+            "pass",
+            "UI acceptance check"
+          ],
+          "exit": 0,
+          "stdout": "recorded manual 'UI acceptance check' pass for candidate aba365b15405\n",
+          "stderr": ""
+        },
+        {
+          "args": [
+            "check",
+            "--",
+            "/usr/local/bin/python3",
+            "-m",
+            "unittest",
+            "-q"
+          ],
+          "exit": 0,
+          "stdout": "candidate: ab2f5a819d9420ae7915155b8dcaebcee4594931\n== check 'check': exit 0, pass, 0s, counts passed/failed/skipped/ran/runner = 1/0/0/1/unittest\n  | ----------------------------------------------------------------------\n  | Ran 1 test in 0.000s\n  | \n  | OK\n  log: .orchestrator/logs/004-check.log\n== test-change audit, aba365b15405a8e325b2d78cb5ff0e0f019f7a95..ab2f5a819d94\n  OK: no changes to existing tests, runner configuration or fixtures\n",
+          "stderr": ""
+        },
+        {
+          "args": [
+            "gate"
+          ],
+          "exit": 1,
+          "stdout": "GATE: FAIL\n  - manual:UI acceptance check was last recorded for an earlier candidate (aba365b15405): run it again for this one, or waive it with a reason if it no longer applies\n",
+          "stderr": ""
+        }
+      ]
+    },
+    {
+      "case": "offline_requirement_satisfied_by_label_only",
+      "reproduced": false,
+      "commands": [
+        {
+          "args": [
+            "fresh",
+            "--label",
+            "smoke-offline",
+            "--",
+            "/usr/local/bin/python3",
+            "-m",
+            "unittest",
+            "-q"
+          ],
+          "exit": 0,
+          "stdout": "fresh checkout of 5ba0c4379ad3; environment: allowlist of 8 variables, temporary HOME; filesystem: NOT sandboxed; network: NOT isolated\n== fresh 'smoke-offline': exit 0, pass, 1s, counts passed/failed/skipped/ran/runner = 1/0/0/1/unittest\n  | ----------------------------------------------------------------------\n  | Ran 1 test in 0.000s\n  | \n  | OK\n  log: .orchestrator/logs/003-smoke-offline.log\n",
+          "stderr": ""
+        },
+        {
+          "args": [
+            "gate"
+          ],
+          "exit": 1,
+          "stdout": "GATE: FAIL\n  - offline run required: no passing check --offline or fresh --offline with verified isolation for this candidate\n",
+          "stderr": ""
+        }
+      ]
+    },
+    {
+      "case": "copied_dependency_preserves_writable_link_to_main",
+      "reproduced": false,
+      "symlink_preserved": false,
+      "main_marker_after": "main original",
+      "commands": [
+        {
+          "args": [
+            "wt-add",
+            "review"
+          ],
+          "exit": 0,
+          "stdout": "  copied node_modules\n  re-pointed or copied 1 link(s) in node_modules that led back into the main checkout\n<tmp>/dependency-link/.orchestrator/worktrees/review\n",
+          "stderr": ""
+        }
+      ]
+    },
+    {
+      "case": "ignored_runtime_input_missing_from_candidate",
+      "reproduced": false,
+      "tracked_files": [
+        ".gitignore",
+        "app.py",
+        "test_app.py"
+      ],
+      "commands": [
+        {
+          "args": [
+            "check",
+            "--",
+            "/usr/local/bin/python3",
+            "-m",
+            "unittest",
+            "-q"
+          ],
+          "exit": 0,
+          "stdout": "candidate: 64106e6ac141d9bbbbee17fb1b31cf19e4568914\n== check 'check': exit 0, pass, 0s, counts passed/failed/skipped/ran/runner = 1/0/0/1/unittest\n  | ----------------------------------------------------------------------\n  | Ran 1 test in 0.000s\n  | \n  | OK\n  log: .orchestrator/logs/003-check.log\n  note: git-ignored files the candidate doesn't contain were present, so the tests could have read them:\n    generated_settings.py\n  the gate will want a fresh-checkout run: orch.sh fresh -- <setup and tests>\n== test-change audit, a0a9035adc7ef789edb2adf1b8a8f5188ea1a0e3..64106e6ac141\n  OK: no changes to existing tests, runner configuration or fixtures\n",
+          "stderr": ""
+        },
+        {
+          "args": [
+            "gate"
+          ],
+          "exit": 1,
+          "stdout": "GATE: FAIL\n  - git-ignored files the candidate does not contain were present during the check (generated_settings.py ): prove it works without them with orch.sh fresh -- <setup and tests>, or waive fresh with a reason if they are not inputs\n",
+          "stderr": ""
+        },
+        {
+          "args": [
+            "fresh",
+            "--",
+            "/usr/local/bin/python3",
+            "-m",
+            "unittest",
+            "-q"
+          ],
+          "exit": 1,
+          "stdout": "fresh checkout of 64106e6ac141; environment: allowlist of 8 variables, temporary HOME; filesystem: NOT sandboxed; network: NOT isolated\n== fresh 'fresh': exit 1, fail, 0s, counts passed/failed/skipped/ran/runner = 0/1/0/1/unittest\n  |     __import__(name)\n  |   File \"/tmp/orch-fresh.161R0x/repo/test_app.py\", line 2, in <module>\n  |     from app import answer\n  |   File \"/tmp/orch-fresh.161R0x/repo/app.py\", line 1, in <module>\n  |     from generated_settings import VALUE\n  | ModuleNotFoundError: No module named 'generated_settings'\n  | \n  | \n  | ----------------------------------------------------------------------\n  | Ran 1 test in 0.000s\n  | \n  | FAILED (errors=1)\n  log: .orchestrator/logs/004-fresh.log\n  new failures (not in the baseline):\n    pytest:(errors=1)\n    unittest:test_app (unittest.loader._FailedTest.test_app)\n",
+          "stderr": ""
+        }
+      ]
+    },
+    {
+      "case": "changed_dependency_not_detected_by_environment_fingerprint",
+      "reproduced": false,
+      "fingerprint_before": "3709797b8ab9",
+      "fingerprint_after": "3709797b8ab9",
+      "commands": [
+        {
+          "args": [
+            "check",
+            "--",
+            "/usr/local/bin/python3",
+            "-m",
+            "unittest",
+            "-q"
+          ],
+          "exit": 0,
+          "stdout": "candidate: 57b7d0c14852db731084df8cbe0b40be12c23522\n== check 'check': exit 0, pass, 0s, counts passed/failed/skipped/ran/runner = 2/0/0/2/unittest\n  | ----------------------------------------------------------------------\n  | Ran 2 tests in 0.000s\n  | \n  | OK\n  log: .orchestrator/logs/002-check.log\n== test-change audit, 57b7d0c14852db731084df8cbe0b40be12c23522..57b7d0c14852\n  OK: no changes to existing tests, runner configuration or fixtures\n",
+          "stderr": ""
+        },
+        {
+          "args": [
+            "gate"
+          ],
+          "exit": 1,
+          "stdout": "GATE: FAIL\n  - files in dependency folders or ignored inputs changed after the latest check (e.g. node_modules/package/marker.txt ): run check again\n",
+          "stderr": ""
+        },
+        {
+          "args": [
+            "check",
+            "--",
+            "/usr/local/bin/python3",
+            "-m",
+            "unittest",
+            "-q"
+          ],
+          "exit": 1,
+          "stdout": "candidate: 57b7d0c14852db731084df8cbe0b40be12c23522\n== check 'check': exit 1, fail, 0s, counts passed/failed/skipped/ran/runner = 1/1/0/2/unittest\n  | Traceback (most recent call last):\n  |   File \"<tmp>/dependency-fingerprint/test_dependency.py\", line 5, in test_dependency\n  |     self.assertEqual(Path('node_modules/package/marker.txt').read_text(), 'good')\n  | AssertionError: 'bad' != 'good'\n  | - bad\n  | + good\n  | \n  | \n  | ----------------------------------------------------------------------\n  | Ran 2 tests in 0.000s\n  | \n  | FAILED (failures=1)\n  log: .orchestrator/logs/003-check.log\n  new failures (not in the baseline):\n    pytest:(failures=1)\n    unittest:test_dependency (test_dependency.DependencyCheck.test_dependency)\n== test-change audit, 57b7d0c14852db731084df8cbe0b40be12c23522..57b7d0c14852\n  OK: no changes to existing tests, runner configuration or fixtures\n",
+          "stderr": ""
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,92 @@
+{
+  "cost_usd_estimate": 3.8088,
+  "cost_note": "Claude Code local estimate at list price; not a billing record",
+  "num_turns": 4,
+  "subtype": "success",
+  "per_model": {
+    "opus": {
+      "input": 82,
+      "output": 46228,
+      "cache_read": 2204889,
+      "cache_write": 115834,
+      "cost_usd_estimate": 2.136
+    },
+    "haiku": {
+      "input": 354,
+      "output": 16692,
+      "cache_read": 2447609,
+      "cache_write": 75200,
+      "cost_usd_estimate": 0.4226
+    },
+    "sonnet": {
+      "input": 98,
+      "output": 32092,
+      "cache_read": 3068010,
+      "cache_write": 126223,
+      "cost_usd_estimate": 1.2503
+    }
+  },
+  "usage_by_agent": {
+    "main|opus": {
+      "requests": 22,
+      "input": 50,
+      "output_at_start": 390,
+      "cache_read": 1373712,
+      "cache_write": 63645
+    },
+    "orch-worker-haiku|haiku": {
+      "requests": 44,
+      "input": 354,
+      "output_at_start": 84,
+      "cache_read": 2447609,
+      "cache_write": 75200
+    },
+    "orch-verifier|opus": {
+      "requests": 16,
+      "input": 32,
+      "output_at_start": 1070,
+      "cache_read": 831177,
+      "cache_write": 52189
+    },
+    "orch-worker-sonnet|sonnet": {
+      "requests": 35,
+      "input": 70,
+      "output_at_start": 306,
+      "cache_read": 2436505,
+      "cache_write": 93628
+    },
+    "orch-rechecker|sonnet": {
+      "requests": 13,
+      "input": 26,
+      "output_at_start": 95,
+      "cache_read": 576379,
+      "cache_write": 31759
+    }
+  },
+  "dispatches": [
+    {
+      "agent": "orch-worker-haiku",
+      "model_param": null,
+      "description": "Build parseNumbers option"
+    },
+    {
+      "agent": "orch-verifier",
+      "model_param": null,
+      "description": "Verify parseNumbers change"
+    },
+    {
+      "agent": "orch-worker-sonnet",
+      "model_param": null,
+      "description": "Fix zero-merge and polish tests"
+    },
+    {
+      "agent": "orch-rechecker",
+      "model_param": null,
+      "description": "Re-verify zero-merge fix"
+    }
+  ],
+  "skill_used": true,
+  "wall_seconds": 918,
+  "source": "skill v5 (commit 27b8315) with the agent files, Haiku worker",
+  "usage_note": "per_model has complete token counts. usage_by_agent splits requests, input and cache tokens exactly; output_at_start is the stream's start-of-message output count, a lower bound."
+}

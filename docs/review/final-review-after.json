@@ -1,0 +1,145 @@
+{
+  "supplied_bundle_revision": "fec58da",
+  "helper_sha256": "bf85ecf8afe93820a7f88c0f85c7dad724cafcd005ab8560d35daf9531de0fd3",
+  "scope": "Three deliberately targeted synthetic cases, not a random reliability sample",
+  "cases": [
+    {
+      "case": "fresh_tracked_changes_not_invalidated",
+      "reproduced": false,
+      "main_source_unchanged": true,
+      "commands": [
+        {
+          "args": [
+            "fresh",
+            "--",
+            "/usr/local/bin/python3",
+            "-m",
+            "unittest",
+            "-q"
+          ],
+          "exit": 0,
+          "stdout": "fresh checkout of 3e4331c9c455; environment: allowlist of 8 variables, temporary HOME; filesystem: NOT sandboxed; network: NOT isolated\n== fresh 'fresh': exit 0, pass, 0s, counts passed/failed/skipped/ran/runner = 1/0/0/1/unittest\n  | ----------------------------------------------------------------------\n  | Ran 1 test in 0.000s\n  | \n  | OK\n  log: .orchestrator/logs/003-fresh.log\n",
+          "stderr": ""
+        },
+        {
+          "args": [
+            "fresh",
+            "--",
+            "/usr/local/bin/python3",
+            "-c",
+            "from pathlib import Path\nimport subprocess,sys\np=Path('app.py'); p.write_text(p.read_text().replace('41','99'))\np=Path('test_app.py'); p.write_text(p.read_text().replace('41','99'))\nsubprocess.run(['git','status','--porcelain'],check=True)\nraise SystemExit(subprocess.call([sys.executable,'-m','unittest','-q']))\n"
+          ],
+          "exit": 1,
+          "stdout": "fresh checkout of 3e4331c9c455; environment: allowlist of 8 variables, temporary HOME; filesystem: NOT sandboxed; network: NOT isolated\n== fresh 'fresh': exit 0, dirty-after, 0s, counts passed/failed/skipped/ran/runner = 1/0/0/1/unittest\n  |  M app.py\n  |  M test_app.py\n  | ----------------------------------------------------------------------\n  | Ran 1 test in 0.000s\n  | \n  | OK\n  log: .orchestrator/logs/004-fresh.log\n  DIRTY AFTER: the command changed the checkout it ran in, so this evidence is void:\n     M app.py\n     M test_app.py\n  Files a setup step generates on purpose must be git-ignored (orch.sh ignore <pattern>); source and tests must not change.\n",
+          "stderr": ""
+        },
+        {
+          "args": [
+            "gate"
+          ],
+          "exit": 1,
+          "stdout": "GATE: FAIL\n  - fresh:fresh (004) changed the checkout it ran in, so it is void: run it again\n  - fresh-checkout run required: none passing for this candidate\n",
+          "stderr": ""
+        },
+        {
+          "args": [
+            "finish",
+            "done"
+          ],
+          "exit": 1,
+          "stdout": "REFUSED: the gate fails, so this run isn't done:\n  - fresh:fresh (004) changed the checkout it ran in, so it is void: run it again\n  - fresh-checkout run required: none passing for this candidate\nFix it, or finish as partial or blocked.\n",
+          "stderr": ""
+        }
+      ]
+    },
+    {
+      "case": "unit_recheck_revalidates_stale_required_ci",
+      "reproduced": false,
+      "old_ci_environment": "427003d4df7a",
+      "current_environment": "f54dce117ca3",
+      "commands": [
+        {
+          "args": [
+            "run",
+            "lint",
+            "--",
+            "/usr/local/bin/python3",
+            "-c",
+            "from pathlib import Path; assert Path('node_modules/package/marker.txt').read_text() == 'good'"
+          ],
+          "exit": 0,
+          "stdout": "== run 'lint': exit 0, pass, 0s, counts passed/failed/skipped/ran/runner = ?/?/?/?/unknown\n  log: .orchestrator/logs/003-lint.log\n",
+          "stderr": ""
+        },
+        {
+          "args": [
+            "gate"
+          ],
+          "exit": 1,
+          "stdout": "GATE: FAIL\n  - environment changed since check:check ran (fingerprint 427003d4df7a -> f54dce117ca3): run it again\n  - environment changed since run:lint ran (fingerprint 427003d4df7a -> f54dce117ca3): run it again\n",
+          "stderr": ""
+        },
+        {
+          "args": [
+            "check",
+            "--",
+            "/usr/local/bin/python3",
+            "-m",
+            "unittest",
+            "-q"
+          ],
+          "exit": 0,
+          "stdout": "candidate: 7e4b2760e809d56dedcebae9dd1b8f67ee2cc6a9\n== check 'check': exit 0, pass, 0s, counts passed/failed/skipped/ran/runner = 1/0/0/1/unittest\n  | ----------------------------------------------------------------------\n  | Ran 1 test in 0.000s\n  | \n  | OK\n  log: .orchestrator/logs/004-check.log\n== test-change audit, 7e4b2760e809d56dedcebae9dd1b8f67ee2cc6a9..7e4b2760e809\n  OK: no changes to existing tests, runner configuration or fixtures\n",
+          "stderr": ""
+        },
+        {
+          "args": [
+            "gate"
+          ],
+          "exit": 1,
+          "stdout": "GATE: FAIL\n  - environment changed since run:lint ran (fingerprint 427003d4df7a -> f54dce117ca3): run it again\n",
+          "stderr": ""
+        },
+        {
+          "args": [
+            "finish",
+            "done"
+          ],
+          "exit": 1,
+          "stdout": "REFUSED: the gate fails, so this run isn't done:\n  - environment changed since run:lint ran (fingerprint 427003d4df7a -> f54dce117ca3): run it again\nFix it, or finish as partial or blocked.\n",
+          "stderr": ""
+        },
+        {
+          "args": [
+            "run",
+            "lint",
+            "--",
+            "/usr/local/bin/python3",
+            "-c",
+            "from pathlib import Path; assert Path('node_modules/package/marker.txt').read_text() == 'good'"
+          ],
+          "exit": 1,
+          "stdout": "== run 'lint': exit 1, fail, 1s, counts passed/failed/skipped/ran/runner = ?/?/?/?/unknown\n  | Traceback (most recent call last):\n  |   File \"<string>\", line 1, in <module>\n  | AssertionError\n  log: .orchestrator/logs/005-lint.log\n",
+          "stderr": ""
+        }
+      ]
+    },
+    {
+      "case": "chained_dependency_link_still_writes_to_main",
+      "reproduced": false,
+      "copied_path_resolves_to": "/tmp/orch-final-review-l3ce1qxq/dependency-chain/.orchestrator/worktrees/review/node_modules/package",
+      "main_marker_after": "original",
+      "commands": [
+        {
+          "args": [
+            "wt-add",
+            "review"
+          ],
+          "exit": 0,
+          "stdout": "  copied node_modules\n  re-pointed 0 and copied the targets of 1 link(s) in node_modules that led back into the main checkout\n/tmp/orch-final-review-l3ce1qxq/dependency-chain/.orchestrator/worktrees/review\n",
+          "stderr": ""
+        }
+      ]
+    }
+  ]
+}

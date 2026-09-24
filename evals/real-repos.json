@@ -1,0 +1,55 @@
+{
+ "set": "development",
+ "tasks": [
+  {
+   "id": 3,
+   "name": "humanize-parse-size-and-conjunction",
+   "repo_dir": "humanize",
+   "url": "https://github.com/python-humanize/humanize",
+   "commit": "392aef707c0e74341ab4a51420984e9ea6b566c5",
+   "setup": [
+    "python3 -m pip install -q freezegun pytest-benchmark pytest-cov",
+    "python3 -m pip install -q -e . && python3 -m pip uninstall -y -q humanize"
+   ],
+   "test_command": "python3 -m pytest -q --benchmark-disable",
+   "env": {
+    "PYTHONPATH": "src"
+   },
+   "grader": "humanize",
+   "prompt": "In this repo (humanize), two changes: (1) add `humanize.parse_size(text)`, the inverse of `naturalsize`. It should accept anything `naturalsize` can produce (decimal units like kB/MB, binary units like KiB/MiB, the gnu style like `1.0K`, and `Byte`/`Bytes`), return the number of bytes as an int, and raise ValueError for anything it can't parse. Export it from the package like the other functions. (2) `natural_list` should take an optional `conjunction` argument (default \"and\") so it can produce 'a, b or c'. Add tests for both; the existing suite must stay green. Run tests with `python3 -m pytest -q --benchmark-disable` (PYTHONPATH=src is already set in this environment). Plan it, delegate the building, and have it verified before you report.",
+   "note": "Development set: used while tuning earlier versions of the skill. The prompt asks for delegation, so no-skill runs delegated too."
+  },
+  {
+   "id": 4,
+   "name": "click-duration-type",
+   "repo_dir": "click",
+   "url": "https://github.com/pallets/click",
+   "commit": "06b2a678741131fd577ce170e23e5ca0aeba0309",
+   "setup": [
+    "python3 -m pip install -q click"
+   ],
+   "test_command": "python3 -m pytest -q",
+   "env": {
+    "PYTHONPATH": "src"
+   },
+   "grader": "click",
+   "prompt": "In this repo (click), add a new parameter type `click.Duration`, exported from the package like `click.DateTime`. It converts strings such as `90s`, `15m`, `2h`, `1d`, `1.5h` and combinations like `1h30m` into a `datetime.timedelta`. A plain number means seconds. A value that is already a `timedelta` passes through unchanged. Anything else fails with click's usual \"Invalid value\" error naming the bad input. Add tests and a CHANGES entry. Run tests with `python3 -m pytest -q` (PYTHONPATH=src is already set in this environment). Plan it, delegate the building, and have it verified before you report.",
+   "note": "Development set: used while tuning earlier versions of the skill. The prompt asks for delegation, so no-skill runs delegated too."
+  },
+  {
+   "id": 5,
+   "name": "qs-parse-numbers",
+   "repo_dir": "qs",
+   "url": "https://github.com/ljharb/qs",
+   "commit": "07b1d4d82c8f9301c105ea4b94fa2302cfd6e8b4",
+   "setup": [
+    "npm install --no-audit --no-fund --ignore-scripts"
+   ],
+   "test_command": "npx tape 'test/**/*.js'",
+   "env": {},
+   "grader": "qs",
+   "prompt": "In this repo (qs), add a `parseNumbers` option to `qs.parse` (default false). When true, a value becomes a number if it is a finite number in canonical decimal form, i.e. `String(Number(v)) === v`: so '1', '-2' and '1.5' convert, but '01', '1e3', '0x10', '', 'NaN', 'Infinity', '1.50' and '9007199254740993' stay strings. It applies to values, not keys, and must work inside arrays, nested objects and with the `comma` option. Validate it like the other boolean options and document it in the README. Add tests with the existing tape setup; `npx tape 'test/**/*.js'` and `npx eslint .` must stay green. Plan it, delegate the building, and have it verified before you report.",
+   "note": "Development set: used while tuning earlier versions of the skill. The prompt asks for delegation, so no-skill runs delegated too."
+  }
+ ]
+}

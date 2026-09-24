@@ -1,0 +1,54 @@
+[
+ {
+  "task": "schedule-weekday-reviewed",
+  "skill_commit": "3c0debc",
+  "reported": "Done",
+  "helper_status": "done",
+  "candidate": "22f1204428a9",
+  "gate_now": "PASS",
+  "gate_output": [
+   "GATE: PASS for candidate 22f1204428a95e12e8b1092efe02b0b5f5fa7c9d",
+   "  check     check              exit=0 pass .orchestrator/logs/012-check.log",
+   "  run       format             exit=0 pass .orchestrator/logs/013-format.log",
+   "  run       mypy               exit=0 pass .orchestrator/logs/014-mypy.log",
+   "  run       pytz-tests         exit=0 pass .orchestrator/logs/015-pytz-tests.log",
+   "  run       docs               exit=0 pass .orchestrator/logs/016-docs.log"
+  ],
+  "requires": "review",
+  "required_checks": "format,mypy,docs,pytz-tests",
+  "evidence": [
+   "check:check=pass",
+   "check:check=pass",
+   "run:format=pass",
+   "run:mypy=pass",
+   "run:pytz-tests=pass",
+   "run:docs=pass",
+   "fresh:fresh=pass",
+   "review-diff:diff=pass",
+   "review:review=pass",
+   "repair:cycle-1=open",
+   "check:check=pass",
+   "run:format=pass",
+   "run:mypy=pass",
+   "run:pytz-tests=pass",
+   "run:docs=pass",
+   "fresh:fresh=pass",
+   "review-diff:diff=pass",
+   "recheck:review=pass"
+  ],
+  "approvals": [
+   "count:skipped=41->42  new test_tz_weekday skips without pytz, like the other tz tests; it passes in the pytz env (check pytz-tests)",
+   "count:skipped=41->43  new test_tz_weekday and test_tz_weekday_after_spring_forward_weekend skip without pytz, like the other tz tests; both pass in the pytz env (pytz-tests 92/92)"
+  ],
+  "hidden_checks_passed": true,
+  "hidden_checks_passed_retrospective": true,
+  "repo_ci_black": true,
+  "canary_seen": false,
+  "dispatches": [
+   "orch-verifier",
+   "orch-rechecker"
+  ],
+  "cost": 4.3731,
+  "wall_min": 18.1
+ }
+]

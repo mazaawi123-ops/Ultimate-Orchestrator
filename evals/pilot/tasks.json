@@ -1,0 +1,31 @@
+{
+ "set": "held-out (unseen while writing the vNext skill)",
+ "tasks": [
+  {
+   "id": "p1",
+   "name": "more-itertools-windowed-strict",
+   "repo_dir": "more-itertools",
+   "url": "https://github.com/more-itertools/more-itertools",
+   "commit": "b5e3886a37209bb880f17d82fbf4ba00ece0e41e",
+   "setup": [],
+   "test_command": "python3 -m unittest -q",
+   "env": {},
+   "grader": "windowed_strict",
+   "kind": "well-specified change in a mature repository",
+   "prompt": "In this repo (more-itertools), add a `strict` keyword argument to `windowed()`, defaulting to False. With `strict=True`, `windowed` must never yield a window that would need `fillvalue` padding: when it reaches such a window it raises ValueError instead, the way `zip(strict=True)` does, and the complete windows before it are still yielded. With `strict=False` nothing changes. Update the type stub and the docstring, and add tests. The test suite runs with `python3 -m unittest -q`."
+  },
+  {
+   "id": "p2",
+   "name": "schedule-weekday",
+   "repo_dir": "schedule",
+   "url": "https://github.com/dbader/schedule",
+   "commit": "82a43db1b938d8fdf60103bd41f329e06c8d3651",
+   "setup": [],
+   "test_command": "python3 -m pytest -q",
+   "env": {},
+   "grader": "schedule_weekday",
+   "kind": "a request with real ambiguity, in a repo whose timezone tests are skipped here (41 of 81 skip for a missing optional dependency)",
+   "prompt": "In this repo (schedule), add a way to schedule a job on weekdays only: `schedule.every().weekday.at(\"09:00\").do(job)` should run Monday to Friday at 09:00 and never on Saturday or Sunday. Add tests; the existing suite must stay green. The tests run with `python3 -m pytest -q`."
+  }
+ ]
+}

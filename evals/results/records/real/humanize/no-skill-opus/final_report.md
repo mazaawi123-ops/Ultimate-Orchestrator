@@ -1,0 +1,1 @@
+The independent verifier is running. It will review the diff, re-run every check, probe `parse_size` with its own round-trip and edge-case inputs, and compare `natural_list` against the original. I'll report once it's back.

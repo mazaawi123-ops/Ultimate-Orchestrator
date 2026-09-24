@@ -1,0 +1,2 @@
+record	label	cost_usd_estimate	wall_seconds	hidden_checks_passed	functional	regression	safety	artifact	reporting	dispatches	note
+schedule-weekday-reviewed	final revision 3c0debc, told to use Reviewed mode	4.37	1086	True	4/4	2/2	1/1	1/1	1/1	orch-verifier orch-rechecker	

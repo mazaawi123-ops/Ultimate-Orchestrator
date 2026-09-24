@@ -1,0 +1,272 @@
+diff --git a/inventory/stock.py b/inventory/stock.py
+index 71c6e42..ddfdbae 100644
+--- a/inventory/stock.py
++++ b/inventory/stock.py
+@@ -1,7 +1,16 @@
++import csv
++
++
+ class InsufficientStock(Exception):
+     pass
+ 
+ 
++class CSVImportError(ValueError):
++    def __init__(self, line, msg):
++        super().__init__(f"line {line}: {msg}")
++        self.line = line
++
++
+ class Inventory:
+     """In-memory stock levels keyed by SKU."""
+ 
+@@ -17,7 +26,10 @@ class Inventory:
+         if qty <= 0:
+             raise ValueError("qty must be positive")
+         current = self._levels.get(sku, 0)
+-        # BUG: allows shipping more than we have, driving stock negative
++        if qty > current:
++            raise InsufficientStock(
++                f"cannot ship {qty} of {sku!r}: only {current} in stock"
++            )
+         self._levels[sku] = current - qty
+ 
+     def level(self, sku):
+@@ -25,3 +37,47 @@ class Inventory:
+ 
+     def low_stock(self, threshold=5):
+         return sorted(s for s, q in self._levels.items() if q < threshold)
++
++    def import_csv(self, path):
++        """Receive each sku,qty row of a CSV file, all or nothing; return row count."""
++        rows = []
++        header_allowed = True
++        # physical line the next record starts on (a quoted field may span lines)
++        next_line = 1
++        with open(path, encoding="utf-8-sig", newline="") as f:
++            reader = csv.reader(f)
++            try:
++                for record in reader:
++                    line = next_line
++                    next_line = reader.line_num + 1
++                    fields = [field.strip() for field in record]
++                    if not any(fields):
++                        continue
++                    if header_allowed and [s.lower() for s in fields] == ["sku", "qty"]:
++                        header_allowed = False
++                        continue
++                    header_allowed = False
++                    rows.append(_parse_row(line, fields))
++            except csv.Error as e:
++                raise CSVImportError(next_line, str(e)) from e
++        for sku, qty in rows:
++            self.receive(sku, qty)
++        return len(rows)
++
++
++def _parse_row(line, fields):
++    if len(fields) != 2:
++        raise CSVImportError(line, f"expected 2 fields (sku,qty), got {len(fields)}")
++    sku, qty = fields
++    if not sku:
++        raise CSVImportError(line, "sku is empty")
++    # ASCII digits only: int() would also accept '+3', '1_000' and non-ASCII digits
++    if qty.isascii() and qty.isdigit():
++        try:
++            n = int(qty)
++        except ValueError:  # longer than int()'s digit limit
++            n = 0
++        if n > 0:
++            return sku, n
++    shown = qty if len(qty) <= 20 else qty[:20] + "..."
++    raise CSVImportError(line, f"qty must be a positive integer, got {shown!r}")
+diff --git a/tests/test_import_csv.py b/tests/test_import_csv.py
+new file mode 100644
+index 0000000..8b3b671
+--- /dev/null
++++ b/tests/test_import_csv.py
+@@ -0,0 +1,149 @@
++import pytest
++from inventory.stock import Inventory, CSVImportError
++
++
++def _csv(tmp_path, text, name="stock.csv"):
++    p = tmp_path / name
++    p.write_bytes(text.encode("utf-8") if isinstance(text, str) else text)
++    return p
++
++
++def test_header_and_rows(tmp_path):
++    inv = Inventory()
++    n = inv.import_csv(_csv(tmp_path, "sku,qty\nA,10\nB,3\n"))
++    assert n == 2
++    assert inv.level("A") == 10
++    assert inv.level("B") == 3
++
++
++def test_header_case_and_whitespace_insensitive(tmp_path):
++    inv = Inventory()
++    assert inv.import_csv(_csv(tmp_path, " SKU , Qty \nA,1\n")) == 1
++    assert inv.level("A") == 1
++
++
++def test_no_header(tmp_path):
++    inv = Inventory()
++    assert inv.import_csv(_csv(tmp_path, "A,10\nB,3")) == 2
++    assert inv.level("A") == 10
++    assert inv.level("B") == 3
++
++
++def test_blank_and_whitespace_lines_skipped(tmp_path):
++    inv = Inventory()
++    n = inv.import_csv(_csv(tmp_path, "\n   \nsku,qty\n\n , \nA, 5 \n,\n  B  ,2\n\n"))
++    assert n == 2
++    assert inv.level("A") == 5
++    assert inv.level("B") == 2
++
++
++def test_duplicate_skus_accumulate(tmp_path):
++    inv = Inventory()
++    inv.receive("A", 1)
++    assert inv.import_csv(_csv(tmp_path, "A,2\nA,3\n")) == 2
++    assert inv.level("A") == 6
++
++
++def test_quoted_fields(tmp_path):
++    inv = Inventory()
++    assert inv.import_csv(_csv(tmp_path, 'sku,qty\n"A,1","4"\n')) == 1
++    assert inv.level("A,1") == 4
++
++
+<email>(
++    "text, line, fragment",
++    [
++        ("sku,qty\nA,1\nB,abc\n", 3, "'abc'"),
++        ("A,3.5\n", 1, "'3.5'"),
++        ("A,\n", 1, "''"),
++        ("A,0\n", 1, "positive"),
++        ("A,-2\n", 1, "'-2'"),
++        ("A,+3\n", 1, "'+3'"),
++        ("A,３\n", 1, "positive integer"),  # fullwidth digit 3
++        ("A," + "9" * 5000 + "\n", 1, "positive integer"),  # past int() digit limit
++        # header is only recognised as the first non-blank row
++        ("A,1\nsku,qty\n", 2, "'qty'"),
++        ("A,1\nB,2,3\n", 2, "2 fields"),
++        ("A\n", 1, "2 fields"),
++        ("A,1\n ,4\n", 2, "sku is empty"),
++        # blank lines before the bad row: physical line, not data-row index
++        ("sku,qty\n\n   \nA,1\n\n,\nB,x\n", 7, "'x'"),
++        # quoted field spanning lines: later rows keep physical numbering
++        ('sku,qty\n"multi\nline",1\n\nC,bad\n', 5, "'bad'"),
++        # the multi-line record itself is reported at its first line
++        ('A,1\n"multi\nline",nope\n', 2, "'nope'"),
++    ],
++)
++def test_bad_rows(tmp_path, text, line, fragment):
++    inv = Inventory()
++    with pytest.raises(CSVImportError) as exc:
++        inv.import_csv(_csv(tmp_path, text))
++    assert exc.value.line == line
++    msg = str(exc.value)
++    assert msg.startswith(f"line {line}: ")
++    assert fragment in msg
++
++
++def test_error_message_format(tmp_path):
++    expected = r"^line 4: qty must be a positive integer, got 'abc'$"
++    with pytest.raises(CSVImportError, match=expected):
++        Inventory().import_csv(_csv(tmp_path, "sku,qty\nA,1\nB,2\nC,abc\n"))
++
++
++def test_long_bad_value_is_truncated_in_message(tmp_path):
++    with pytest.raises(CSVImportError) as exc:
++        Inventory().import_csv(_csv(tmp_path, "A," + "9" * 5000 + "\n"))
++    assert str(exc.value) == (
++        "line 1: qty must be a positive integer, got '99999999999999999999...'"
++    )
++
++
++def test_csv_module_error_gets_line_number(tmp_path):
++    # a field over the csv module's size limit raises csv.Error inside the reader
++    text = "A,1\n\n" + "B" * 200_000 + ",2\n"
++    with pytest.raises(CSVImportError) as exc:
++        Inventory().import_csv(_csv(tmp_path, text))
++    assert exc.value.line == 3
++    assert "field larger than field limit" in str(exc.value)
++
++
++def test_atomic_on_bad_row(tmp_path):
++    inv = Inventory()
++    inv.receive("A", 1)
++    with pytest.raises(CSVImportError):
++        inv.import_csv(_csv(tmp_path, "A,10\nB,5\nC,oops\n"))
++    assert inv.level("A") == 1
++    assert inv.level("B") == 0
++    assert inv.level("C") == 0
++
++
++def test_is_value_error(tmp_path):
++    assert issubclass(CSVImportError, ValueError)
++    with pytest.raises(ValueError):
++        Inventory().import_csv(_csv(tmp_path, "A,x\n"))
++
++
++def test_bom_and_crlf(tmp_path):
++    inv = Inventory()
++    p = _csv(tmp_path, b"\xef\xbb\xbfsku,qty\r\nA,4\r\n\r\nB,oops\r\n")
++    with pytest.raises(CSVImportError) as exc:
++        inv.import_csv(p)
++    assert exc.value.line == 4
++    p = _csv(tmp_path, b"\xef\xbb\xbfsku,qty\r\nA,4\r\n\r\nB,6\r\n")
++    assert inv.import_csv(p) == 2
++    assert inv.level("A") == 4
++    assert inv.level("B") == 6
++
++
+<email>(
++    "text", ["", "sku,qty\n", "\n\n", "\xef\xbb\xbf", "sku,qty\n\n  \n"]
++)
++def test_empty_or_header_only(tmp_path, text):
++    inv = Inventory()
++    assert inv.import_csv(_csv(tmp_path, text.encode("latin-1"))) == 0
++    assert inv.low_stock() == []
++
++
++def test_missing_file(tmp_path):
++    with pytest.raises(FileNotFoundError):
++        Inventory().import_csv(tmp_path / "nope.csv")
+diff --git a/tests/test_stock.py b/tests/test_stock.py
+index 47461a6..ab020c7 100644
+--- a/tests/test_stock.py
++++ b/tests/test_stock.py
+@@ -1,5 +1,5 @@
+ import pytest
+-from inventory.stock import Inventory
++from inventory.stock import Inventory, InsufficientStock
+ 
+ 
+ def test_receive_and_level():
+@@ -26,3 +26,24 @@ def test_rejects_nonpositive():
+     inv = Inventory()
+     with pytest.raises(ValueError):
+         inv.receive("A", 0)
++
++
++def test_ship_oversell_raises_and_keeps_level():
++    inv = Inventory()
++    inv.receive("A", 3)
++    with pytest.raises(InsufficientStock):
++        inv.ship("A", 4)
++    assert inv.level("A") == 3
++
++
++def test_ship_unknown_sku_raises():
++    inv = Inventory()
++    with pytest.raises(InsufficientStock):
++        inv.ship("X", 1)
++
++
++def test_ship_exact_level():
++    inv = Inventory()
++    inv.receive("A", 5)
++    inv.ship("A", 5)
++    assert inv.level("A") == 0

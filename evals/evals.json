@@ -1,0 +1,79 @@
+{
+  "skill_name": "code-orchestrator",
+  "evals": [
+    {
+      "id": 0,
+      "name": "todo-due-dates-feature",
+      "prompt": "In the todo-cli repo, add due dates. `todo add \"title\" --due 2026-10-01` should store an ISO date on the item (optional), `todo list` should show the due date next to items that have one, and there should be a new `todo overdue` command that lists open items whose due date is before today. Keep the JSON file format backwards compatible with existing files that have no due field. Add tests. Use the orchestrator workflow: plan it, delegate to workers, verify independently.",
+      "expected_output": "store.py and cli.py updated, new tests covering --due, list display, overdue and backwards-compat, full pytest suite green, a final report with acceptance criteria and evidence.",
+      "files": [
+        "fixtures/todo-cli"
+      ],
+      "assertions": [
+        "Full pytest suite passes",
+        "New tests added (suite grew beyond the original 3)",
+        "`add --due` stores ISO date on the item in the JSON file",
+        "`list` shows the due date next to dated items",
+        "`overdue` lists only open items with due < today",
+        "Completed items are excluded from `overdue`",
+        "Legacy JSON without a due field still loads for list and overdue",
+        "An item due today is not listed by `overdue` (only due < today)",
+        "An invalid --due date (2026-02-30) is rejected and not stored",
+        "Written plan with explicit, verifiable acceptance criteria exists",
+        "Final report cites the test command and its real result",
+        "Final report gives per-criterion verdict (N/M verified or per-AC PASS/FAIL)",
+        "Report surfaces open items / design decisions for the user"
+      ]
+    },
+    {
+      "id": 1,
+      "name": "inventory-bugfix-plus-csv-import",
+      "prompt": "The inventory module has a bug: shipping more than the stock level drives it negative instead of raising InsufficientStock (the exception class already exists). Fix that, and also add `Inventory.import_csv(path)` that reads a CSV with columns sku,qty and calls receive() for each row, skipping blank lines and raising a clear error naming the line number for bad rows. Tests for both. Do this properly with a plan, workers, and a verifier.",
+      "expected_output": "ship() raises InsufficientStock when qty > level and leaves stock unchanged; import_csv implemented with tests for valid file, blank lines, bad row error message with line number; all tests pass; final report with verification evidence.",
+      "files": [
+        "fixtures/inventory"
+      ],
+      "assertions": [
+        "Full pytest suite passes",
+        "New tests added (suite grew beyond the original 4)",
+        "ship() raises InsufficientStock when qty exceeds level",
+        "Stock level unchanged after a rejected ship",
+        "import_csv receives rows from a valid sku,qty CSV and skips blank lines",
+        "Bad row raises an error whose message names the line number (line 3)",
+        "ship() of exactly the stock level succeeds and leaves 0",
+        "Rows with qty 0 or a missing sku raise an error naming their line number",
+        "A comma-only row (',') is a bad row: error naming line 3, not silently skipped",
+        "A CRLF file imports the same as LF (X=5, Y=2)",
+        "Written plan with explicit, verifiable acceptance criteria exists",
+        "Final report cites the test command and its real result",
+        "Final report gives per-criterion verdict (N/M verified or per-AC PASS/FAIL)",
+        "Report surfaces open items / design decisions for the user"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "textkit-truncate-and-wrap-fix",
+      "prompt": "textkit is a zero-dep ESM string lib. Two things: (1) add `truncate(text, max, ellipsis='…')` that cuts to at most `max` characters INCLUDING the ellipsis, never splitting a surrogate pair, exported from index.js; (2) `wrap()` currently drops words longer than `width` onto their own line but doesn't split them — make it hard-break words longer than width so no line ever exceeds width. Add tests with node's built-in runner. Orchestrate it: plan, delegate to workers in parallel where possible, independent verification.",
+      "expected_output": "src/truncate.js added and exported; wrap.js hard-breaks long words; tests for truncate (incl. emoji/surrogate, max smaller than ellipsis) and for long-word wrapping; npm test green; report with criteria and evidence.",
+      "files": [
+        "fixtures/textkit"
+      ],
+      "assertions": [
+        "npm test passes with zero failures",
+        "New tests added (suite grew beyond the original 3)",
+        "truncate is exported from index.js",
+        "truncate output length never exceeds max (ellipsis included), in UTF-16 units or code points",
+        "truncate never splits a surrogate pair (emoji input)",
+        "truncate returns text unchanged when it fits, and 'abcd…' for ('abcdefgh',5)",
+        "wrap hard-breaks long words so no line exceeds width, content preserved",
+        "wrap behaviour unchanged for inputs whose words all fit",
+        "truncate(s, 0) returns '' and a custom ellipsis longer than max never exceeds max",
+        "wrap keeps a word exactly `width` long whole and hard-breaks 'abcdefghij' at 5 into 'abcde\\nfghij'",
+        "Written plan with explicit, verifiable acceptance criteria exists",
+        "Final report cites the test command and its real result",
+        "Final report gives per-criterion verdict (N/M verified or per-AC PASS/FAIL)",
+        "Report surfaces open items / design decisions for the user"
+      ]
+    }
+  ]
+}

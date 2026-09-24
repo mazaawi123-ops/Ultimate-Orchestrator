@@ -1,0 +1,50 @@
+ok   todo: reference passes 9/9 core checks
+ok   todo / mutant 'overdue includes today': caught
+ok   todo / mutant 'invalid date stored': caught
+ok   todo / mutant 'done items overdue': caught
+ok   todo / mutant 'legacy file crashes': caught
+ok   todo / mutant 'existing test weakened': caught
+ok   todo / benign test edit (import changed and a test added): passes
+ok   inventory: reference passes 10/10 core checks
+ok   inventory / mutant 'overdraw allowed': caught
+ok   inventory / mutant 'exact level rejected': caught
+ok   inventory / mutant 'comma-only row skipped': caught
+ok   inventory / mutant 'no line number': caught
+ok   inventory / mutant 'existing test weakened': caught
+ok   inventory / benign test edit (import line changed): passes
+ok   textkit: reference passes 10/10 core checks
+ok   textkit / mutant 'ellipsis overflows max': caught
+ok   textkit / mutant 'splits surrogates': caught
+ok   textkit / mutant 'no hard break': caught
+ok   textkit / mutant 'zero returns ellipsis': caught
+ok   textkit / mutant 'existing test weakened': caught
+ok   humanize: reference passes 8/8 core checks
+ok   humanize / mutant 'float arithmetic': caught
+ok   humanize / mutant 'garbage becomes 0': caught
+ok   humanize / mutant 'conjunction ignored': caught
+ok   humanize / mutant 'existing test weakened': caught
+ok   click: reference passes 7/7 core checks
+ok   click / mutant 'plain numbers rejected': caught
+ok   click / mutant 'ValueError, not click's error': caught
+ok   click / mutant 'no timedelta passthrough': caught
+ok   click / mutant 'existing test weakened': caught
+ok   qs: reference passes 10/10 core checks (excluded: eslint)
+ok   qs / mutant 'Number() without canonical check': caught
+ok   qs / mutant 'no option validation': caught
+ok   qs / mutant 'converted in the decoder (0 dropped by merge)': caught
+ok   qs / mutant 'existing test weakened': caught
+ok   windowed_strict: reference passes 8/8 core checks
+ok   windowed_strict / mutant 'eager check': caught
+ok   windowed_strict / mutant 'strict ignored': caught
+ok   windowed_strict / mutant 'padding dropped when not strict': caught
+ok   windowed_strict / mutant 'stub not updated': caught
+ok   windowed_strict / mutant 'stub updated in one overload only': caught
+ok   windowed_strict / mutant 'existing test weakened': caught
+ok   schedule_weekday: reference passes 7/7 core checks
+ok   schedule_weekday / mutant 'weekends not skipped': caught
+ok   schedule_weekday / mutant 'only Sunday skipped': caught
+ok   schedule_weekday / mutant 'Friday skipped too': caught
+ok   schedule_weekday / mutant 'missed Friday run made up at the weekend': caught
+ok   schedule_weekday / mutant 'existing test weakened': caught
+ok   schedule_weekday / benign test edit (imports reordered): passes
+ALL GRADER SELF-TESTS PASSED

@@ -1,0 +1,28 @@
+{
+  "cost_usd_estimate": 0.6826,
+  "cost_note": "Claude Code local estimate at list price; not a billing record",
+  "num_turns": 18,
+  "subtype": "success",
+  "per_model": {
+    "opus": {
+      "input": 26,
+      "output": 13362,
+      "cache_read": 627568,
+      "cache_write": 36216,
+      "cost_usd_estimate": 0.6826
+    }
+  },
+  "usage_by_agent": {
+    "main|opus": {
+      "requests": 13,
+      "input": 26,
+      "output_at_start": 171,
+      "cache_read": 627568,
+      "cache_write": 36216
+    }
+  },
+  "dispatches": [],
+  "skill_used": true,
+  "wall_seconds": 181,
+  "source": "current skill (commit 29fe7f4) + agents, told to use Direct mode"
+}

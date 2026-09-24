@@ -1,0 +1,13 @@
+run_id=20260924T013043Z-weekday
+name=weekday
+branch=orch/weekday
+from=main
+base=82a43db1b938d8fdf60103bd41f329e06c8d3651
+created=2026-09-24T01:30:43Z
+baseline_exit=0
+requires=review
+repair_cycles=1
+candidate=8e0fcec579c23131ba4405d97f181f794534304b
+status=partial
+finished=2026-09-24T01:41:09Z
+note=All criteria met; review+recheck pass on 8e0fcec. Gate blocked only by skip count 41->42 from new pytz-gated test_tz_weekday (passes with pytz, 93/93); count flags cannot be approved via approved-test-changes.

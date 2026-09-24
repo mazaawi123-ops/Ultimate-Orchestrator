@@ -1,0 +1,71 @@
+{
+  "cost_usd_estimate": 1.778,
+  "cost_note": "Claude Code local estimate at list price; not a billing record",
+  "num_turns": 2,
+  "subtype": "success",
+  "per_model": {
+    "sonnet": {
+      "input": 134,
+      "output": 43071,
+      "cache_read": 3287145,
+      "cache_write": 154796,
+      "cost_usd_estimate": 1.6074
+    },
+    "opus": {
+      "input": 6,
+      "output": 3725,
+      "cache_read": 74080,
+      "cache_write": 16252,
+      "cost_usd_estimate": 0.1706
+    }
+  },
+  "usage_by_agent": {
+    "main|sonnet": {
+      "requests": 28,
+      "input": 56,
+      "output_at_start": 184,
+      "cache_read": 1842564,
+      "cache_write": 87972
+    },
+    "model:sonnet|sonnet": {
+      "requests": 39,
+      "input": 78,
+      "output_at_start": 347,
+      "cache_read": 1444581,
+      "cache_write": 66824
+    },
+    "model:opus|opus": {
+      "requests": 3,
+      "input": 6,
+      "output_at_start": 22,
+      "cache_read": 74080,
+      "cache_write": 16252
+    }
+  },
+  "dispatches": [
+    {
+      "agent": "model:sonnet",
+      "model_param": "sonnet",
+      "description": "Implement todo due dates (T1)"
+    },
+    {
+      "agent": "model:opus",
+      "model_param": "opus",
+      "description": "Independently verify todo due-dates feature"
+    },
+    {
+      "agent": "model:sonnet",
+      "model_param": "sonnet",
+      "description": "Fix due-date ISO normalization (round 1)"
+    },
+    {
+      "agent": "model:sonnet",
+      "model_param": "sonnet",
+      "description": "Scoped re-verify due-date normalization fix"
+    }
+  ],
+  "skill_used": true,
+  "wall_seconds": 395,
+  "source": "skill v3 (commit ce2a613), Sonnet planner",
+  "usage_note": "per_model has complete token counts. usage_by_agent splits requests, input and cache tokens exactly; output_at_start is the stream's start-of-message output count, a lower bound."
+}

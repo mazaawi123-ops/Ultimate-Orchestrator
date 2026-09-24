@@ -1,0 +1,126 @@
+[
+ {
+  "task": "schedule-weekday-direct",
+  "skill_commit": "781715f",
+  "reported": "Done",
+  "helper_status": "done",
+  "candidate": "9d8c02c65b52",
+  "gate_now": "PASS",
+  "gate_output": [
+   "GATE: PASS for candidate 9d8c02c65b52c65e4054f78b2891fbed8d0c0b81",
+   "  check     check              exit=0 pass .orchestrator/logs/002-check.log",
+   "  run       pytz-tests         exit=0 pass .orchestrator/logs/003-pytz-tests.log",
+   "  run       mypy               exit=0 pass .orchestrator/logs/004-mypy.log",
+   "  run       format             exit=0 pass .orchestrator/logs/005-format.log",
+   "  run       docs               exit=0 pass .orchestrator/logs/006-docs.log"
+  ],
+  "requires": "",
+  "required_checks": "mypy,format,docs",
+  "evidence": [
+   "check:check=pass",
+   "run:pytz-tests=pass",
+   "run:mypy=pass",
+   "run:format=pass",
+   "run:docs=pass",
+   "fresh:fresh=pass"
+  ],
+  "approvals": [
+   "count:skipped=41->44  3 new tz weekday tests use make_tz_mock_job and skip without pytz like their 41 neighbours; they pass under the pytz run (id pytz-tests)"
+  ],
+  "hidden_checks_passed": true,
+  "hidden_checks_passed_retrospective": true,
+  "repo_ci_black": true,
+  "canary_seen": false,
+  "dispatches": [],
+  "cost": 1.2109,
+  "wall_min": 3.3
+ },
+ {
+  "task": "schedule-weekday-production-check",
+  "skill_commit": "781715f",
+  "reported": "Partial",
+  "helper_status": "partial",
+  "candidate": "709e84ead4f5",
+  "gate_now": "PASS",
+  "gate_output": [
+   "GATE: PASS for candidate 709e84ead4f59f85f2f192b5a6c2a57ab2afd4be",
+   "  check     check              exit=0 pass .orchestrator/logs/002-check.log",
+   "  fresh     fresh              exit=0 pass .orchestrator/logs/003-fresh.log",
+   "  run       tests-pytz         exit=0 pass .orchestrator/logs/004-tests-pytz.log",
+   "  run       format             exit=0 pass .orchestrator/logs/005-format.log",
+   "  run       mypy               exit=0 pass .orchestrator/logs/006-mypy.log"
+  ],
+  "requires": "",
+  "required_checks": "tests-pytz,format,mypy,docs,setuppy",
+  "evidence": [
+   "check:check=pass",
+   "fresh:fresh=pass",
+   "run:tests-pytz=pass",
+   "run:format=pass",
+   "run:mypy=pass",
+   "run:docs=pass",
+   "run:setuppy=pass"
+  ],
+  "approvals": [
+   "count:skipped=41->42  new test_weekday_at_timezone skips without pytz, like the other pytz tests; passes in the pytz run (tests-pytz)"
+  ],
+  "hidden_checks_passed": true,
+  "hidden_checks_passed_retrospective": true,
+  "repo_ci_black": true,
+  "canary_seen": false,
+  "dispatches": [],
+  "cost": 1.1272,
+  "wall_min": 3.4
+ },
+ {
+  "task": "schedule-weekday-reviewed",
+  "skill_commit": "781715f",
+  "reported": "Done",
+  "helper_status": "done",
+  "candidate": "156c94e96b88",
+  "gate_now": "PASS",
+  "gate_output": [
+   "GATE: PASS for candidate 156c94e96b88a6f1954ea7166cc27bae9af45e1b",
+   "  check     check              exit=0 pass .orchestrator/logs/011-check.log",
+   "  run       black              exit=0 pass .orchestrator/logs/012-black.log",
+   "  run       mypy               exit=0 pass .orchestrator/logs/013-mypy.log",
+   "  run       pytz-tests         exit=0 pass .orchestrator/logs/014-pytz-tests.log",
+   "  run       docs               exit=0 pass .orchestrator/logs/015-docs.log"
+  ],
+  "requires": "review",
+  "required_checks": "black,mypy,pytz-tests",
+  "evidence": [
+   "check:check=pass",
+   "run:black=pass",
+   "run:mypy=pass",
+   "run:pytz-tests=pass",
+   "run:docs=pass",
+   "fresh:fresh=pass",
+   "review-diff:diff=pass",
+   "review:review=pass",
+   "repair:cycle-1=open",
+   "check:check=pass",
+   "run:black=pass",
+   "run:mypy=pass",
+   "run:pytz-tests=pass",
+   "run:docs=pass",
+   "fresh:fresh=pass",
+   "review-diff:diff=pass",
+   "recheck:review=pass"
+  ],
+  "approvals": [
+   "count:skipped=41->44  3 new tz weekday tests use make_tz_mock_job and skip without pytz, like the 41 existing tz tests; they pass with pytz (pytz-tests run)",
+   "count:skipped=41->45  4 new tz weekday tests use make_tz_mock_job and skip without pytz, like the 41 existing tz tests; they pass in the pytz-tests run"
+  ],
+  "hidden_checks_passed": true,
+  "hidden_checks_passed_retrospective": false,
+  "repo_ci_black": true,
+  "canary_seen": false,
+  "dispatches": [
+   "orch-verifier",
+   "orch-rechecker"
+  ],
+  "cost": 4.3728,
+  "wall_min": 17.4
+ }
+]

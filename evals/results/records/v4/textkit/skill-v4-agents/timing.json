@@ -1,0 +1,102 @@
+{
+  "cost_usd_estimate": 2.8738,
+  "cost_note": "Claude Code local estimate at list price; not a billing record",
+  "num_turns": 6,
+  "subtype": "success",
+  "per_model": {
+    "opus": {
+      "input": 72,
+      "output": 48960,
+      "cache_read": 1853950,
+      "cache_write": 104380,
+      "cost_usd_estimate": 2.0705
+    },
+    "haiku": {
+      "input": 454,
+      "output": 25712,
+      "cache_read": 1625232,
+      "cache_write": 79638,
+      "cost_usd_estimate": 0.3911
+    },
+    "sonnet": {
+      "input": 46,
+      "output": 12584,
+      "cache_read": 875258,
+      "cache_write": 44500,
+      "cost_usd_estimate": 0.4122
+    }
+  },
+  "usage_by_agent": {
+    "main|opus": {
+      "requests": 23,
+      "input": 50,
+      "output_at_start": 428,
+      "cache_read": 1432137,
+      "cache_write": 66108
+    },
+    "orch-worker-haiku|haiku": {
+      "requests": 55,
+      "input": 446,
+      "output_at_start": 101,
+      "cache_read": 1586199,
+      "cache_write": 78096
+    },
+    "orch-verifier|opus": {
+      "requests": 11,
+      "input": 22,
+      "output_at_start": 112,
+      "cache_read": 421813,
+      "cache_write": 38272
+    },
+    "orch-worker-sonnet|sonnet": {
+      "requests": 10,
+      "input": 20,
+      "output_at_start": 33,
+      "cache_read": 382002,
+      "cache_write": 20545
+    },
+    "orch-rechecker|sonnet": {
+      "requests": 11,
+      "input": 22,
+      "output_at_start": 80,
+      "cache_read": 403684,
+      "cache_write": 22293
+    }
+  },
+  "dispatches": [
+    {
+      "agent": "orch-worker-haiku",
+      "model_param": null,
+      "description": "T1 truncate worker"
+    },
+    {
+      "agent": "orch-worker-haiku",
+      "model_param": null,
+      "description": "T2 wrap hard-break worker"
+    },
+    {
+      "agent": "orch-worker-haiku",
+      "model_param": null,
+      "description": "T2 wrap hard-break redo"
+    },
+    {
+      "agent": "orch-verifier",
+      "model_param": null,
+      "description": "Full independent verification"
+    },
+    {
+      "agent": "orch-worker-sonnet",
+      "model_param": null,
+      "description": "Fix round 1: export test + wrap len"
+    },
+    {
+      "agent": "orch-rechecker",
+      "model_param": null,
+      "description": "Scoped re-check of fix 1"
+    }
+  ],
+  "skill_used": true,
+  "wall_seconds": 686,
+  "source": "skill v4 (commit 0a162d0) with the agent files: Opus planner, Haiku/Sonnet workers, extra-high Opus verifier",
+  "usage_note": "per_model has complete token counts. usage_by_agent splits requests, input and cache tokens exactly; output_at_start is the stream's start-of-message output count, a lower bound."
+}

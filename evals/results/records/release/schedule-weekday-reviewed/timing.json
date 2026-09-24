@@ -1,0 +1,61 @@
+{
+  "cost_usd_estimate": 4.3728,
+  "cost_note": "Claude Code local estimate at list price; not a billing record",
+  "num_turns": 3,
+  "subtype": "success",
+  "per_model": {
+    "opus": {
+      "input": 112,
+      "output": 64840,
+      "cache_read": 4167129,
+      "cache_write": 185217,
+      "cost_usd_estimate": 3.3186
+    },
+    "sonnet": {
+      "input": 82,
+      "output": 34115,
+      "cache_read": 2402452,
+      "cache_write": 92955,
+      "cost_usd_estimate": 1.0542
+    }
+  },
+  "usage_by_agent": {
+    "main|opus": {
+      "requests": 37,
+      "input": 74,
+      "output_at_start": 678,
+      "cache_read": 2891532,
+      "cache_write": 87277
+    },
+    "orch-verifier|opus": {
+      "requests": 19,
+      "input": 38,
+      "output_at_start": 147,
+      "cache_read": 1275597,
+      "cache_write": 97940
+    },
+    "orch-rechecker|sonnet": {
+      "requests": 41,
+      "input": 82,
+      "output_at_start": 306,
+      "cache_read": 2402452,
+      "cache_write": 92955
+    }
+  },
+  "dispatches": [
+    {
+      "agent": "orch-verifier",
+      "model_param": null,
+      "description": "Independent review of weekday candidate"
+    },
+    {
+      "agent": "orch-rechecker",
+      "model_param": null,
+      "description": "Re-check weekday DST repair"
+    }
+  ],
+  "skill_used": true,
+  "wall_seconds": 1043,
+  "source": "final revision 781715f, told to use Reviewed mode",
+  "usage_note": "per_model has complete token counts. usage_by_agent splits requests, input and cache tokens exactly; output_at_start is the stream's start-of-message output count, a lower bound."
+}

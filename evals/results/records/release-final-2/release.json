@@ -1,0 +1,16 @@
+{
+ "skill_commit": "c190920b125d8d84ea8cf01383307d6646270fe1",
+ "claude_version": "2.1.281 (Claude Code)",
+ "started": "2026-09-24T10:38:30Z",
+ "skill_files_sha256": {
+  "code-orchestrator/SKILL.md": "8df9ebc638dd02f166cafea4612e12b5cc708860a673a63a9436b79d91ed408b",
+  "code-orchestrator/references/reviewer-brief.md": "df29931ce5bcb4b28b8c1327af453c989fe5abe77c3c4173a981a83050b0513d",
+  "code-orchestrator/references/run-record.md": "502c182c7b300b2d1de7c9a2934554c8187604ef2afc9c2fc0a1ee609126aece",
+  "code-orchestrator/references/worker-brief.md": "bba31a8c6554b027f5ca1759ce74b88915e571a4b66aec29275d4f77770431be",
+  "code-orchestrator/scripts/orch.sh": "7202177f430a9139984f68262264011f2540b9408dae0d790a30c57ddca72435",
+  "agents/orch-rechecker.md": "9f61c211e2232e33ef13158528130471bc6e6340210f695f224b9dbd77d20205",
+  "agents/orch-verifier.md": "300ab55b43d734e4b871b5a379c0011719f64fe5ee3299fb308258fd95fbb798",
+  "agents/orch-worker-haiku.md": "6ba17d811259a181cacf171457c68e91bfbabaf3dff44b22eba643d587cf169d",
+  "agents/orch-worker-sonnet.md": "f3bb4113b5463556b3571a67dfd79c329e63881fa14b71d25853001355ccc5b8"
+ }
+}

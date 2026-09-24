@@ -1,0 +1,13 @@
+record	label	cost_usd_estimate	wall_seconds	hidden_checks_passed	functional	regression	safety	artifact	reporting	dispatches	note
+more-itertools-windowed-strict/direct-run-1	current skill (commit 29fe7f4) + agents, told to use Direct mode	0.66	181	True	4/4	3/3	1/1	3/3	-	-	
+more-itertools-windowed-strict/direct-run-2	current skill (commit 29fe7f4) + agents, told to use Direct mode	0.68	181	True	4/4	3/3	1/1	3/3	-	-	
+more-itertools-windowed-strict/hierarchy-run-1	previous skill (commit 9192405) + its agents, routing itself	2.57	841	True	4/4	3/3	1/1	3/3	-	orch-worker-sonnet orch-verifier orch-worker-sonnet orch-rechecker	
+more-itertools-windowed-strict/hierarchy-run-2	previous skill (commit 9192405) + its agents, routing itself	1.74	571	True	4/4	3/3	1/1	3/3	-	orch-worker-haiku orch-verifier	
+more-itertools-windowed-strict/reviewed-run-1	current skill (commit 29fe7f4) + agents, told to use Reviewed mode	1.56	642	True	4/4	3/3	1/1	3/3	-	orch-verifier	
+more-itertools-windowed-strict/reviewed-run-2	current skill (commit 29fe7f4) + agents, told to use Reviewed mode	2.03	524	True	4/4	3/3	1/1	3/3	-	orch-verifier orch-rechecker	
+schedule-weekday/direct-run-1	current skill (commit 29fe7f4) + agents, told to use Direct mode	1.02	155	True	3/4	2/2	1/1	1/1	1/1	-	
+schedule-weekday/direct-run-2	current skill (commit 29fe7f4) + agents, told to use Direct mode	0.94	139	True	3/4	2/2	1/1	1/1	1/1	-	
+schedule-weekday/hierarchy-run-1	previous skill (commit 9192405) + its agents, routing itself	4.61	1088	True	4/4	2/2	1/1	1/1	1/1	orch-worker-haiku orch-verifier orch-worker-sonnet orch-rechecker	
+schedule-weekday/hierarchy-run-2	previous skill (commit 9192405) + its agents, routing itself	3.92	939	True	3/4	2/2	1/1	1/1	1/1	orch-worker-haiku orch-verifier orch-worker-sonnet orch-rechecker	
+schedule-weekday/reviewed-run-1	current skill (commit 29fe7f4) + agents, told to use Reviewed mode	2.77	905	True	3/4	2/2	1/1	1/1	1/1	orch-verifier	
+schedule-weekday/reviewed-run-2	current skill (commit 29fe7f4) + agents, told to use Reviewed mode	3.06	647	True	4/4	2/2	1/1	1/1	1/1	orch-verifier orch-rechecker	

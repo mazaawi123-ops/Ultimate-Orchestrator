@@ -1,0 +1,11 @@
+# Repo notes (click)
+- Layout: src/click/ (package), tests/ (pytest), docs/*.md (MyST + eval-rst autoclass), CHANGES.md (newest version first; "## Version 8.6.0 / Unreleased" is the open one).
+- Tests: `python3 -m pytest -q` (PYTHONPATH=src already set). BASE: 2241 passed, 24 skipped, 1 xfailed, 0 failures. "31000 deselected" is normal (stress tests are deselected by addopts).
+- Lint: `ruff check src tests && ruff format --check src tests && mypy src` — all clean at BASE. `pyright src/click/types.py` → 0 errors, 1 warning at BASE.
+- Param types live in src/click/types.py. Model to copy: `class DateTime(ParamType[datetime])` (~line 522): `name`, `convert(self, value: t.Any, param: Parameter | None, ctx: Context | None) -> datetime`, passthrough via isinstance, errors via `self.fail(msg, param, ctx)` (raises BadParameter → CLI prints "Invalid value for '--x': <msg>"), `__repr__`.
+- User-facing messages use gettext: `_("...").format(...)`. `from __future__ import annotations` is on.
+- Exports: src/click/__init__.py has one line per name, e.g. `from .types import DateTime as DateTime` (alphabetical within the `.types` block).
+- tests/test_imports.py restricts which stdlib modules click may import at import time: `re` and `datetime` are allowed; `math` is NOT. Don't import math.
+- Per-type tests live in tests/test_types/test_<Name>.py (see test_FloatRange.py: parametrize + `type.convert(value, None, None)`, `pytest.raises(click.BadParameter)`).
+- tests/test_info_dict.py has a parametrized list of (object, expected info dict) cases, e.g. the DateTime case at ~line 120.
+- Docs listing types: docs/api.md (`.. autoclass:: DateTime` block ~line 255) and docs/parameter-types.md (`*   .. autoclass:: DateTime` + `:noindex:` ~line 132).

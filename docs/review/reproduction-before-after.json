@@ -1,0 +1,42 @@
+{
+  "before": {
+    "helper_sha256": "8219a0e111f33f7e0ae390a2206bdd18c6ee9db7b10dac75e693a2d7ca5f192f",
+    "source_commit": "919240501fd5bc50b39438f15ee586a336ef133a",
+    "reproduced": {
+      "dirty_check_and_empty_review_diff": true,
+      "clean_room_not_credential_or_network_isolation": true,
+      "shared_dependency_directory": true,
+      "add_only_test_skip": true
+    }
+  },
+  "after": {
+    "reproduced": {
+      "dirty_check_and_empty_review_diff": false,
+      "clean_room_not_credential_or_network_isolation": false,
+      "shared_dependency_directory": false,
+      "add_only_test_skip": false
+    },
+    "clean_room_detail": {
+      "default": {
+        "exit": 0,
+        "reachable": {
+          "loopback_http": true,
+          "outside_file": false,
+          "outside_file_by_absolute_path": true,
+          "git_prefixed_variable": false,
+          "tracked_env_file": true
+        }
+      },
+      "offline": {
+        "exit": 0,
+        "reachable": {
+          "loopback_http": false,
+          "outside_file": false,
+          "outside_file_by_absolute_path": true,
+          "git_prefixed_variable": false,
+          "tracked_env_file": true
+        }
+      }
+    }
+  }
+}

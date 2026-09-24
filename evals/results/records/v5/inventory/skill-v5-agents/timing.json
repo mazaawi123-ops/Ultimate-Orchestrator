@@ -1,0 +1,92 @@
+{
+  "cost_usd_estimate": 3.0911,
+  "cost_note": "Claude Code local estimate at list price; not a billing record",
+  "num_turns": 6,
+  "subtype": "success",
+  "per_model": {
+    "opus": {
+      "input": 54,
+      "output": 47214,
+      "cache_read": 1361532,
+      "cache_write": 125506,
+      "cost_usd_estimate": 2.0139
+    },
+    "haiku": {
+      "input": 306,
+      "output": 19915,
+      "cache_read": 1510345,
+      "cache_write": 55707,
+      "cost_usd_estimate": 0.3205
+    },
+    "sonnet": {
+      "input": 52,
+      "output": 22612,
+      "cache_read": 1199587,
+      "cache_write": 116192,
+      "cost_usd_estimate": 0.7566
+    }
+  },
+  "usage_by_agent": {
+    "main|opus": {
+      "requests": 17,
+      "input": 36,
+      "output_at_start": 290,
+      "cache_read": 970519,
+      "cache_write": 56532
+    },
+    "orch-worker-haiku|haiku": {
+      "requests": 38,
+      "input": 306,
+      "output_at_start": 82,
+      "cache_read": 1510345,
+      "cache_write": 55707
+    },
+    "orch-verifier|opus": {
+      "requests": 9,
+      "input": 18,
+      "output_at_start": 68,
+      "cache_read": 391013,
+      "cache_write": 68974
+    },
+    "orch-worker-sonnet|sonnet": {
+      "requests": 16,
+      "input": 32,
+      "output_at_start": 141,
+      "cache_read": 751674,
+      "cache_write": 59744
+    },
+    "orch-rechecker|sonnet": {
+      "requests": 8,
+      "input": 16,
+      "output_at_start": 45,
+      "cache_read": 333011,
+      "cache_write": 55158
+    }
+  },
+  "dispatches": [
+    {
+      "agent": "orch-worker-haiku",
+      "model_param": null,
+      "description": "T1: ship fix + import_csv"
+    },
+    {
+      "agent": "orch-verifier",
+      "model_param": null,
+      "description": "Verify T1 independently"
+    },
+    {
+      "agent": "orch-worker-sonnet",
+      "model_param": null,
+      "description": "Fix round 1 for T1"
+    },
+    {
+      "agent": "orch-rechecker",
+      "model_param": null,
+      "description": "Scoped re-check of fix 1"
+    }
+  ],
+  "skill_used": true,
+  "wall_seconds": 801,
+  "source": "skill v5 (commit 27b8315) with the agent files: fail-loudly re-run",
+  "usage_note": "per_model has complete token counts. usage_by_agent splits requests, input and cache tokens exactly; output_at_start is the stream's start-of-message output count, a lower bound."
+}

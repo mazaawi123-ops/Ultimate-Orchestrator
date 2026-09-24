@@ -1,0 +1,47 @@
+{
+  "cost_usd_estimate": 1.6989,
+  "cost_note": "Claude Code local estimate at list price; not a billing record",
+  "num_turns": 8,
+  "subtype": "success",
+  "per_model": {
+    "opus": {
+      "input": 80,
+      "output": 36469,
+      "cache_read": 1537818,
+      "cache_write": 111056,
+      "cost_usd_estimate": 1.6989
+    }
+  },
+  "usage_by_agent": {
+    "main|opus": {
+      "requests": 14,
+      "input": 30,
+      "output_at_start": 132,
+      "cache_read": 636783,
+      "cache_write": 35460
+    },
+    "general-purpose|opus": {
+      "requests": 24,
+      "input": 48,
+      "output_at_start": 228,
+      "cache_read": 851659,
+      "cache_write": 74870
+    }
+  },
+  "dispatches": [
+    {
+      "agent": "general-purpose",
+      "model_param": null,
+      "description": "Build click.Duration type"
+    },
+    {
+      "agent": "general-purpose",
+      "model_param": null,
+      "description": "Verify click.Duration change"
+    }
+  ],
+  "skill_used": false,
+  "wall_seconds": 337,
+  "source": "Opus, no skill; prompt asks to plan, delegate, verify",
+  "usage_note": "per_model has complete token counts. usage_by_agent splits requests, input and cache tokens exactly; output_at_start is the stream's start-of-message output count, a lower bound."
+}

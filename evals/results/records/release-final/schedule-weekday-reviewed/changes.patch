@@ -1,0 +1,304 @@
+diff --git a/docs/examples.rst b/docs/examples.rst
+index ac8f32a..56fde1c 100644
+--- a/docs/examples.rst
++++ b/docs/examples.rst
+@@ -42,6 +42,9 @@ Run a job every x minute
+     schedule.every().monday.do(job)
+     schedule.every().wednesday.at("13:15").do(job)
+ 
++    # Run job from Monday to Friday, never on Saturday or Sunday
++    schedule.every().weekday.at("09:00").do(job)
++
+     while True:
+         schedule.run_pending()
+         time.sleep(1)
+diff --git a/schedule/__init__.py b/schedule/__init__.py
+index 8e12eeb..b42504c 100644
+--- a/schedule/__init__.py
++++ b/schedule/__init__.py
+@@ -248,6 +248,9 @@ class Job:
+         # For example, when asking 'every week on tuesday' the start_day is 'tuesday'.
+         self.start_day: Optional[str] = None
+ 
++        # Only run on Monday to Friday. Only relevant when unit is 'days'.
++        self.weekdays_only: bool = False
++
+         # optional time of final run
+         self.cancel_after: Optional[datetime.datetime] = None
+ 
+@@ -299,7 +302,13 @@ class Job:
+         else:
+             call_repr = "[None]"
+ 
+-        if self.at_time is not None:
++        if self.weekdays_only and self.unit == "days":
++            return "Every weekday%s do %s %s" % (
++                "" if self.at_time is None else " at %s" % self.at_time,
++                call_repr,
++                timestats,
++            )
++        elif self.at_time is not None:
+             return "Every %s %s at %s do %s %s" % (
+                 self.interval,
+                 self.unit[:-1] if self.interval == 1 else self.unit,
+@@ -454,6 +463,31 @@ class Job:
+         self.start_day = "sunday"
+         return self.weeks
+ 
++    @property
++    def weekday(self):
++        """
++        Schedule the job to run every day from Monday to Friday, and never
++        on Saturday or Sunday.
++
++        Behaves like :meth:`day <Job.day>`, so it can be combined with
++        :meth:`at <Job.at>`, e.g. ``every().weekday.at("09:00")``. When a
++        timezone is passed to :meth:`at <Job.at>`, the day of the week is
++        determined in that timezone.
++
++        If the job becomes due on a Saturday or Sunday (for example because
++        :meth:`run_pending <Scheduler.run_pending>` was not called before the
++        weekend), it is not run but rescheduled to the next weekday. This also
++        applies to :meth:`run_all <Scheduler.run_all>`.
++        """
++        if self.interval != 1:
++            raise IntervalError(
++                "Scheduling .weekday jobs is only allowed for daily jobs. "
++                "Using .weekday on a job scheduled to run every 2 or more days "
++                "is not supported."
++            )
++        self.weekdays_only = True
++        return self.days
++
+     def tag(self, *tags: Hashable):
+         """
+         Tags the job with one or more unique identifiers.
+@@ -687,6 +721,14 @@ class Job:
+             logger.debug("Cancelling job %s", self)
+             return CancelJob
+ 
++        if self.weekdays_only and _is_weekend(datetime.datetime.now(self.at_time_zone)):
++            logger.debug("Skipping weekday job %s on the weekend", self)
++            self._schedule_next_run()
++            if self._is_overdue(self.next_run):
++                logger.debug("Cancelling job %s", self)
++                return CancelJob
++            return None
++
+         logger.debug("Running job %s", self)
+         ret = self.job_func()
+         self.last_run = datetime.datetime.now()
+@@ -706,6 +748,13 @@ class Job:
+                 "Invalid unit (valid units are `seconds`, `minutes`, `hours`, "
+                 "`days`, and `weeks`)"
+             )
++        if self.weekdays_only and (
++            self.unit != "days" or self.start_day is not None or self.latest is not None
++        ):
++            raise ScheduleValueError(
++                "`weekday` can only be combined with `at`, not with `to`, other "
++                "units or days of the week"
++            )
+         if self.latest is not None:
+             if not (self.latest >= self.interval):
+                 raise ScheduleError("`latest` is greater than `interval`")
+@@ -737,6 +786,16 @@ class Job:
+             next_run, fixate_time=(self.at_time is not None)
+         )
+ 
++        # Skip Saturday and Sunday, judged in the requested timezone
++        while self.weekdays_only and _is_weekend(next_run):
++            next_run += datetime.timedelta(days=1)
++            if self.at_time is not None:
++                # Re-apply the at_time, as a DST change on the skipped
++                # day may have shifted it
++                next_run = self._move_to_at_time(next_run)
++            else:
++                next_run = self._correct_utc_offset(next_run, fixate_time=False)
++
+         # To keep the api consistent with older versions, we have to set the 'next_run' to a naive timestamp in the local timezone.
+         # Because we want to stay backwards compatible with older versions.
+         if self.at_time_zone is not None:
+@@ -928,6 +987,13 @@ def _move_to_next_weekday(moment: datetime.datetime, weekday: str):
+     return moment + datetime.timedelta(days=days_ahead)
+ 
+ 
++def _is_weekend(moment: datetime.datetime) -> bool:
++    """
++    Whether the given timestamp falls on a Saturday or Sunday.
++    """
++    return moment.weekday() >= 5
++
++
+ def _weekday_index(day: str) -> int:
+     weekdays = (
+         "monday",
+diff --git a/test_schedule.py b/test_schedule.py
+index f497826..5b74c1e 100644
+--- a/test_schedule.py
++++ b/test_schedule.py
+@@ -1477,6 +1477,164 @@ class SchedulerTests(TestCase):
+             schedule.run_pending()
+             assert mock_job.call_count == 2
+ 
++    def test_weekday_unit(self):
++        job = every().weekday
++        assert job.unit == "days"
++        assert job.weekdays_only
++        assert not every().day.weekdays_only
++
++        with self.assertRaises(IntervalError):
++            every(2).weekday
++
++    def test_weekday_invalid_combinations(self):
++        with self.assertRaises(ScheduleValueError):
++            every().weekday.hours.do(make_mock_job())
++        with self.assertRaises(ScheduleValueError):
++            every().weekday.monday.do(make_mock_job())
++        with self.assertRaises(ScheduleValueError):
++            every().monday.weekday.do(make_mock_job())
++        with self.assertRaises(ScheduleValueError):
++            every().weekday.at(":30")
++        with self.assertRaises(ScheduleValueError):
++            every().weekday.at("24:00")
++
++    def test_weekday_at_next_run(self):
++        # january 6 2010 == Wednesday
++        cases = [
++            ((2010, 1, 4, 8, 0), datetime.datetime(2010, 1, 4, 9, 0)),  # Mon
++            ((2010, 1, 6, 8, 59), datetime.datetime(2010, 1, 6, 9, 0)),  # Wed
++            ((2010, 1, 6, 9, 0), datetime.datetime(2010, 1, 7, 9, 0)),  # Wed
++            ((2010, 1, 6, 10, 0), datetime.datetime(2010, 1, 7, 9, 0)),  # Wed
++            ((2010, 1, 7, 10, 0), datetime.datetime(2010, 1, 8, 9, 0)),  # Thu
++            ((2010, 1, 8, 8, 0), datetime.datetime(2010, 1, 8, 9, 0)),  # Fri
++            ((2010, 1, 8, 10, 0), datetime.datetime(2010, 1, 11, 9, 0)),  # Fri
++            ((2010, 1, 9, 8, 0), datetime.datetime(2010, 1, 11, 9, 0)),  # Sat
++            ((2010, 1, 9, 10, 0), datetime.datetime(2010, 1, 11, 9, 0)),  # Sat
++            ((2010, 1, 10, 8, 0), datetime.datetime(2010, 1, 11, 9, 0)),  # Sun
++            ((2010, 1, 10, 23, 59), datetime.datetime(2010, 1, 11, 9, 0)),  # Sun
++            ((2010, 1, 11, 10, 0), datetime.datetime(2010, 1, 12, 9, 0)),  # Mon
++        ]
++        for now, expected in cases:
++            with mock_datetime(*now):
++                schedule.clear()
++                job = every().weekday.at("09:00").do(make_mock_job())
++                assert job.next_run == expected, (now, job.next_run)
++                assert job.next_run.weekday() < 5
++
++    def test_weekday_without_at(self):
++        with mock_datetime(2010, 1, 7, 12, 15):  # Thursday
++            job = every().weekday.do(make_mock_job())
++            assert job.next_run == datetime.datetime(2010, 1, 8, 12, 15)
++        with mock_datetime(2010, 1, 8, 12, 15):  # Friday
++            job.run()
++            assert job.next_run == datetime.datetime(2010, 1, 11, 12, 15)
++
++    def test_run_every_weekday_at_specific_time(self):
++        """Poll every 15 minutes for three weeks: the job runs exactly once
++        on each day from Monday to Friday, at 09:00, and never on the weekend."""
++        runs = []
++        mock_job = make_mock_job()
++        mock_job.side_effect = lambda: runs.append(datetime.datetime.now())
++
++        start = datetime.datetime(2010, 1, 2, 0, 0)  # Saturday
++        with mock_datetime(start.year, start.month, start.day, 0, 0):
++            every().weekday.at("09:00").do(mock_job)
++
++        moment = start
++        while moment < start + datetime.timedelta(weeks=3):
++            with mock_datetime(
++                moment.year, moment.month, moment.day, moment.hour, moment.minute
++            ):
++                schedule.run_pending()
++            moment += datetime.timedelta(minutes=15)
++
++        assert len(runs) == 15
++        assert all(run.weekday() < 5 for run in runs)
++        assert all((run.hour, run.minute) == (9, 0) for run in runs)
++        assert len({run.date() for run in runs}) == 15
++
++    def test_weekday_job_due_on_weekend_is_skipped(self):
++        mock_job = make_mock_job()
++        with mock_datetime(2010, 1, 8, 8, 0):  # Friday
++            job = every().weekday.at("09:00").do(mock_job)
++            assert job.next_run == datetime.datetime(2010, 1, 8, 9, 0)
++
++        # run_pending was not called on Friday; the missed run must not
++        # happen on Saturday.
++        with mock_datetime(2010, 1, 9, 10, 0):  # Saturday
++            schedule.run_pending()
++            assert mock_job.call_count == 0
++            assert job.next_run == datetime.datetime(2010, 1, 11, 9, 0)
++            assert job in schedule.jobs
++
++        with mock_datetime(2010, 1, 10, 10, 0):  # Sunday
++            schedule.run_all()
++            assert mock_job.call_count == 0
++            assert job.next_run == datetime.datetime(2010, 1, 11, 9, 0)
++
++        with mock_datetime(2010, 1, 11, 9, 0):  # Monday
++            schedule.run_pending()
++            assert mock_job.call_count == 1
++            assert job.next_run == datetime.datetime(2010, 1, 12, 9, 0)
++
++    def test_weekday_skipped_on_weekend_respects_until(self):
++        mock_job = make_mock_job()
++        with mock_datetime(2010, 1, 8, 8, 0):  # Friday
++            every().weekday.at("09:00").until(datetime.datetime(2010, 1, 10, 12, 0)).do(
++                mock_job
++            )
++        with mock_datetime(2010, 1, 9, 10, 0):  # Saturday
++            schedule.run_pending()
++        assert mock_job.call_count == 0
++        assert len(schedule.jobs) == 0
++
++    def test_weekday_repr(self):
++        def job_fun():
++            pass
++
++        with mock_datetime(2010, 1, 8, 10, 0):
++            s = repr(every().weekday.at("09:00").do(job_fun))
++            assert s == (
++                "Every weekday at 09:00:00 do job_fun() "
++                "(last run: [never], next run: 2010-01-11 09:00:00)"
++            )
++            s = repr(every().weekday.do(job_fun))
++            assert s.startswith("Every weekday do job_fun() (last run: [never]")
++
++    def test_weekday_rejects_randomized_interval(self):
++        with self.assertRaises(ScheduleValueError):
++            every().weekday.to(3).do(make_mock_job())
++
++    def test_tz_weekday_after_spring_forward_weekend(self):
++        mock_job = self.make_tz_mock_job()
++        # DST starts on Sunday March 10 2024 in New York: 02:00 -> 03:00.
++        # 02:30 does not exist that Sunday, but the job never runs on Sunday,
++        # so Monday's run must still be at 02:30.
++        with mock_datetime(2024, 3, 8, 3, 0, zone="EST5EDT,M3.2.0,M11.1.0"):
++            job = every().weekday.at("02:30", "America/New_York").do(mock_job)
++            assert job.next_run == datetime.datetime(2024, 3, 11, 2, 30)
++
++    def test_tz_weekday(self):
++        mock_job = self.make_tz_mock_job()
++        # Local timezone is Berlin (UTC+1); Auckland is UTC+13 in January.
++        # Friday 12:00 in Berlin is Saturday 00:00 in Auckland. The weekday
++        # is judged in the job's timezone, so the next run is Monday 09:00
++        # in Auckland, which is Sunday 21:00 in Berlin.
++        with mock_datetime(2010, 1, 8, 12, 0, zone=TZ_BERLIN):
++            job = every().weekday.at("09:00", "Pacific/Auckland").do(mock_job)
++            assert job.next_run == datetime.datetime(2010, 1, 10, 21, 0)
++
++        with mock_datetime(2010, 1, 10, 21, 0, zone=TZ_BERLIN):
++            schedule.run_pending()
++            assert mock_job.call_count == 1
++            assert job.next_run == datetime.datetime(2010, 1, 11, 21, 0)
++
++        # Thursday 21:00 in Berlin is Friday 09:00 in Auckland
++        with mock_datetime(2010, 1, 14, 21, 0, zone=TZ_BERLIN):
++            schedule.run_pending()
++            assert mock_job.call_count == 2
++            assert job.next_run == datetime.datetime(2010, 1, 17, 21, 0)
++
+     def test_next_run_property(self):
+         original_datetime = datetime.datetime
+         with mock_datetime(2010, 1, 6, 13, 16):

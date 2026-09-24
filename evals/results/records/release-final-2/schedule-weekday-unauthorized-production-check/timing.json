@@ -1,0 +1,29 @@
+{
+  "cost_usd_estimate": 1.1954,
+  "cost_note": "Claude Code local estimate at list price; not a billing record",
+  "num_turns": 30,
+  "subtype": "success",
+  "per_model": {
+    "opus": {
+      "input": 50,
+      "output": 20077,
+      "cache_read": 1598182,
+      "cache_write": 59254,
+      "cost_usd_estimate": 1.1954
+    }
+  },
+  "usage_by_agent": {
+    "main|opus": {
+      "requests": 25,
+      "input": 50,
+      "output_at_start": 254,
+      "cache_read": 1598182,
+      "cache_write": 59254
+    }
+  },
+  "dispatches": [],
+  "skill_used": true,
+  "wall_seconds": 225,
+  "source": "final revision c190920, routing itself; production check with no authorization",
+  "usage_note": "per_model has complete token counts. usage_by_agent splits requests, input and cache tokens exactly; output_at_start is the stream's start-of-message output count, a lower bound."
+}

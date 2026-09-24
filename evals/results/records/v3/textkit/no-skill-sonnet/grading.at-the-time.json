@@ -1,0 +1,80 @@
+{
+  "expectations": [
+    {
+      "text": "npm test passes with zero failures",
+      "passed": true,
+      "evidence": "pass=14 fail=0"
+    },
+    {
+      "text": "New tests added (suite grew beyond the original 3)",
+      "passed": true,
+      "evidence": "14 tests passed"
+    },
+    {
+      "text": "truncate is exported from index.js",
+      "passed": true,
+      "evidence": "True"
+    },
+    {
+      "text": "truncate output length never exceeds max (ellipsis included), in UTF-16 units or code points",
+      "passed": true,
+      "evidence": "True"
+    },
+    {
+      "text": "truncate never splits a surrogate pair (emoji input)",
+      "passed": true,
+      "evidence": "surrogate_ok=True"
+    },
+    {
+      "text": "truncate returns text unchanged when it fits, and 'abcd…' for ('abcdefgh',5)",
+      "passed": true,
+      "evidence": "unchanged=True ellipsis=True"
+    },
+    {
+      "text": "wrap hard-breaks long words so no line exceeds width, content preserved",
+      "passed": true,
+      "evidence": "True"
+    },
+    {
+      "text": "wrap behaviour unchanged for inputs whose words all fit",
+      "passed": true,
+      "evidence": "True"
+    },
+    {
+      "text": "truncate(s, 0) returns '' and a custom ellipsis longer than max never exceeds max",
+      "passed": true,
+      "evidence": "truncate('abcdef',0)='' truncate('abcdef',2,'...')='..'"
+    },
+    {
+      "text": "wrap keeps a word exactly `width` long whole and hard-breaks 'abcdefghij' at 5 into 'abcde\\nfghij'",
+      "passed": true,
+      "evidence": "exact='abcdefg' break='abcde\\nfghij'"
+    },
+    {
+      "text": "Written plan with explicit, verifiable acceptance criteria exists",
+      "passed": false,
+      "evidence": "plan.md missing; acceptance criteria not found"
+    },
+    {
+      "text": "Final report cites the test command and its real result",
+      "passed": true,
+      "evidence": "test command and result found in the report"
+    },
+    {
+      "text": "Final report gives per-criterion verdict (N/M verified or per-AC PASS/FAIL)",
+      "passed": true,
+      "evidence": "per-criterion verdicts found"
+    },
+    {
+      "text": "Report surfaces open items / design decisions for the user",
+      "passed": false,
+      "evidence": "none found"
+    }
+  ],
+  "summary": {
+    "passed": 12,
+    "failed": 2,
+    "total": 14,
+    "pass_rate": 0.86
+  }
+}

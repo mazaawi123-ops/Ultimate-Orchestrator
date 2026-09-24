@@ -1,0 +1,237 @@
+diff --git a/README.md b/README.md
+index 6996180..6e01982 100644
+--- a/README.md
++++ b/README.md
+@@ -1,3 +1,3 @@
+ # todo-cli
+ Tiny stdlib-only todo CLI. Run tests with `python -m pytest -q`.
+-Usage: `python -m todo.cli add "title"`, `python -m todo.cli list [--all]`, `python -m todo.cli done <id>`.
++Usage: `python -m todo.cli add "title" [--due YYYY-MM-DD]`, `python -m todo.cli list [--all]`, `python -m todo.cli done <id>`, `python -m todo.cli overdue`.
+diff --git a/tests/test_cli.py b/tests/test_cli.py
+new file mode 100644
+index 0000000..5ae5dfb
+--- /dev/null
++++ b/tests/test_cli.py
+@@ -0,0 +1,51 @@
++import json
++
++import pytest
++
++from todo.cli import main
++
++
++def test_add_with_due_and_list_shows_due(tmp_path, capsys):
++    db = tmp_path / "db.json"
++    main(["--db", str(db), "add", "call bank", "--due", "2026-10-01"])
++    capsys.readouterr()
++    main(["--db", str(db), "list"])
++    out = capsys.readouterr().out
++    assert "call bank (due 2026-10-01)" in out
++
++
++def test_add_without_due_prints_no_due_suffix(tmp_path, capsys):
++    db = tmp_path / "db.json"
++    main(["--db", str(db), "add", "no due item"])
++    capsys.readouterr()
++    main(["--db", str(db), "list"])
++    out = capsys.readouterr().out
++    assert out.strip() == "[ ] #1 no due item"
++
++
++def test_add_with_invalid_due_fails_cleanly(tmp_path, capsys):
++    db = tmp_path / "db.json"
++    with pytest.raises(SystemExit) as exc_info:
++        main(["--db", str(db), "add", "bad date", "--due", "not-a-date"])
++    assert exc_info.value.code != 0
++    err = capsys.readouterr().err + capsys.readouterr().out
++    assert not db.exists()
++
++
++def test_add_with_basic_iso_due_is_normalized_to_yyyy_mm_dd(tmp_path, capsys):
++    db = tmp_path / "db.json"
++    main(["--db", str(db), "add", "title", "--due", "20261001"])
++    capsys.readouterr()
++    data = json.loads(db.read_text())
++    items = data["items"] if isinstance(data, dict) and "items" in data else data
++    assert items[0]["due"] == "2026-10-01"
++
++
++def test_overdue_subcommand_lists_open_overdue_items(tmp_path, capsys):
++    db = tmp_path / "db.json"
++    main(["--db", str(db), "add", "past due", "--due", "2020-01-01"])
++    main(["--db", str(db), "add", "future", "--due", "2099-01-01"])
++    capsys.readouterr()
++    main(["--db", str(db), "overdue"])
++    out = capsys.readouterr().out
++    assert out.strip() == "[ ] #1 past due (due 2020-01-01)"
+diff --git a/tests/test_store.py b/tests/test_store.py
+index d49c6c1..16f462f 100644
+--- a/tests/test_store.py
++++ b/tests/test_store.py
+@@ -1,3 +1,6 @@
++import json
++from datetime import date
++
+ from todo.store import Store
+ 
+ 
+@@ -20,3 +23,60 @@ def test_persists(tmp_path):
+     p = tmp_path / "db.json"
+     Store(p).add("a")
+     assert Store(p).list()[0]["title"] == "a"
++
++
++def test_add_with_due_date(tmp_path):
++    s = Store(tmp_path / "db.json")
++    item = s.add("pay rent", due="2026-10-01")
++    assert item["due"] == "2026-10-01"
++    assert s.list()[0]["due"] == "2026-10-01"
++
++
++def test_add_without_due_has_no_due_date(tmp_path):
++    s = Store(tmp_path / "db.json")
++    item = s.add("no due")
++    assert item.get("due") is None
++
++
++def test_overdue_excludes_item_due_today(tmp_path):
++    s = Store(tmp_path / "db.json")
++    s.add("today", due="2026-09-23")
++    assert s.overdue(today=date(2026, 9, 23)) == []
++
++
++def test_overdue_includes_item_due_yesterday(tmp_path):
++    s = Store(tmp_path / "db.json")
++    item = s.add("yesterday", due="2026-09-22")
++    result = s.overdue(today=date(2026, 9, 23))
++    assert [i["id"] for i in result] == [item["id"]]
++
++
++def test_overdue_excludes_future_due_date(tmp_path):
++    s = Store(tmp_path / "db.json")
++    s.add("future", due="2026-09-24")
++    assert s.overdue(today=date(2026, 9, 23)) == []
++
++
++def test_overdue_excludes_done_items(tmp_path):
++    s = Store(tmp_path / "db.json")
++    item = s.add("past but done", due="2020-01-01")
++    s.complete(item["id"])
++    assert s.overdue(today=date(2026, 9, 23)) == []
++
++
++def test_overdue_excludes_items_with_no_due_date(tmp_path):
++    s = Store(tmp_path / "db.json")
++    s.add("no due at all")
++    assert s.overdue(today=date(2026, 9, 23)) == []
++
++
++def test_legacy_items_without_due_key_do_not_error(tmp_path):
++    p = tmp_path / "db.json"
++    p.write_text(json.dumps([{"id": 1, "title": "legacy", "done": False}]))
++    s = Store(p)
++    assert s.list()[0]["title"] == "legacy"
++    assert s.overdue(today=date(2026, 9, 23)) == []
++    item = s.add("new one")
++    assert item["id"] == 2
++    s.complete(1)
++    assert [i["id"] for i in s.list()] == [2]
+diff --git a/todo/cli.py b/todo/cli.py
+index 6457520..2f5be39 100644
+--- a/todo/cli.py
++++ b/todo/cli.py
+@@ -1,27 +1,46 @@
+ import argparse
+ import os
++from datetime import date
+ from .store import Store
+ 
+ 
++def format_item(i):
++    mark = "x" if i["done"] else " "
++    due = i.get("due")
++    if due:
++        return f"[{mark}] #{i['id']} {i['title']} (due {due})"
++    return f"[{mark}] #{i['id']} {i['title']}"
++
++
+ def main(argv=None):
+     p = argparse.ArgumentParser(prog="todo")
+     p.add_argument("--db", default=os.environ.get("TODO_DB", "todo.json"))
+     sub = p.add_subparsers(dest="cmd", required=True)
+-    a = sub.add_parser("add"); a.add_argument("title")
++    a = sub.add_parser("add"); a.add_argument("title"); a.add_argument("--due")
+     d = sub.add_parser("done"); d.add_argument("id", type=int)
+     l = sub.add_parser("list"); l.add_argument("--all", action="store_true")
++    sub.add_parser("overdue")
+     args = p.parse_args(argv)
+     store = Store(args.db)
+     if args.cmd == "add":
+-        item = store.add(args.title)
++        due = args.due
++        if due is not None:
++            try:
++                due = date.fromisoformat(due).isoformat()
++            except ValueError:
++                print(f"error: invalid --due date {due!r}, expected YYYY-MM-DD")
++                raise SystemExit(1)
++        item = store.add(args.title, due=due)
+         print(f"added #{item['id']}: {item['title']}")
+     elif args.cmd == "done":
+         item = store.complete(args.id)
+         print(f"done #{item['id']}")
+     elif args.cmd == "list":
+         for i in store.list(include_done=args.all):
+-            mark = "x" if i["done"] else " "
+-            print(f"[{mark}] #{i['id']} {i['title']}")
++            print(format_item(i))
++    elif args.cmd == "overdue":
++        for i in store.overdue():
++            print(format_item(i))
+ 
+ 
+ if __name__ == "__main__":
+diff --git a/todo/store.py b/todo/store.py
+index ebc2da9..c4a81a3 100644
+--- a/todo/store.py
++++ b/todo/store.py
+@@ -1,9 +1,10 @@
+ import json
++from datetime import date
+ from pathlib import Path
+ 
+ 
+ class Store:
+-    """JSON-backed todo storage. Each item: {"id": int, "title": str, "done": bool}."""
++    """JSON-backed todo storage. Each item: {"id": int, "title": str, "done": bool, "due": str | None}."""
+ 
+     def __init__(self, path):
+         self.path = Path(path)
+@@ -14,9 +15,9 @@ class Store:
+     def save(self):
+         self.path.write_text(json.dumps(self.items, indent=2))
+ 
+-    def add(self, title):
++    def add(self, title, due=None):
+         new_id = max((i["id"] for i in self.items), default=0) + 1
+-        item = {"id": new_id, "title": title, "done": False}
++        item = {"id": new_id, "title": title, "done": False, "due": due}
+         self.items.append(item)
+         self.save()
+         return item
+@@ -31,3 +32,15 @@ class Store:
+ 
+     def list(self, include_done=False):
+         return [i for i in self.items if include_done or not i["done"]]
++
++    def overdue(self, today=None):
++        if today is None:
++            today = date.today()
++        result = []
++        for i in self.items:
++            if i["done"]:
++                continue
++            due = i.get("due")
++            if due and date.fromisoformat(due) < today:
++                result.append(i)
++        return result

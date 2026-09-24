@@ -1,0 +1,90 @@
+{
+  "cost_usd_estimate": 2.464,
+  "cost_note": "Claude Code local estimate at list price; not a billing record",
+  "num_turns": 2,
+  "subtype": "success",
+  "per_model": {
+    "opus": {
+      "input": 66,
+      "output": 39659,
+      "cache_read": 1724944,
+      "cache_write": 91314,
+      "cost_usd_estimate": 1.7895
+    },
+    "haiku": {
+      "input": 388,
+      "output": 18965,
+      "cache_read": 1456437,
+      "cache_write": 49120,
+      "cost_usd_estimate": 0.3023
+    },
+    "sonnet": {
+      "input": 50,
+      "output": 10602,
+      "cache_read": 840888,
+      "cache_write": 39190,
+      "cost_usd_estimate": 0.3723
+    }
+  },
+  "usage_by_agent": {
+    "main|opus": {
+      "requests": 23,
+      "input": 52,
+      "output_at_start": 433,
+      "cache_read": 1499757,
+      "cache_write": 64823
+    },
+    "model:haiku|haiku": {
+      "requests": 48,
+      "input": 388,
+      "output_at_start": 81,
+      "cache_read": 1456437,
+      "cache_write": 49120
+    },
+    "model:opus|opus": {
+      "requests": 7,
+      "input": 14,
+      "output_at_start": 53,
+      "cache_read": 225187,
+      "cache_write": 26491
+    },
+    "model:sonnet|sonnet": {
+      "requests": 25,
+      "input": 50,
+      "output_at_start": 237,
+      "cache_read": 840888,
+      "cache_write": 39190
+    }
+  },
+  "dispatches": [
+    {
+      "agent": "model:haiku",
+      "model_param": "haiku",
+      "description": "T1 truncate worker"
+    },
+    {
+      "agent": "model:haiku",
+      "model_param": "haiku",
+      "description": "T2 wrap hard-break worker"
+    },
+    {
+      "agent": "model:opus",
+      "model_param": "opus",
+      "description": "Full independent verification"
+    },
+    {
+      "agent": "model:sonnet",
+      "model_param": "sonnet",
+      "description": "Fix round 1: wrap test + comment"
+    },
+    {
+      "agent": "model:sonnet",
+      "model_param": "sonnet",
+      "description": "Scoped re-verify of fix 1"
+    }
+  ],
+  "skill_used": true,
+  "wall_seconds": 526,
+  "source": "skill v3 (commit ce2a613), Opus planner",
+  "usage_note": "per_model has complete token counts. usage_by_agent splits requests, input and cache tokens exactly; output_at_start is the stream's start-of-message output count, a lower bound."
+}

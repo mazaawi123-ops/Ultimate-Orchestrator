@@ -1,0 +1,297 @@
+diff --git a/inventory/stock.py b/inventory/stock.py
+index 71c6e42..c578466 100644
+--- a/inventory/stock.py
++++ b/inventory/stock.py
+@@ -1,3 +1,5 @@
++import csv
++
+ class InsufficientStock(Exception):
+     pass
+ 
+@@ -17,7 +19,10 @@ class Inventory:
+         if qty <= 0:
+             raise ValueError("qty must be positive")
+         current = self._levels.get(sku, 0)
+-        # BUG: allows shipping more than we have, driving stock negative
++        if qty > current:
++            raise InsufficientStock(
++                f"insufficient stock for {sku!r}: requested {qty}, have {current}"
++            )
+         self._levels[sku] = current - qty
+ 
+     def level(self, sku):
+@@ -25,3 +30,44 @@ class Inventory:
+ 
+     def low_stock(self, threshold=5):
+         return sorted(s for s, q in self._levels.items() if q < threshold)
++
++    def import_csv(self, path):
++        """Bulk receive from CSV; rows already received before error are not rolled back."""
++        with open(path, 'r', newline='', encoding='utf-8-sig') as f:
++            reader = csv.reader(f)
++            try:
++                header = next(reader)
++            except StopIteration:
++                raise ValueError("line 1: missing header") from None
++
++            if header != ['sku', 'qty']:
++                raise ValueError(f"line 1: expected header 'sku,qty', got {header!r}")
++
++            for row in reader:
++                # Skip genuinely blank rows: an empty line ([]) or a line that's
++                # just whitespace with no comma (a single empty/whitespace cell).
++                if not row or (len(row) == 1 and not row[0].strip()):
++                    continue
++
++                # Check column count
++                if len(row) != 2:
++                    raise ValueError(f"line {reader.line_num}: expected 2 columns, got {len(row)}")
++
++                sku, qty_str = row
++                sku = sku.strip()
++
++                # Check sku is non-empty
++                if not sku:
++                    raise ValueError(f"line {reader.line_num}: sku cannot be empty")
++
++                # Parse and validate qty
++                try:
++                    qty = int(qty_str.strip())
++                except ValueError as e:
++                    raise ValueError(f"line {reader.line_num}: qty must be an integer") from e
++
++                # receive() will check for positive, which will raise ValueError
++                try:
++                    self.receive(sku, qty)
++                except ValueError as e:
++                    raise ValueError(f"line {reader.line_num}: {e}") from e
+diff --git a/tests/test_stock.py b/tests/test_stock.py
+index 47461a6..760110a 100644
+--- a/tests/test_stock.py
++++ b/tests/test_stock.py
+@@ -1,5 +1,5 @@
+ import pytest
+-from inventory.stock import Inventory
++from inventory.stock import Inventory, InsufficientStock
+ 
+ 
+ def test_receive_and_level():
+@@ -26,3 +26,218 @@ def test_rejects_nonpositive():
+     inv = Inventory()
+     with pytest.raises(ValueError):
+         inv.receive("A", 0)
++
++
++# AC1: ship() raises InsufficientStock when qty > level, level unchanged
++def test_ship_insufficient_stock():
++    inv = Inventory()
++    inv.receive("A", 10)
++    with pytest.raises(InsufficientStock):
++        inv.ship("A", 15)
++    assert inv.level("A") == 10  # level unchanged
++
++
++def test_ship_exact_level():
++    """qty == level should succeed and leave level at 0"""
++    inv = Inventory()
++    inv.receive("A", 10)
++    inv.ship("A", 10)
++    assert inv.level("A") == 0
++
++
++def test_ship_insufficient_on_sku_never_received():
++    """ship on sku never received (level 0) should raise InsufficientStock"""
++    inv = Inventory()
++    with pytest.raises(InsufficientStock):
++        inv.ship("A", 1)
++    assert inv.level("A") == 0  # level unchanged
++
++
++# AC2: import_csv with blank line skipped
++def test_import_csv_basic_with_blank_line(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_text("sku,qty\nA,5\n\nB,2\n")
++    inv.import_csv(str(csv_file))
++    assert inv.level("A") == 5
++    assert inv.level("B") == 2
++
++
++# AC3: bad rows raise ValueError with correct line number
++def test_import_csv_missing_header(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_text("")
++    with pytest.raises(ValueError) as exc_info:
++        inv.import_csv(str(csv_file))
++    assert "line 1" in str(exc_info.value)
++
++
++def test_import_csv_wrong_header(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_text("sku,quantity\nA,5\n")
++    with pytest.raises(ValueError) as exc_info:
++        inv.import_csv(str(csv_file))
++    assert "line 1" in str(exc_info.value)
++
++
++def test_import_csv_case_sensitive_header(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_text("SKU,QTY\nA,5\n")
++    with pytest.raises(ValueError) as exc_info:
++        inv.import_csv(str(csv_file))
++    assert "line 1" in str(exc_info.value)
++
++
++def test_import_csv_wrong_column_count(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_text("sku,qty\nA,5,extra\n")
++    with pytest.raises(ValueError) as exc_info:
++        inv.import_csv(str(csv_file))
++    assert "line 2" in str(exc_info.value)
++
++
++def test_import_csv_missing_column(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_text("sku,qty\nA\n")
++    with pytest.raises(ValueError) as exc_info:
++        inv.import_csv(str(csv_file))
++    assert "line 2" in str(exc_info.value)
++
++
++def test_import_csv_empty_sku(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_text("sku,qty\n,5\n")
++    with pytest.raises(ValueError) as exc_info:
++        inv.import_csv(str(csv_file))
++    assert "line 2" in str(exc_info.value)
++
++
++def test_import_csv_non_integer_qty(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_text("sku,qty\nA,abc\n")
++    with pytest.raises(ValueError) as exc_info:
++        inv.import_csv(str(csv_file))
++    assert "line 2" in str(exc_info.value)
++
++
++def test_import_csv_non_positive_qty(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_text("sku,qty\nA,0\n")
++    with pytest.raises(ValueError) as exc_info:
++        inv.import_csv(str(csv_file))
++    assert "line 2" in str(exc_info.value)
++
++
++def test_import_csv_negative_qty(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_text("sku,qty\nA,-5\n")
++    with pytest.raises(ValueError) as exc_info:
++        inv.import_csv(str(csv_file))
++    assert "line 2" in str(exc_info.value)
++
++
++# Edge case: CRLF line endings
++def test_import_csv_crlf_line_endings(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_bytes(b"sku,qty\r\nA,5\r\nB,2\r\n")
++    inv.import_csv(str(csv_file))
++    assert inv.level("A") == 5
++    assert inv.level("B") == 2
++
++
++# Edge case: blank line before bad row
++def test_import_csv_blank_line_before_bad_row(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_text("sku,qty\nA,5\n\nB,abc\n")
++    with pytest.raises(ValueError) as exc_info:
++        inv.import_csv(str(csv_file))
++    assert "line 4" in str(exc_info.value)
++
++
++# Edge case: no trailing newline at end of file
++def test_import_csv_no_trailing_newline(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    # Note: write_text adds a newline by default, so use write_bytes to avoid it
++    csv_file.write_bytes(b"sku,qty\nA,5\nB,2")
++    inv.import_csv(str(csv_file))
++    assert inv.level("A") == 5
++    assert inv.level("B") == 2
++
++
++# Edge case: whitespace around sku and qty
++def test_import_csv_whitespace_handling(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_text("sku,qty\n A , 5 \nB, 2\n")
++    inv.import_csv(str(csv_file))
++    assert inv.level("A") == 5
++    assert inv.level("B") == 2
++
++
++# Partial state (fail-fast): rows before error are not rolled back
++def test_import_csv_partial_state_on_error(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_text("sku,qty\nA,5\nB,abc\n")
++    with pytest.raises(ValueError):
++        inv.import_csv(str(csv_file))
++    # A should have been received before error on B
++    assert inv.level("A") == 5
++    assert inv.level("B") == 0  # B was never received
++
++
++# Finding 1: a quoted field containing a newline shifts physical line numbers;
++# the error must reference the physical line, not the CSV-record count.
++def test_import_csv_line_number_with_multiline_quoted_field(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_text('sku,qty\n"A\nB",5\nC,x\n')
++    with pytest.raises(ValueError) as exc_info:
++        inv.import_csv(str(csv_file))
++    assert "line 4" in str(exc_info.value)
++
++
++# Finding 2: a row with two empty cells (",") must not be silently skipped as
++# blank -- it has an empty sku and should raise.
++def test_import_csv_two_empty_cells_not_skipped(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_text("sku,qty\n,\n")
++    with pytest.raises(ValueError) as exc_info:
++        inv.import_csv(str(csv_file))
++    assert "line 2" in str(exc_info.value)
++
++
++# Finding 2: a row with three empty cells (",,") must not be silently skipped
++# as blank -- it has the wrong column count and should raise.
++def test_import_csv_three_empty_cells_not_skipped(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_text("sku,qty\n,,\n")
++    with pytest.raises(ValueError) as exc_info:
++        inv.import_csv(str(csv_file))
++    assert "line 2" in str(exc_info.value)
++
++
++# Improved InsufficientStock message names the sku and requested/available qty.
++def test_ship_insufficient_stock_message(tmp_path):
++    inv = Inventory()
++    inv.receive("A", 3)
++    with pytest.raises(InsufficientStock) as exc_info:
++        inv.ship("A", 15)
++    message = str(exc_info.value)
++    assert "A" in message
++    assert "15" in message
++    assert "3" in message

@@ -1,0 +1,197 @@
+diff --git a/src/index.js b/src/index.js
+index 86d8ee8..a4155d7 100644
+--- a/src/index.js
++++ b/src/index.js
+@@ -1,2 +1,3 @@
+ export { slugify } from "./slug.js";
+ export { wrap } from "./wrap.js";
++export { truncate } from "./truncate.js";
+diff --git a/src/truncate.js b/src/truncate.js
+new file mode 100644
+index 0000000..c4b1b3f
+--- /dev/null
++++ b/src/truncate.js
+@@ -0,0 +1,13 @@
++// Cut text to at most `max` code points, including the ellipsis.
++export function truncate(text, max, ellipsis = "…") {
++  if (!Number.isInteger(max) || max < 0) {
++    throw new RangeError("max must be a non-negative integer");
++  }
++  const str = String(text);
++  const chars = Array.from(str);
++  if (chars.length <= max) return str;
++  const tail = String(ellipsis);
++  const tailLen = Array.from(tail).length;
++  if (tailLen > max) return chars.slice(0, max).join("");
++  return chars.slice(0, max - tailLen).join("") + tail;
++}
+diff --git a/src/wrap.js b/src/wrap.js
+index a100c02..e7f0294 100644
+--- a/src/wrap.js
++++ b/src/wrap.js
+@@ -1,10 +1,21 @@
+ // Hard-wrap text at `width` columns, breaking on spaces.
++// Words longer than width are hard-broken.
+ export function wrap(text, width = 80) {
++  if (!Number.isInteger(width) || width < 1) throw new RangeError("width must be a positive integer");
++  const len = (s) => Array.from(s).length;
+   const words = String(text).split(/\s+/).filter(Boolean);
+   const lines = [];
+   let line = "";
+   for (const w of words) {
+-    if ((line + " " + w).trim().length > width && line) {
++    if (len(w) > width) {
++      if (line) lines.push(line);
++      const cps = Array.from(w);
++      let i = 0;
++      for (; i + width < cps.length; i += width) lines.push(cps.slice(i, i + width).join(""));
++      line = cps.slice(i).join("");
++      continue;
++    }
++    if (len((line + " " + w).trim()) > width && line) {
+       lines.push(line);
+       line = w;
+     } else {
+diff --git a/test/truncate.test.js b/test/truncate.test.js
+new file mode 100644
+index 0000000..78930ee
+--- /dev/null
++++ b/test/truncate.test.js
+@@ -0,0 +1,46 @@
++import { test } from "node:test";
++import assert from "node:assert/strict";
++import { truncate } from "../src/truncate.js";
++import * as textkit from "../src/index.js";
++
++test("truncate('hello world', 8) → 'hello w…'", () => assert.equal(truncate("hello world", 8), "hello w…"));
++test("truncate('hello', 5) → 'hello'", () => assert.equal(truncate("hello", 5), "hello"));
++test("truncate('hello', 10) → 'hello'", () => assert.equal(truncate("hello", 10), "hello"));
++test("truncate('hello world', 8, '...') → 'hello...'", () => assert.equal(truncate("hello world", 8, "..."), "hello..."));
++test("truncate('hello', 0) → ''", () => assert.equal(truncate("hello", 0), ""));
++test("truncate('hello', 1) → '…'", () => assert.equal(truncate("hello", 1), "…"));
++test("truncate('hello', 2, '...') → 'he'", () => assert.equal(truncate("hello", 2, "..."), "he"));
++test("truncate('hello', 3, '...') → '...'", () => assert.equal(truncate("hello", 3, "..."), "..."));
++test("truncate('hello', 4, '') → 'hell'", () => assert.equal(truncate("hello", 4, ""), "hell"));
++test("truncate('', 0) → ''", () => assert.equal(truncate("", 0), ""));
++test("truncate('a😀b😀c', 4) → 'a😀b…'", () => assert.equal(truncate("a😀b😀c", 4), "a😀b…"));
++test("truncate('a😀b😀c', 3) → 'a😀…'", () => assert.equal(truncate("a😀b😀c", 3), "a😀…"));
++test("truncate('😀😀😀', 2) → '😀…'", () => assert.equal(truncate("😀😀😀", 2), "😀…"));
++test("truncate('a😀b😀c', 5) → 'a😀b😀c'", () => assert.equal(truncate("a😀b😀c", 5), "a😀b😀c"));
++test("truncate('abcdef', 3, '😀') → 'ab😀'", () => assert.equal(truncate("abcdef", 3, "😀"), "ab😀"));
++
++test("loop property test: for text 'a😀b😀c😀d' and every max from 0 to 10, Array.from(result).length <= max", () => {
++  const text = "a😀b😀c😀d";
++  for (let max = 0; max <= 10; max++) {
++    const result = truncate(text, max);
++    const codePointLength = Array.from(result).length;
++    assert.ok(codePointLength <= max, `max=${max}, result="${result}", length=${codePointLength}`);
++  }
++});
++
++test("loop property test: result contains no lone surrogate", () => {
++  const text = "a😀b😀c😀d";
++  for (let max = 0; max <= 10; max++) {
++    const result = truncate(text, max);
++    const loneSurrogateRegex = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
++    assert.ok(!loneSurrogateRegex.test(result), `max=${max}, result="${result}" contains lone surrogate`);
++  }
++});
++
++test("throws RangeError for max = -1", () => assert.throws(() => truncate("hello", -1), RangeError));
++test("throws RangeError for max = 1.5", () => assert.throws(() => truncate("hello", 1.5), RangeError));
++test("throws RangeError for max = NaN", () => assert.throws(() => truncate("hello", NaN), RangeError));
++test("throws RangeError for max = Infinity", () => assert.throws(() => truncate("hello", Infinity), RangeError));
++test("throws RangeError for max = '5'", () => assert.throws(() => truncate("hello", "5"), RangeError));
++
++test("truncate is exported from index.js", () => assert.equal(textkit.truncate, truncate));
+diff --git a/test/wrap.test.js b/test/wrap.test.js
+index 9196c90..9e8f60e 100644
+--- a/test/wrap.test.js
++++ b/test/wrap.test.js
+@@ -5,3 +5,86 @@ import { wrap } from "../src/wrap.js";
+ test("wraps at width", () => {
+   assert.equal(wrap("aaa bbb ccc ddd", 7), "aaa bbb\nccc ddd");
+ });
++
++test("hard-breaks long word", () => {
++  assert.equal(wrap("abcdefghij", 4), "abcd\nefgh\nij");
++});
++
++test("long word with short words after", () => {
++  assert.equal(wrap("abcdefg hi", 5), "abcde\nfg hi");
++});
++
++test("short word then long word", () => {
++  assert.equal(wrap("ab cdefghij", 4), "ab\ncdef\nghij");
++});
++
++test("word exactly width", () => {
++  assert.equal(wrap("aaaa", 4), "aaaa");
++});
++
++test("long word with space and short word", () => {
++  assert.equal(wrap("abcdefgh ij", 4), "abcd\nefgh\nij");
++});
++
++test("multiple long words", () => {
++  assert.equal(wrap("x abcdefgh y", 3), "x\nabc\ndef\ngh\ny");
++});
++
++test("width 1", () => {
++  assert.equal(wrap("abcdef", 1), "a\nb\nc\nd\ne\nf");
++});
++
++test("emoji hard-break", () => {
++  assert.equal(wrap("😀😀😀😀😀", 2), "😀😀\n😀😀\n😀");
++});
++
++test("empty string", () => {
++  assert.equal(wrap("", 5), "");
++});
++
++test("multiple spaces and newlines", () => {
++  assert.equal(wrap("a  b\n\ncdefgh", 3), "a b\ncde\nfgh");
++});
++
++test("width 0 throws RangeError", () => {
++  assert.throws(() => wrap("test", 0), RangeError);
++});
++
++test("width -1 throws RangeError", () => {
++  assert.throws(() => wrap("test", -1), RangeError);
++});
++
++test("width 1.5 throws RangeError", () => {
++  assert.throws(() => wrap("test", 1.5), RangeError);
++});
++
++test("property test: no line exceeds width", () => {
++  const text = "The quick brownfoxjumpedoverthelazydog and 😀😀😀😀😀😀😀 ok";
++  for (let width = 1; width <= 12; width++) {
++    const result = wrap(text, width);
++    const lines = result.split("\n");
++    for (const line of lines) {
++      assert(Array.from(line).length <= width, `Line exceeds width ${width}: "${line}" (${Array.from(line).length} chars)`);
++    }
++    // Check all words are preserved in order by removing spaces and comparing
++    const wrappedNoSpace = result.replace(/[ \n]/g, "");
++    const originalNoSpace = text.replace(/\s+/g, "");
++    assert.equal(wrappedNoSpace, originalNoSpace);
++  }
++});
++
++test("astral fit: '😀 a' at width 3 fits on one line", () => {
++  assert.equal(wrap("😀 a", 3), "😀 a");
++});
++
++test("astral fit: '😀😀 😀😀' at width 5 fits on one line", () => {
++  assert.equal(wrap("😀😀 😀😀", 5), "😀😀 😀😀");
++});
++
++test("astral fit: 'ab😀 c' at width 5 fits on one line", () => {
++  assert.equal(wrap("ab😀 c", 5), "ab😀 c");
++});
++
++test("astral fit boundary: '😀😀 😀😀' at width 4 wraps", () => {
++  assert.equal(wrap("😀😀 😀😀", 4), "😀😀\n😀😀");
++});

@@ -1,0 +1,819 @@
+"""Regression tests for code-orchestrator/scripts/orch.sh.
+
+Run from the repo root:  python3 -m unittest discover -s tests/helper -v
+Each test builds a disposable git repo. Nothing touches the network except one loopback
+listener. The first four classes are the independent review's reproductions (revision
+919240501fd5), turned into checks that the flaws no longer reproduce.
+"""
+import http.server
+import os
+import shutil
+import socket
+import subprocess
+import sys
+import tempfile
+import threading
+import unittest
+from pathlib import Path
+
+HELPER = Path(__file__).resolve().parents[2] / "code-orchestrator" / "scripts" / "orch.sh"
+PY = sys.executable
+
+
+def offline_available():
+    r = subprocess.run(["bash", str(HELPER), "caps"], cwd=Path(__file__).parent, capture_output=True, text=True)
+    return "probe: verified (usable)" in r.stdout
+
+
+class Repo:
+    def __init__(self, root: Path, files: dict):
+        self.root = root
+        root.mkdir(parents=True)
+        self.git("init", "-q", "-b", "main")
+        self.git("config", "user.name", "Test")
+        self.git("config", "user.email", "test@example.invalid")
+        self.write(files)
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", "baseline")
+
+    def git(self, *args):
+        r = subprocess.run(["git", *args], cwd=self.root, capture_output=True, text=True)
+        if r.returncode:
+            raise RuntimeError(r.stderr)
+        return r.stdout.strip()
+
+    def write(self, files: dict):
+        for name, content in files.items():
+            p = self.root / name
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(content)
+
+    def commit(self, msg="change", files=None):
+        if files:
+            self.write(files)
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", msg)
+
+    def orch(self, *args, env=None):
+        e = dict(os.environ)
+        e.pop("ORCH_MAX_REPAIR_CYCLES", None)
+        if env:
+            e.update(env)
+        return subprocess.run(["bash", str(HELPER), *args], cwd=self.root, capture_output=True, text=True, env=e, timeout=120)
+
+    def evidence(self):
+        p = self.root / ".orchestrator/evidence.tsv"
+        rows = p.read_text().splitlines()[1:] if p.exists() else []
+        return [r.split("\t") for r in rows]
+
+
+APP = {
+    ".gitignore": "__pycache__/\n",
+    "app.py": "def answer():\n    return 41\n",
+    "test_app.py": "import unittest\nfrom app import answer\n\n\nclass Check(unittest.TestCase):\n    def test_answer(self):\n        self.assertEqual(answer(), 41)\n",
+}
+UNITTEST = [PY, "-m", "unittest", "-q"]
+
+
+def approve(r, path="test_app.py", reason="ruling 1: the requested behaviour changes the answer to 42"):
+    """The requested change alters an existing assertion on purpose: approve this version of it."""
+    res = r.orch("approve", path, reason)
+    assert res.returncode == 0, res.stdout + res.stderr
+
+
+class Base(unittest.TestCase):
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="orch-test-"))
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def started(self, files=APP, name="demo", baseline=True):
+        r = Repo(self.tmp / "repo", files)
+        args = ["start", name] + (["--", *UNITTEST] if baseline else [])
+        res = r.orch(*args)
+        self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+        return r
+
+
+# ------------------------------------------------------------------ review reproductions
+
+class ReviewA_CandidateConsistency(Base):
+    def test_uncommitted_changes_cannot_pass_check(self):
+        r = self.started()
+        r.write({"app.py": "def answer():\n    return 42\n",
+                 "test_app.py": APP["test_app.py"].replace("41", "42")})
+        res = r.orch("check", "--", *UNITTEST)
+        self.assertNotEqual(res.returncode, 0)
+        self.assertIn("LEFTOVERS", res.stdout)
+        self.assertFalse(any(row[2] == "check" for row in r.evidence()), "no evidence may be recorded without a candidate")
+
+    def test_review_diff_refuses_a_dirty_tree_and_covers_the_candidate(self):
+        r = self.started()
+        r.commit("answer 42", {"app.py": "def answer():\n    return 42\n",
+                               "test_app.py": APP["test_app.py"].replace("41", "42")})
+        approve(r)
+        self.assertEqual(r.orch("check", "--", *UNITTEST).returncode, 0)
+        r.write({"app.py": "def answer():\n    return 43\n"})
+        self.assertNotEqual(r.orch("diff").returncode, 0)
+        r.git("checkout", "--", "app.py")
+        res = r.orch("diff")
+        self.assertEqual(res.returncode, 0, res.stderr)
+        patch = next((r.root / ".orchestrator/review").glob("*.patch")).read_text()
+        self.assertIn("+    return 42", patch)
+
+    def test_gate_rejects_evidence_after_head_moves(self):
+        r = self.started()
+        r.commit("answer 42", {"app.py": "def answer():\n    return 42\n",
+                               "test_app.py": APP["test_app.py"].replace("41", "42")})
+        approve(r)
+        self.assertEqual(r.orch("check", "--", *UNITTEST).returncode, 0)
+        self.assertEqual(r.orch("gate").returncode, 0)
+        r.commit("later edit", {"app.py": "def answer():\n    return 42  # edited\n"})
+        res = r.orch("gate")
+        self.assertNotEqual(res.returncode, 0)
+        self.assertIn("HEAD moved", res.stdout)
+
+    def test_command_that_writes_files_voids_its_evidence(self):
+        r = self.started()
+        res = r.orch("check", "--", "bash", "-c", "echo x > generated.txt")
+        self.assertNotEqual(res.returncode, 0)
+        self.assertIn("DIRTY AFTER", res.stdout)
+        self.assertEqual(r.evidence()[-1][7], "dirty-after")
+
+
+class ReviewB_FreshCheckoutIsHonest(Base):
+    def test_git_prefixed_and_other_variables_are_not_passed(self):
+        r = self.started(baseline=False)
+        self.assertEqual(r.orch("candidate").returncode, 0)
+        probe = "import os; print('LEAK' if os.environ.get('GIT_REVIEW_TOKEN') or os.environ.get('SOME_API_KEY') else 'CLEAN'); print('HOME', os.environ['HOME'])"
+        res = r.orch("fresh", "--", PY, "-c", probe, env={"GIT_REVIEW_TOKEN": "synthetic", "SOME_API_KEY": "synthetic"})
+        self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+        log = (r.root / r.evidence()[-1][11]).read_text()
+        self.assertIn("CLEAN", log)
+        self.assertNotIn(str(Path.home()), log.split("HOME", 1)[1])
+
+    def test_label_says_filesystem_and_network_are_not_sandboxed(self):
+        r = self.started(baseline=False)
+        r.orch("candidate")
+        res = r.orch("fresh", "--", "true")
+        self.assertIn("filesystem: NOT sandboxed", res.stdout)
+        self.assertIn("network: NOT isolated", res.stdout)
+
+    def test_tracked_secret_like_file_is_disclosed(self):
+        files = dict(APP, **{".env": "DUMMY=not-a-secret\n"})
+        r = self.started(files, baseline=False)
+        r.orch("candidate")
+        res = r.orch("fresh", "--", "true")
+        self.assertIn(".env", res.stdout)
+
+    @unittest.skipUnless(offline_available(), "no verified offline method on this host")
+    def test_offline_blocks_a_loopback_request_that_works_without_it(self):
+        hits = []
+
+        class H(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                hits.append(1); self.send_response(200); self.end_headers(); self.wfile.write(b"ok")
+
+            def log_message(self, *a):
+                pass
+
+        srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        port = srv.server_address[1]
+        try:
+            r = self.started(baseline=False)
+            r.orch("candidate")
+            probe = f"import urllib.request; urllib.request.urlopen('http://127.0.0.1:{port}/', timeout=3)"
+            online = r.orch("fresh", "--", PY, "-c", probe)
+            self.assertEqual(online.returncode, 0, online.stdout)
+            offline = r.orch("fresh", "--offline", "--", PY, "-c", probe)
+            self.assertNotEqual(offline.returncode, 0)
+            self.assertIn("verified", offline.stdout)
+            self.assertEqual(len(hits), 1, "only the non-offline run may reach the server")
+        finally:
+            srv.shutdown(); srv.server_close()
+
+    @unittest.skipUnless(offline_available(), "no verified offline method on this host")
+    def test_check_offline_runs_the_tests_without_network(self):
+        s = socket.socket(); s.bind(("127.0.0.1", 0)); s.listen(1); port = s.getsockname()[1]
+        try:
+            files = dict(APP, **{"test_net.py": f"import socket, unittest\n\n\nclass Net(unittest.TestCase):\n    def test_no_network(self):\n        with self.assertRaises(OSError):\n            socket.create_connection(('127.0.0.1', {port}), timeout=2)\n"})
+            r = self.started(files, baseline=False)
+            res = r.orch("check", "--offline", "--", *UNITTEST)
+            self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+        finally:
+            s.close()
+
+
+class ReviewC_WorkerDependencies(Base):
+    def test_worktree_dependencies_are_copies_not_links(self):
+        r = self.started(dict(APP, **{".gitignore": "__pycache__/\nnode_modules/\n"}), baseline=False)
+        (r.root / "node_modules").mkdir()
+        (r.root / "node_modules/marker.txt").write_text("before")
+        res = r.orch("wt-add", "w1")
+        self.assertEqual(res.returncode, 0, res.stderr)
+        dep = r.root / ".orchestrator/worktrees/w1/node_modules"
+        self.assertFalse(dep.is_symlink())
+        (dep / "marker.txt").write_text("changed-by-worker")
+        self.assertEqual((r.root / "node_modules/marker.txt").read_text(), "before")
+
+    def test_link_mode_is_explicit_and_warns(self):
+        r = self.started(dict(APP, **{".gitignore": "__pycache__/\nnode_modules/\n"}), baseline=False)
+        (r.root / "node_modules").mkdir()
+        res = r.orch("wt-add", "w2", "--deps", "link")
+        self.assertIn("WARNING", res.stdout)
+        self.assertTrue((r.root / ".orchestrator/worktrees/w2/node_modules").is_symlink())
+
+    def test_wt_finish_keeps_the_report_and_cleans_up(self):
+        r = self.started(baseline=False)
+        wt = Path(r.orch("wt-add", "w3").stdout.strip().splitlines()[-1])
+        (wt / ".orchestrator/task-report.md").write_text("done")
+        subprocess.run(["git", "commit", "-q", "--allow-empty", "-m", "w3"], cwd=wt, check=True,
+                       env=dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t", GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@t"))
+        r.git("merge", "-q", "--no-ff", "orch-wt/w3", "-m", "merge w3")
+        res = r.orch("wt-finish", "w3")
+        self.assertEqual(res.returncode, 0, res.stderr)
+        self.assertTrue((r.root / ".orchestrator/reports/w3/task-report.md").exists())
+        self.assertFalse(wt.exists())
+
+
+class ReviewD_TestChanges(Base):
+    SKIPPED = APP["test_app.py"].replace("    def test_answer", "    @unittest.skip('synthetic')\n    def test_answer")
+
+    def test_add_only_skip_is_flagged(self):
+        r = self.started()
+        r.commit("skip", {"test_app.py": self.SKIPPED})
+        self.assertNotEqual(r.orch("tests").returncode, 0)
+        res = r.orch("check", "--", *UNITTEST)
+        self.assertNotEqual(res.returncode, 0)
+        self.assertIn("skip/only/xfail marker added", res.stdout)
+        self.assertIn("skipped tests rose from 0 at BASE to 1", res.stdout)
+
+    def test_skip_inside_an_existing_test_is_flagged(self):
+        r = self.started()
+        r.commit("skip", {"test_app.py": APP["test_app.py"].replace("        self.assertEqual", "        self.skipTest('slow')\n        self.assertEqual")})
+        res = r.orch("check", "--", *UNITTEST)
+        self.assertNotEqual(res.returncode, 0)
+        self.assertIn("skip/only/xfail marker added", res.stdout)
+
+    def test_approved_change_passes_with_its_reason(self):
+        r = self.started()
+        r.commit("skip", {"test_app.py": self.SKIPPED})
+        approve(r, reason="ruling 2: flaky on CI, tracked in issue 9")
+        res = r.orch("tests")
+        self.assertEqual(res.returncode, 0, res.stdout)
+        self.assertIn("ruling 2", res.stdout)
+
+    def test_an_approval_covers_only_the_approved_version(self):
+        r = self.started()
+        r.commit("skip", {"test_app.py": self.SKIPPED})
+        approve(r, reason="ruling 2: flaky on CI")
+        self.assertEqual(r.orch("tests").returncode, 0)
+        r.commit("delete the test too", {"test_app.py": "import unittest\n"})
+        res = r.orch("tests")
+        self.assertNotEqual(res.returncode, 0, "a different later change isn't covered by the earlier reason")
+        self.assertIn("doesn't cover this version", res.stdout)
+
+    def test_an_unbound_hand_written_approval_is_not_accepted(self):
+        r = self.started()
+        r.commit("skip", {"test_app.py": self.SKIPPED})
+        (r.root / ".orchestrator/approved-test-changes").write_text("test_app.py  any reason\n")
+        self.assertNotEqual(r.orch("tests").returncode, 0)
+
+    def test_deleted_assertion_is_flagged(self):
+        r = self.started()
+        r.commit("loosen", {"test_app.py": APP["test_app.py"].replace("self.assertEqual(answer(), 41)", "self.assertTrue(answer())")})
+        res = r.orch("tests")
+        self.assertNotEqual(res.returncode, 0)
+        self.assertIn("deleted or changed", res.stdout)
+
+    TZ = "import unittest\n\n\n@unittest.skipUnless(False, 'needs pytz')\nclass TZ(unittest.TestCase):\n    def test_one(self):\n        pass\n"
+
+    def test_skipped_count_rise_can_be_approved(self):
+        # A new test inside an already-skipped class raises only the skipped count.
+        r = self.started(dict(APP, **{"test_tz.py": self.TZ}))
+        r.commit("tz test", {"test_tz.py": self.TZ + "\n    def test_two(self):\n        pass\n"})
+        res = r.orch("check", "--", *UNITTEST)
+        self.assertNotEqual(res.returncode, 0)
+        self.assertIn("skipped tests rose from 1 at BASE to 2", res.stdout)
+        self.assertEqual(r.orch("approve", "count:skipped", "new test_two needs pytz, like test_one").returncode, 0)
+        res = r.orch("check", "--", *UNITTEST)
+        self.assertEqual(res.returncode, 0, res.stdout)
+        self.assertIn("approved  skipped tests rose from 1 at BASE to 2 (new test_two needs pytz", res.stdout)
+        # The approval names the movement 1 -> 2; a further rise needs its own approval.
+        r.commit("another skipped test", {"test_tz.py": self.TZ + "\n    def test_two(self):\n        pass\n\n    def test_three(self):\n        pass\n"})
+        res = r.orch("check", "--", *UNITTEST)
+        self.assertNotEqual(res.returncode, 0)
+        self.assertIn("skipped tests rose from 1 at BASE to 3", res.stdout)
+
+    def test_runner_configuration_change_is_flagged(self):
+        r = self.started(dict(APP, **{"setup.cfg": "[tool:pytest]\ntestpaths = .\n"}))
+        r.commit("narrow discovery", {"setup.cfg": "[tool:pytest]\ntestpaths = nothing\n"})
+        res = r.orch("tests")
+        self.assertIn("runner or discovery configuration changed", res.stdout)
+
+    def test_new_test_file_with_only_marker_is_flagged(self):
+        r = self.started()
+        r.commit("focused", {"extra.test.js": "test.only('x', () => {})\n"})
+        self.assertIn("new test file contains", r.orch("tests").stdout)
+
+    def test_adding_tests_only_is_clean(self):
+        r = self.started()
+        r.commit("more tests", {"test_app.py": APP["test_app.py"] + "\n    def test_type(self):\n        self.assertIsInstance(answer(), int)\n"})
+        res = r.orch("check", "--", *UNITTEST)
+        self.assertEqual(res.returncode, 0, res.stdout)
+        self.assertIn("OK: no changes to existing tests", res.stdout)
+
+
+# ------------------------------------------------------------------ second review (revision 77e8ff3)
+
+class SecondReview(Base):
+    """The second review's seven cases, each tested both ways: the bad evidence blocks `done`,
+    and a valid rerun (or an explicit disposition) lets the run finish."""
+
+    def checked(self, files=APP):
+        r = self.started(files)
+        res = r.orch("check", "--", *UNITTEST)
+        self.assertEqual(res.returncode, 0, res.stdout)
+        return r
+
+    def assertGate(self, r, passes, text=None):
+        res = r.orch("gate")
+        self.assertEqual(res.returncode == 0, passes, res.stdout)
+        if text:
+            self.assertIn(text, res.stdout)
+        return res
+
+    def test_1_failed_ci_run_blocks_done_until_a_later_run_passes(self):
+        r = self.checked()
+        self.assertEqual(r.orch("run", "ci-format", "--", "bash", "-c", "exit 2").returncode, 1)
+        self.assertGate(r, False, "run:ci-format latest result")
+        self.assertNotEqual(r.orch("finish", "done").returncode, 0)
+        r.orch("run", "ci-format", "--", "true")
+        self.assertGate(r, True)
+
+    def test_1_an_exploratory_failure_never_blocks(self):
+        r = self.checked()
+        self.assertEqual(r.orch("run", "repro", "--explore", "--", "bash", "-c", "exit 1").returncode, 1)
+        self.assertGate(r, True)
+
+    def test_1_required_check_must_exist_pass_and_cannot_be_waived(self):
+        r = self.checked()
+        r.orch("require", "check", "lint")
+        self.assertGate(r, False, "required check lint: no result")
+        r.orch("run", "lint", "--", "bash", "-c", "exit 1")
+        self.assertNotEqual(r.orch("waive", "run:lint", "not important").returncode, 0)
+        self.assertGate(r, False, "run:lint latest result")
+        r.orch("run", "lint", "--", "true")
+        self.assertGate(r, True)
+
+    def test_1_a_waiver_is_explicit_and_disclosed(self):
+        r = self.checked()
+        r.orch("run", "benchmark", "--", "bash", "-c", "exit 1")
+        self.assertGate(r, False)
+        self.assertEqual(r.orch("waive", "run:benchmark", "noisy on this machine; not a criterion").returncode, 0)
+        res = self.assertGate(r, True, "disclose: waived checks")
+        self.assertIn("noisy on this machine", res.stdout)
+
+    def test_1_evidence_goes_stale_when_the_candidate_changes(self):
+        r = self.checked()
+        r.orch("run", "format", "--", "true")
+        r.commit("next candidate", {"app.py": APP["app.py"] + "# edited\n"})
+        r.orch("check", "--", *UNITTEST)
+        self.assertGate(r, False, "run:format was last recorded for an earlier candidate")
+        r.orch("run", "format", "--", "true")
+        self.assertGate(r, True)
+
+    def test_2_the_latest_fresh_result_counts(self):
+        r = self.checked()
+        r.orch("require", "fresh")
+        r.orch("fresh", "--", *UNITTEST)
+        r.orch("fresh", "--", "bash", "-c", "exit 2")
+        self.assertGate(r, False, "fresh:fresh latest result")
+        r.orch("fresh", "--", *UNITTEST)
+        self.assertGate(r, True)
+
+    def test_2_a_manual_check_must_be_repeated_for_a_new_candidate(self):
+        r = self.checked()
+        r.orch("record", "manual", "pass", "--id", "ui", "checked in the browser")
+        r.commit("next candidate", {"app.py": APP["app.py"] + "# edited\n"})
+        r.orch("check", "--", *UNITTEST)
+        self.assertGate(r, False, "manual:ui was last recorded for an earlier candidate")
+        r.orch("record", "manual", "pass", "--id", "ui", "checked again")
+        self.assertGate(r, True)
+
+    def test_3_a_label_never_satisfies_the_offline_requirement(self):
+        r = self.checked()
+        r.orch("require", "offline")
+        r.orch("fresh", "--label", "smoke-offline", "--", *UNITTEST)
+        self.assertGate(r, False, "offline run required")
+
+    def test_3_an_unverified_probe_is_refused_and_records_nothing(self):
+        r = self.checked()
+        before = len(r.evidence())
+        res = r.orch("fresh", "--offline", "--", *UNITTEST, env={"ORCH_TEST_PROBE_RESULT": "unverified: simulated"})
+        self.assertEqual(res.returncode, 5, res.stdout + res.stderr)
+        self.assertEqual(len(r.evidence()), before)
+
+    def test_3_the_probe_hook_can_only_make_offline_stricter(self):
+        r = self.checked()
+        res = r.orch("check", "--offline", "--", *UNITTEST, env={"ORCH_TEST_PROBE_RESULT": "FAILED: simulated"})
+        self.assertEqual(res.returncode, 5, res.stdout + res.stderr)
+        hook = [l for l in HELPER.read_text().splitlines() if "ORCH_TEST_PROBE_RESULT:-" in l]
+        self.assertEqual(len(hook), 1)
+        self.assertIn('"unverified: "*|"FAILED: "*)', hook[0], "the hook must never accept a forced 'verified'")
+
+    @unittest.skipUnless(offline_available(), "no verified offline method on this host")
+    def test_3_a_verified_offline_run_satisfies_the_requirement(self):
+        r = self.checked()
+        r.orch("require", "offline")
+        res = r.orch("fresh", "--offline", "--", *UNITTEST)
+        self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+        self.assertTrue(r.evidence()[-1][13].startswith("offline-verified:"))
+        self.assertGate(r, True)
+
+    def test_4_links_back_into_the_main_checkout_are_re_pointed_or_copied(self):
+        files = dict(APP, **{".gitignore": "__pycache__/\nnode_modules/\nshared-deps/\n"})
+        r = self.started(files, baseline=False)
+        r.write({"shared-deps/package/marker.txt": "main original", "node_modules/real/index.js": "main"})
+        (r.root / "node_modules/package").symlink_to(r.root / "shared-deps/package", target_is_directory=True)
+        (r.root / "node_modules/absolute-real").symlink_to(r.root / "node_modules/real", target_is_directory=True)
+        (r.root / "node_modules/relative-real").symlink_to("real", target_is_directory=True)
+        res = r.orch("wt-add", "w1")
+        self.assertEqual(res.returncode, 0, res.stderr)
+        dep = r.root / ".orchestrator/worktrees/w1/node_modules"
+        (dep / "package/marker.txt").write_text("changed by a worker")
+        (dep / "absolute-real/index.js").write_text("changed by a worker")
+        (dep / "relative-real/index.js").write_text("changed by a worker, relative")
+        self.assertEqual((r.root / "shared-deps/package/marker.txt").read_text(), "main original")
+        self.assertEqual((r.root / "node_modules/real/index.js").read_text(), "main")
+        self.assertEqual((dep / "real/index.js").read_text(), "changed by a worker, relative")
+
+    def test_4_a_copied_venv_launcher_starts_the_copy(self):
+        files = dict(APP, **{".gitignore": "__pycache__/\n.venv/\n"})
+        r = self.started(files, baseline=False)
+        r.write({".venv/bin/pip": f"#!{r.root}/.venv/bin/python\nprint('pip')\n",
+                 ".venv/bin/activate": f'VIRTUAL_ENV="{r.root}/.venv"\nexport VIRTUAL_ENV\n'})
+        r.orch("wt-add", "w1")
+        wt = r.root / ".orchestrator/worktrees/w1"
+        self.assertIn(f"#!{wt.resolve()}/.venv/bin/python", (wt / ".venv/bin/pip").read_text())
+        self.assertIn(f'VIRTUAL_ENV="{wt.resolve()}/.venv"', (wt / ".venv/bin/activate").read_text())
+
+    GEN = dict(APP, **{".gitignore": "__pycache__/\ngenerated_settings.py\n", "gen.py": "open('generated_settings.py', 'w').write('VALUE = 41\\n')\n"})
+
+    def test_5_an_ignored_runtime_input_needs_a_fresh_proof(self):
+        r = self.started(self.GEN)
+        r.commit("use generated settings", {"app.py": "from generated_settings import VALUE\n\ndef answer():\n    return VALUE\n"})
+        r.write({"generated_settings.py": "VALUE = 41\n"})
+        self.assertEqual(r.orch("check", "--", *UNITTEST).returncode, 0)
+        self.assertGate(r, False, "generated_settings.py")
+        self.assertNotEqual(r.orch("fresh", "--", *UNITTEST).returncode, 0, "without the generated file the tests fail")
+        res = r.orch("fresh", "--", "sh", "-c", f"{PY} gen.py && {PY} -m unittest -q")
+        self.assertEqual(res.returncode, 0, res.stdout)
+        self.assertGate(r, True)
+
+    def test_5_ignored_files_that_are_not_inputs_can_be_waived(self):
+        r = self.started(dict(APP, **{".gitignore": "__pycache__/\nnotes.txt\n"}))
+        r.write({"notes.txt": "my scratch notes"})
+        self.assertEqual(r.orch("check", "--", *UNITTEST).returncode, 0)
+        self.assertGate(r, False, "notes.txt")
+        r.orch("waive", "fresh", "notes.txt is a scratch file; nothing imports it")
+        self.assertGate(r, True)
+
+    def test_5_a_dependency_changed_after_the_check_is_noticed(self):
+        files = dict(APP, **{".gitignore": "__pycache__/\nnode_modules/\n",
+                             "test_dep.py": "import unittest\nfrom pathlib import Path\n\n\nclass Dep(unittest.TestCase):\n    def test_dep(self):\n        self.assertEqual(Path('node_modules/package/marker.txt').read_text(), 'good')\n"})
+        r = Repo(self.tmp / "repo", files)
+        r.write({"node_modules/package/marker.txt": "good"})
+        r.orch("start", "dep", "--", *UNITTEST)
+        self.assertEqual(r.orch("check", "--", *UNITTEST).returncode, 0)
+        r.write({"node_modules/package/marker.txt": "bad"})
+        self.assertGate(r, False, "changed after check:check ran")
+        self.assertNotEqual(r.orch("check", "--", *UNITTEST).returncode, 0, "rerunning shows the real state")
+        r.write({"node_modules/package/marker.txt": "good"})
+        self.assertEqual(r.orch("check", "--", *UNITTEST).returncode, 0)
+        self.assertGate(r, True)
+
+
+# ------------------------------------------------------------------ other guarantees
+
+class FinalReview(Base):
+    """The final review's three cases (F1-F3), each tested both ways."""
+
+    def checked(self, files=APP):
+        r = self.started(files)
+        res = r.orch("check", "--", *UNITTEST)
+        self.assertEqual(res.returncode, 0, res.stdout)
+        return r
+
+    def assertGate(self, r, passes, text=None):
+        res = r.orch("gate")
+        self.assertEqual(res.returncode == 0, passes, res.stdout)
+        if text:
+            self.assertIn(text, res.stdout)
+        return res
+
+    # F1: evidence names the checkout the command ran in, and is void if the command changed it.
+
+    MUTATE = ("from pathlib import Path\nimport subprocess,sys\n"
+              "p=Path('app.py'); p.write_text(p.read_text().replace('41','99'))\n"
+              "p=Path('test_app.py'); p.write_text(p.read_text().replace('41','99'))\n"
+              "raise SystemExit(subprocess.call([sys.executable,'-m','unittest','-q']))\n")
+
+    def test_f1_a_fresh_run_that_edits_tracked_files_is_void(self):
+        r = self.checked()
+        r.orch("require", "fresh")
+        res = r.orch("fresh", "--", PY, "-c", self.MUTATE)
+        self.assertNotEqual(res.returncode, 0, res.stdout)
+        self.assertIn("DIRTY AFTER", res.stdout)
+        self.assertEqual(r.evidence()[-1][7], "dirty-after")
+        self.assertGate(r, False, "fresh:fresh")
+        self.assertNotEqual(r.orch("finish", "done").returncode, 0)
+        self.assertEqual((r.root / "app.py").read_text(), APP["app.py"])
+        self.assertEqual(r.orch("fresh", "--", *UNITTEST).returncode, 0, "an ordinary fresh run still passes")
+        self.assertGate(r, True)
+
+    def test_f1_declared_generated_files_are_fine_and_undeclared_ones_are_not(self):
+        gen = dict(APP, **{".gitignore": "__pycache__/\ngenerated_settings.py\n",
+                           "gen.py": "open('generated_settings.py', 'w').write('VALUE = 41\\n')\nopen('build.txt', 'w').write('x')\n"})
+        r = self.checked(gen)
+        res = r.orch("fresh", "--", "sh", "-c", f"{PY} gen.py && {PY} -m unittest -q")
+        self.assertNotEqual(res.returncode, 0, "build.txt is neither tracked nor ignored")
+        self.assertIn("build.txt", res.stdout)
+        r.orch("ignore", "build.txt")
+        res = r.orch("fresh", "--", "sh", "-c", f"{PY} gen.py && {PY} -m unittest -q")
+        self.assertEqual(res.returncode, 0, res.stdout)
+        self.assertGate(r, True)
+
+    def test_f1_the_evidence_names_the_state_before_the_command(self):
+        r = self.checked()
+        cand = r.git("rev-parse", "HEAD")
+        res = r.orch("run", "sneaky", "--", "git", "commit", "-q", "--allow-empty", "-m", "moved during the run")
+        self.assertNotEqual(res.returncode, 0)
+        self.assertEqual(r.evidence()[-1][4], cand, "the row names the commit the command started from")
+        self.assertEqual(r.evidence()[-1][7], "dirty-after")
+        self.assertIn("HEAD moved", res.stdout)
+
+    def test_f1_hidden_edits_to_tracked_files_are_caught(self):
+        r = self.checked()
+        hide = "echo '# edited' >> app.py && git update-index --assume-unchanged app.py && " + " ".join(UNITTEST)
+        res = r.orch("run", "hidden", "--", "sh", "-c", hide)
+        self.assertEqual(r.evidence()[-1][7], "dirty-after", res.stdout)
+        self.assertIn("file flags changed", res.stdout)
+
+    def test_f1_a_fresh_run_that_writes_to_the_main_checkout_is_void(self):
+        r = self.checked()
+        res = r.orch("fresh", "--", "sh", "-c", f"echo x >> {r.root}/app.py; {PY} -m unittest -q")
+        self.assertEqual(r.evidence()[-1][7], "dirty-after", res.stdout)
+        self.assertIn("main checkout", res.stdout)
+
+    # F2: each piece of command evidence is tied to the environment it ran in.
+
+    DEPS = dict(APP, **{".gitignore": "__pycache__/\nnode_modules/\n"})
+    LINT = [PY, "-c", "from pathlib import Path; assert Path('node_modules/package/marker.txt').read_text() == 'good'"]
+
+    def with_lint(self):
+        r = Repo(self.tmp / "repo", self.DEPS)
+        r.write({"node_modules/.package-lock.json": '{"version":1}\n', "node_modules/package/marker.txt": "good"})
+        r.orch("start", "deps", "--", *UNITTEST)
+        self.assertEqual(r.orch("check", "--", *UNITTEST).returncode, 0)
+        r.orch("require", "check", "lint")
+        self.assertEqual(r.orch("run", "lint", "--", *self.LINT).returncode, 0)
+        self.assertGate(r, True)
+        return r
+
+    def test_f2_rerunning_the_tests_does_not_refresh_a_stale_lint(self):
+        r = self.with_lint()
+        r.write({"node_modules/.package-lock.json": '{"version":2}\n', "node_modules/package/marker.txt": "bad"})
+        self.assertEqual(r.orch("check", "--", *UNITTEST).returncode, 0)
+        self.assertGate(r, False, "environment changed since run:lint ran")
+        self.assertNotEqual(r.orch("finish", "done").returncode, 0)
+        self.assertNotEqual(r.orch("run", "lint", "--", *self.LINT).returncode, 0, "rerunning shows the real state")
+        r.write({"node_modules/package/marker.txt": "good"})
+        self.assertEqual(r.orch("run", "lint", "--", *self.LINT).returncode, 0)
+        self.assertGate(r, False, "changed after check:check ran")
+        self.assertEqual(r.orch("check", "--", *UNITTEST).returncode, 0)
+        self.assertGate(r, True)
+
+    def test_f2_a_changed_dependency_file_is_tracked_per_check(self):
+        r = self.with_lint()
+        r.write({"node_modules/package/marker.txt": "bad"})
+        self.assertEqual(r.orch("check", "--", *UNITTEST).returncode, 0)
+        self.assertGate(r, False, "changed after run:lint ran")
+        r.write({"node_modules/package/marker.txt": "good"})
+        self.assertEqual(r.orch("run", "lint", "--", *self.LINT).returncode, 0)
+        self.assertGate(r, False, "changed after check:check ran")
+        self.assertEqual(r.orch("check", "--", *UNITTEST).returncode, 0)
+        self.assertGate(r, True)
+
+    def test_f2_a_command_that_changes_the_environment_while_running_is_void(self):
+        r = self.with_lint()
+        res = r.orch("run", "lint", "--", "sh", "-c", "echo '{\"version\":3}' > node_modules/.package-lock.json")
+        self.assertIn("ENVIRONMENT CHANGED", res.stdout)
+        self.assertGate(r, False, "changed the environment fingerprint while running")
+        self.assertEqual(r.orch("check", "--", *UNITTEST).returncode, 0)
+        self.assertEqual(r.orch("run", "lint", "--", *self.LINT).returncode, 0)
+        self.assertGate(r, True)
+
+    def test_f2_manual_evidence_is_environment_bound_and_a_review_is_not(self):
+        r = self.with_lint()
+        r.orch("require", "review")
+        r.orch("record", "manual", "pass", "--id", "cli", "ran the CLI by hand")
+        r.orch("record", "review", "pass", "independent review of this candidate")
+        self.assertGate(r, True)
+        r.write({"node_modules/.package-lock.json": '{"version":2}\n'})
+        self.assertEqual(r.orch("check", "--", *UNITTEST).returncode, 0)
+        self.assertEqual(r.orch("run", "lint", "--", *self.LINT).returncode, 0)
+        res = self.assertGate(r, False, "environment changed since manual:cli ran")
+        self.assertNotIn("review", res.stdout)
+        r.orch("record", "manual", "pass", "--id", "cli", "ran the CLI by hand again")
+        self.assertGate(r, True)
+
+    # F3: complete link chains are followed; what can't be settled is refused.
+
+    CHAIN = dict(APP, **{".gitignore": "__pycache__/\nnode_modules/\nshared-deps/\ndependency-alias\n"})
+
+    def test_f3_a_chained_link_is_followed_to_its_end(self):
+        r = self.started(self.CHAIN, baseline=False)
+        r.write({"shared-deps/package/marker.txt": "original"})
+        (r.root / "dependency-alias").symlink_to(r.root / "shared-deps/package", target_is_directory=True)
+        (r.root / "node_modules").mkdir()
+        (r.root / "node_modules/package").symlink_to(r.root / "dependency-alias", target_is_directory=True)
+        res = r.orch("wt-add", "w1")
+        self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+        copied = r.root / ".orchestrator/worktrees/w1/node_modules/package"
+        self.assertEqual((copied / "marker.txt").read_text(), "original")
+        (copied / "marker.txt").write_text("worker changed it")
+        self.assertEqual((r.root / "shared-deps/package/marker.txt").read_text(), "original")
+
+    def test_f3_a_dangling_link_into_the_main_checkout_stays_in_the_copy(self):
+        r = self.started(self.CHAIN, baseline=False)
+        (r.root / "node_modules").mkdir()
+        (r.root / "node_modules/cache").symlink_to(r.root / "shared-deps/not-yet.txt")
+        self.assertEqual(r.orch("wt-add", "w1").returncode, 0)
+        copied = r.root / ".orchestrator/worktrees/w1/node_modules/cache"
+        try:
+            copied.write_text("worker")
+        except OSError:
+            pass
+        self.assertFalse((r.root / "shared-deps/not-yet.txt").exists())
+
+    def test_f3_a_link_cycle_is_refused_and_nothing_is_placed(self):
+        r = self.started(self.CHAIN, baseline=False)
+        (r.root / "node_modules").mkdir()
+        (r.root / "node_modules/a").symlink_to("b")
+        (r.root / "node_modules/b").symlink_to("a")
+        res = r.orch("wt-add", "w1")
+        self.assertNotEqual(res.returncode, 0)
+        self.assertIn("link cycle", res.stdout)
+        self.assertFalse((r.root / ".orchestrator/worktrees/w1").exists())
+        self.assertNotIn("orch-wt/w1", r.git("branch", "--list", "orch-wt/w1"))
+        self.assertEqual(r.orch("wt-add", "w1", "--deps", "none").returncode, 0, "without the copy it still works")
+        r.orch("check", "--", *UNITTEST)
+        res = r.orch("fresh", "--", *UNITTEST)
+        self.assertNotEqual(res.returncode, 0)
+        self.assertIn("nothing was run", res.stderr)
+        self.assertEqual(r.orch("fresh", "--deps", "none", "--", *UNITTEST).returncode, 0)
+
+    def test_f3_a_link_to_the_checkout_root_is_refused(self):
+        r = self.started(self.CHAIN, baseline=False)
+        (r.root / "node_modules").mkdir()
+        (r.root / "node_modules/root").symlink_to(r.root, target_is_directory=True)
+        res = r.orch("wt-add", "w1")
+        self.assertNotEqual(res.returncode, 0)
+        self.assertIn("main checkout's root", res.stdout)
+
+
+class BaselineFailures(Base):
+    FAILING =dict(APP, **{"test_old.py": "import unittest\n\n\nclass Old(unittest.TestCase):\n    def test_broken(self):\n        self.fail('pre-existing')\n"})
+
+    def test_pre_existing_failure_is_known_not_new(self):
+        r = self.started(self.FAILING)
+        self.assertIn("test_broken", (r.root / ".orchestrator/baseline/failures.txt").read_text())
+        r.commit("feature", {"app.py": APP["app.py"] + "\n\ndef extra():\n    return 1\n"})
+        res = r.orch("check", "--", *UNITTEST)
+        self.assertEqual(res.returncode, 0, res.stdout)
+        self.assertEqual(r.evidence()[-1][7], "known-failures")
+        self.assertIn("pre-existing failures remain", r.orch("gate").stdout)
+
+    def test_new_failure_is_reported_as_new(self):
+        r = self.started(self.FAILING)
+        r.commit("break", {"app.py": "def answer():\n    return 0\n"})
+        res = r.orch("check", "--", *UNITTEST)
+        self.assertNotEqual(res.returncode, 0)
+        self.assertIn("new failures", res.stdout)
+        self.assertIn("test_answer", res.stdout)
+
+
+class Lifecycle(Base):
+    def test_start_refuses_uncommitted_work(self):
+        r = Repo(self.tmp / "repo", APP)
+        r.write({"app.py": "x = 1\n"})
+        self.assertEqual(r.orch("start", "demo").returncode, 4)
+
+    def test_unfinished_run_stops_start_and_finished_run_is_archived(self):
+        r = self.started(baseline=False)
+        self.assertEqual(r.orch("start", "again").returncode, 3)
+        self.assertEqual(r.orch("finish", "partial", "stopped early").returncode, 0)
+        r.git("checkout", "-q", "main")
+        res = r.orch("start", "again")
+        self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+        self.assertIn("archived", res.stdout)
+        self.assertTrue(list((r.root / ".orchestrator/runs").glob("*demo/manifest")))
+
+    def test_finish_done_requires_the_gate(self):
+        r = self.started()
+        r.commit("answer 42", {"app.py": "def answer():\n    return 42\n", "test_app.py": APP["test_app.py"].replace("41", "42")})
+        approve(r)
+        self.assertNotEqual(r.orch("finish", "done").returncode, 0)
+        self.assertEqual(r.orch("check", "--", *UNITTEST).returncode, 0)
+        res = r.orch("finish", "done", "all criteria met")
+        self.assertEqual(res.returncode, 0, res.stdout)
+        self.assertTrue((r.root / ".orchestrator/summary.md").exists())
+        self.assertTrue((r.root / ".orchestrator/evidence.tsv").exists(), "the record is kept")
+
+    def test_required_review_blocks_until_recorded_for_this_candidate(self):
+        r = self.started()
+        r.orch("require", "review")
+        self.assertEqual(r.orch("check", "--", *UNITTEST).returncode, 0)
+        res = r.orch("gate")
+        self.assertIn("review required", res.stdout)
+        r.orch("record", "review", "pass", "no blocking findings")
+        self.assertEqual(r.orch("gate").returncode, 0)
+        r.commit("repair", {"app.py": "def answer():\n    return 41  # repaired\n"})
+        r.orch("check", "--", *UNITTEST)
+        res = r.orch("gate")
+        self.assertNotEqual(res.returncode, 0, "a review of an older candidate doesn't count")
+        self.assertIn("review was last recorded for an earlier candidate", res.stdout)
+        self.assertNotEqual(r.orch("waive", "review", "it was fine").returncode, 0, "a required review can't be waived")
+        r.orch("record", "recheck", "pass", "repair checked")
+        self.assertEqual(r.orch("gate").returncode, 0)
+
+    def test_repair_budget(self):
+        r = self.started(baseline=False)
+        self.assertEqual(r.orch("repair", "finding 1").returncode, 0)
+        self.assertEqual(r.orch("repair", "finding 2").returncode, 0)
+        res = r.orch("repair", "finding 3")
+        self.assertEqual(res.returncode, 1)
+        self.assertIn("REPAIR BUDGET SPENT", res.stdout)
+
+    def test_environment_change_makes_evidence_stale(self):
+        files = dict(APP, **{".gitignore": "__pycache__/\nnode_modules/\n"})
+        r = self.started(files)
+        (r.root / "node_modules").mkdir()
+        (r.root / "node_modules/.package-lock.json").write_text('{"v":1}')
+        self.assertEqual(r.orch("check", "--", *UNITTEST).returncode, 0)
+        (r.root / "node_modules/.package-lock.json").write_text('{"v":2}')
+        self.assertIn("environment changed", r.orch("gate").stdout)
+
+    def test_manual_check_pending_blocks_gate(self):
+        r = self.started()
+        self.assertEqual(r.orch("check", "--", *UNITTEST).returncode, 0)
+        r.orch("record", "manual", "pending", "--id", "layout-on-mobile", "checked on a phone")
+        self.assertIn("manual:layout-on-mobile latest result", r.orch("gate").stdout)
+        r.orch("record", "manual", "pass", "--id", "layout-on-mobile", "looks right on a phone")
+        self.assertEqual(r.orch("gate").returncode, 0)
+
+    def test_credentials_are_masked_in_the_evidence(self):
+        r = self.started(baseline=False)
+        r.orch("candidate")
+        r.orch("run", "echo", "--", "env", "API_TOKEN=synthetic123", "true")
+        self.assertIn("API_TOKEN=***", r.evidence()[-1][12])
+        self.assertNotIn("synthetic123", r.evidence()[-1][12])
+
+
+class RunnerSummaries(Base):
+    CASES = {
+        "pytest": ("3 passed, 2 skipped in 0.12s", "3/0/2/3/pytest"),
+        "pytest-fail": ("1 failed, 3 passed, 1 xfailed in 0.2s", "3/1/1/4/pytest"),
+        "unittest": ("Ran 5 tests in 0.001s\n\nOK (skipped=2)", "3/0/2/5/unittest"),
+        "node-test": ("# tests 4\n# pass 3\n# fail 0\n# skipped 1\n# todo 0", "3/0/1/3/tap"),
+        "jest": ("Tests:       1 failed, 2 skipped, 10 passed, 13 total", "10/1/2/11/jest"),
+        "cargo": ("test result: ok. 5 passed; 0 failed; 1 ignored; 0 measured", "5/0/1/5/cargo"),
+        "go": ("--- PASS: TestA (0.00s)\n--- SKIP: TestB (0.00s)\n--- FAIL: TestC (0.00s)", "1/1/1/2/go"),
+        "unknown": ("all good", "?/?/?/?/unknown"),
+    }
+
+    def test_counts_are_parsed_or_marked_unknown(self):
+        r = self.started(baseline=False)
+        r.orch("candidate")
+        for name, (text, want) in self.CASES.items():
+            with self.subTest(name):
+                r.orch("run", name, "--", "printf", "%s\n", text)
+                self.assertEqual(r.evidence()[-1][10], want)
+
+
+class Stray(Base):
+    def test_ignored_file_written_during_workers_is_caught(self):
+        r = self.started(baseline=False)
+        self.assertEqual(r.orch("stamp").returncode, 0)
+        (r.root / "__pycache__").mkdir(exist_ok=True)
+        (r.root / "__pycache__/stray.pyc").write_text("x")
+        res = r.orch("stray")
+        self.assertEqual(res.returncode, 1)
+        self.assertIn("stray.pyc", res.stdout)
+
+
+if __name__ == "__main__":
+    unittest.main()

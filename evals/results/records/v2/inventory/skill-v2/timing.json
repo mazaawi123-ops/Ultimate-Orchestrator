@@ -1,0 +1,66 @@
+{
+  "cost_usd_estimate": 2.1204,
+  "cost_note": "Claude Code local estimate at list price; not a billing record",
+  "num_turns": 6,
+  "subtype": "success",
+  "per_model": {
+    "opus": {
+      "input": 58,
+      "output": 37473,
+      "cache_read": 1529674,
+      "cache_write": 117066,
+      "cost_usd_estimate": 1.8357
+    },
+    "haiku": {
+      "input": 300,
+      "output": 18663,
+      "cache_read": 1167769,
+      "cache_write": 59443,
+      "cost_usd_estimate": 0.2847
+    }
+  },
+  "usage_by_agent": {
+    "main|opus": {
+      "requests": 20,
+      "input": 42,
+      "output_at_start": 308,
+      "cache_read": 1241155,
+      "cache_write": 64918
+    },
+    "model:haiku|haiku": {
+      "requests": 36,
+      "input": 292,
+      "output_at_start": 69,
+      "cache_read": 1137541,
+      "cache_write": 57889
+    },
+    "model:opus|opus": {
+      "requests": 7,
+      "input": 14,
+      "output_at_start": 74,
+      "cache_read": 239109,
+      "cache_write": 49410
+    }
+  },
+  "dispatches": [
+    {
+      "agent": "model:haiku",
+      "model_param": "haiku",
+      "description": "T1 fix ship overdraw"
+    },
+    {
+      "agent": "model:haiku",
+      "model_param": "haiku",
+      "description": "T2 implement import_csv"
+    },
+    {
+      "agent": "model:opus",
+      "model_param": "opus",
+      "description": "Full verification of change"
+    }
+  ],
+  "skill_used": true,
+  "wall_seconds": 503,
+  "source": "skill v2 (commit 756543e), Opus planner, subagents inherit Opus; prompt asks to plan, delegate, verify",
+  "usage_note": "per_model has complete token counts. usage_by_agent splits requests, input and cache tokens exactly; output_at_start is the stream's start-of-message output count, a lower bound."
+}

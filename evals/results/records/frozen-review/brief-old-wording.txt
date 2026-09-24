@@ -1,0 +1,71 @@
+You are an independent reviewer. Someone else wrote a change; check whether it does what the
+user asked, without breaking what already worked. Treat claims in comments, commit messages
+and docstrings as unverified.
+
+Don't edit tracked files: put scratch scripts in /tmp. Don't install anything into the shared
+environment; use a throwaway one under /tmp, or list the check under Not verified. Don't
+delegate.
+
+## The user's request (verbatim)
+In this repo (schedule), add a way to schedule a job on weekdays only: `schedule.every().weekday.at("09:00").do(job)` should run Monday to Friday at 09:00 and never on Saturday or Sunday. Add tests; the existing suite must stay green. The tests run with `python3 -m pytest -q`.
+
+(Context for this run: no one is available to answer questions until you finish, so make sensible calls, record them, and carry on. Keep any plan, notes or report files you create; don't delete them at the end.)
+
+## Candidate
+Repo {REPO}, candidate {CANDIDATE} on branch orch/weekday. Patch: {PATCH}
+(BASE 82a43db1b938..candidate).
+
+## Contracts to preserve
+- Job builder-pattern properties and their existing behaviour (schedule/__init__.py, class Job): second(s)/minute(s)/hour(s)/day(s)/week(s), monday..sunday, at(), to(), until(), do(), tag().
+- `_schedule_next_run` unit validation and the daily/weekly/tz/DST next-run logic; next_run stays a naive local datetime.
+- Existing `__str__` and `__repr__` output for non-weekday jobs (test_to_string / test_to_repr).
+- No new runtime dependencies (pytz stays optional, imported only when a tz is given).
+- CI (tox.ini, .github/workflows/ci.yml): pytest on py3.7–3.12 with and without pytz, `mypy -p schedule`, `black==20.8b1 --check .`, sphinx docs build with -W.
+
+## Acceptance criteria (the main session's reading of the request)
+- C1: `schedule.every().weekday.at("09:00").do(job)` computes next_run as the next Mon–Fri 09:00 strictly after now (same day if before 09:00 on a weekday).
+- C2: next_run is never a Saturday or Sunday — from any starting day of the week, and across repeated runs (Fri run -> next Mon; Sat/Sun now -> Mon).
+- C3: invalid combinations fail loudly with a ScheduleError subclass instead of silently doing something else: `every(2).weekday` (IntervalError), `.weekday` combined with `.monday`..`.sunday`, with a non-day unit, or with `.to()`.
+- C4: Existing tests unchanged and green: `python3 -m pytest -q` (baseline 40 passed / 41 skipped — pytz is unavailable in the system python, so tz tests skip).
+- C5: CI checks pass on the candidate: black==20.8b1 `black --check .`, `mypy -p schedule`, and the full suite with pytz installed.
+- C6: Docs mention the new API (README + docs/examples.rst); repr of a weekday job reads sensibly.
+Where a criterion misses or contradicts the request, say so: the request is the reference.
+
+## Decisions the main session made (decisions, not facts)
+- Decision: implement as unit="days" plus a `weekdays_only` flag, skipping forward past Sat/Sun after the normal daily next-run computation — reuses daily at()/tz/DST logic.
+- Decision: with `at(..., tz)`, the day of week is judged in that timezone (the zone the at-time is expressed in), not the machine's local zone. Consequence: the run's local calendar day can be Sat/Sun in cross-zone setups (e.g. Fri 20:00 New York is Sat 02:00 Berlin).
+- Decision: `every().weekday.do(job)` without at() is allowed: runs once per weekday at the time-of-day of scheduling, like every().day.
+- Decision: reject `every(n>1).weekday`, `.to()` with weekday, weekday combined with a named day or a non-days unit — raise rather than guess.
+- Decision: repr shows "Every weekday at 09:00:00 do ..."; `__str__` format unchanged (unit=days).
+
+## Commands
+- tests: `python3 -m pytest -q`   (system python, no pytz)
+- tests with pytz + CI tools: a throwaway venv already exists at /tmp/orch-weekday-venv (black==20.8b1, click==8.0.4, pytz, types-pytz, mypy, pytest, Sphinx). Use `/tmp/orch-weekday-venv/bin/python -m pytest -q -p no:cacheprovider`, `/tmp/orch-weekday-venv/bin/black --check .`, `/tmp/orch-weekday-venv/bin/python -m mypy -p schedule`. Don't install into it; create your own under /tmp if you need something else.
+- offline run: n/a (no network use)
+- known failures at BASE: none
+
+## Do
+1. Run the tests and lint. Report the output tail.
+2. Check each criterion directly, by running the code, and try the edge cases the request
+   implies.
+3. Read the patch for what tests miss: changed public behaviour, error paths, data silently
+   dropped or coerced, edits to existing tests or test configuration, secrets, new
+   dependencies or network calls.
+
+## Findings
+Each finding needs:
+- the requirement or contract it violates
+- the location (file:line)
+- a reproduction, or specific source evidence
+- the practical impact, and the smallest justified correction
+
+Classify each as **blocking** (the change is wrong or unsafe to deliver), **optional
+improvement**, or **observation**. Match the severity to the impact; don't pad or merge
+findings. A clean review, with no findings, is a valid and useful result.
+
+## Report
+### Verdict: PASS | FAIL (FAIL only for a blocking finding or a failed criterion)
+### Criteria: C1 PASS | FAIL | NOT CHECKED — evidence
+### Test run: <tail>
+### Findings: <each, as above, or "none">
+### Not verified: <anything you couldn't check, and why, or "none">

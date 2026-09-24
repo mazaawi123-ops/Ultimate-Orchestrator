@@ -1,0 +1,515 @@
+diff --git a/src/humanize/__init__.py b/src/humanize/__init__.py
+index 4f54bc4..1be41da 100644
+--- a/src/humanize/__init__.py
++++ b/src/humanize/__init__.py
+@@ -11,7 +11,7 @@ __lazy_modules__ = {
+     "humanize.time",
+ }
+ 
+-from humanize.filesize import naturalsize
++from humanize.filesize import naturalsize, parse_size
+ from humanize.i18n import activate, deactivate, decimal_separator, thousands_separator
+ from humanize.lists import natural_list
+ from humanize.number import (
+@@ -52,6 +52,7 @@ __all__ = [
+     "naturalsize",
+     "naturaltime",
+     "ordinal",
++    "parse_size",
+     "precisedelta",
+     "scientific",
+     "thousands_separator",
+diff --git a/src/humanize/filesize.py b/src/humanize/filesize.py
+index 063affe..1b5d359 100644
+--- a/src/humanize/filesize.py
++++ b/src/humanize/filesize.py
+@@ -108,3 +108,118 @@ def naturalsize(
+     space = "" if gnu else " "
+     ret: str = format % (bytes_ / (base**exp)) + space + _(suffix[exp - 1])
+     return ret
++
++
++# Multipliers for every unit `naturalsize` can emit, derived from `suffixes`.
++# "Byte"/"Bytes" are matched case-insensitively in `parse_size` itself.
++_unit_multipliers: dict[str, int] = {
++    "B": 1,
++    **{
++        suffix: base**exp
++        for family, base in (("decimal", 1000), ("binary", 1024), ("gnu", 1024))
++        for exp, suffix in enumerate(suffixes[family], start=1)
++    },
++}
++
++# Largest accepted absolute exponent: a huge one (e.g. "1e999999999") would
++# make the exact Fraction arithmetic take practically forever.
++_MAX_EXPONENT = 100
++
++# Optional sign, a number with optional fraction and exponent (ASCII digits
++# only), optional whitespace, then an optional alphabetic unit.
++_SIZE_PATTERN = (
++    r"\s*"
++    r"(?P<mantissa>[+-]?(?:[0-9]+\.?[0-9]*|\.[0-9]+))"
++    r"(?:[eE](?P<exponent>[+-]?[0-9]+))?"
++    r"\s*"
++    r"(?P<unit>[A-Za-z]*)"
++    r"\s*"
++)
++
++
++def parse_size(text: str) -> int:
++    """Parse a human-readable filesize (e.g. 10 kB) into a number of bytes.
++
++    This is the inverse of `naturalsize`: decimal (kB, MB), binary (KiB, MiB)
++    and GNU-style (K, M) suffixes are understood, as well as B, Byte and Bytes.
++    A bare number is taken as a number of bytes. Suffixes are case-sensitive
++    and must be written exactly as `naturalsize` writes them (so "KB", "kb"
++    and "kiB" are rejected), except for Byte and Bytes, which may be in any
++    case. Only the untranslated (English) output of `naturalsize` is
++    supported.
++
++    The number is parsed exactly (no floating point) and the result is rounded
++    to the nearest integer, with halves rounded away from zero.
++
++    Examples:
++        ```pycon
++        >>> parse_size("3.0 MB")
++        3000000
++        >>> parse_size("300B")
++        300
++        >>> parse_size("2.9K")
++        2970
++        >>> parse_size("2.930K")
++        3000
++        >>> parse_size("2.9 KiB")
++        2970
++        >>> parse_size("10.0 RB")
++        10000000000000000000000000000
++        >>> parse_size("30000.0 QB") == 10**34 * 3
++        True
++        >>> parse_size("-4.0 KiB")
++        -4096
++        >>> parse_size("1 Byte")
++        1
++        >>> parse_size("1024")
++        1024
++
++        ```
++
++    Args:
++        text (str): Filesize to parse, such as the output of `naturalsize`.
++
++    Returns:
++        int: Number of bytes, rounded to the nearest integer.
++
++    Raises:
++        TypeError: If `text` is not a string.
++        ValueError: If `text` cannot be parsed as a filesize, including when
++            its exponent is larger than 100 in absolute value (e.g. "1e101").
++    """
++    if not isinstance(text, str):
++        msg = f"parse_size() argument must be str, not {type(text).__name__}"
++        raise TypeError(msg)
++
++    import re
++    from fractions import Fraction
++
++    match = re.fullmatch(_SIZE_PATTERN, text)
++    unit = match["unit"] if match else ""
++    if unit.lower() in ("", "byte", "bytes"):
++        multiplier = 1
++    else:
++        multiplier = _unit_multipliers.get(unit, 0)  # 0: unknown unit
++    exponent = (match["exponent"] if match else None) or "0"
++    # Check the exponent's digit count before converting it to int, so a very
++    # long digit string is rejected cheaply, then check its value.
++    exponent_digits = exponent.lstrip("+-").lstrip("0") or "0"
++    msg = f"Unable to parse size: {text!r}"
++    if (
++        match is None
++        or not multiplier
++        or len(exponent_digits) > 4
++        or int(exponent_digits) > _MAX_EXPONENT
++    ):
++        raise ValueError(msg)
++
++    exponent_value = -int(exponent_digits) if "-" in exponent else int(exponent_digits)
++    try:
++        value = (
++            Fraction(match["mantissa"]) * Fraction(10) ** exponent_value * multiplier
++        )
++    except ValueError:  # More digits than sys.get_int_max_str_digits() allows
++        raise ValueError(msg) from None
++    # Round half away from zero (built-in round() rounds half to even).
++    rounded = int(abs(value) + Fraction(1, 2))
++    return -rounded if value < 0 else rounded
+diff --git a/src/humanize/lists.py b/src/humanize/lists.py
+index 36e8ab7..f9aa943 100644
+--- a/src/humanize/lists.py
++++ b/src/humanize/lists.py
+@@ -10,10 +10,11 @@ if TYPE_CHECKING:
+ __all__ = ["natural_list"]
+ 
+ 
+-def natural_list(items: Iterable[Any]) -> str:
++def natural_list(items: Iterable[Any], conjunction: str = "and") -> str:
+     """Natural list.
+ 
+-    Convert an iterable of items into a human-readable string with commas and 'and'.
++    Convert an iterable of items into a human-readable string with commas and a
++    conjunction ('and' by default).
+ 
+     Examples:
+         >>> natural_list(["one", "two", "three"])
+@@ -22,12 +23,15 @@ def natural_list(items: Iterable[Any]) -> str:
+         'one and two'
+         >>> natural_list(["one"])
+         'one'
++        >>> natural_list(["one", "two", "three"], conjunction="or")
++        'one, two or three'
+ 
+     Args:
+         items (Iterable): An iterable of items.
++        conjunction (str): The word placed before the last item. Defaults to "and".
+ 
+     Returns:
+-        str: A string with commas and 'and' in the right places.
++        str: A string with commas and the conjunction in the right places.
+     """
+     item_list = [str(item) for item in items]
+     if not item_list:
+@@ -35,6 +39,6 @@ def natural_list(items: Iterable[Any]) -> str:
+     if len(item_list) == 1:
+         return item_list[0]
+     elif len(item_list) == 2:
+-        return f"{item_list[0]} and {item_list[1]}"
++        return f"{item_list[0]} {conjunction} {item_list[1]}"
+     else:
+-        return ", ".join(item_list[:-1]) + f" and {item_list[-1]}"
++        return ", ".join(item_list[:-1]) + f" {conjunction} {item_list[-1]}"
+diff --git a/tests/test_filesize.py b/tests/test_filesize.py
+index e695639..52f704e 100644
+--- a/tests/test_filesize.py
++++ b/tests/test_filesize.py
+@@ -103,3 +103,269 @@ def test_naturalsize(test_args: list[int] | list[int | bool], expected: str) ->
+         test_args[0] = f"-{test_args[0]}"
+ 
+     assert humanize.naturalsize(*test_args) == "-" + expected
++
++
+<email>(
++    "text, expected",
++    [
++        # Bare numbers are bytes
++        ("0", 0),
++        ("300", 300),
++        ("1024", 1024),
++        ("1.5", 2),
++        (".5", 1),
++        ("1.", 1),
++        ("1e3", 1000),
++        ("+7", 7),
++        ("-7", -7),
++        # B, Byte, Bytes (Byte/Bytes in any case)
++        ("0B", 0),
++        ("300B", 300),
++        ("300 B", 300),
++        ("1 Byte", 1),
++        ("-1 Byte", -1),
++        ("300 Bytes", 300),
++        ("-300 Bytes", -300),
++        ("1 byte", 1),
++        ("300 bytes", 300),
++        ("300 BYTES", 300),
++        ("1 bYtE", 1),
++        # Decimal suffixes
++        ("1.0 kB", 1000),
++        ("1.0 MB", 1000**2),
++        ("1.0 GB", 1000**3),
++        ("1.0 TB", 1000**4),
++        ("1.0 PB", 1000**5),
++        ("1.0 EB", 1000**6),
++        ("1.0 ZB", 1000**7),
++        ("1.0 YB", 1000**8),
++        ("1.0 RB", 1000**9),
++        ("1.0 QB", 1000**10),
++        ("31.0 kB", 31000),
++        ("3.14 MB", 3140000),
++        # Binary suffixes
++        ("1.0 KiB", 1024),
++        ("1.0 MiB", 1024**2),
++        ("1.0 GiB", 1024**3),
++        ("1.0 TiB", 1024**4),
++        ("1.0 PiB", 1024**5),
++        ("1.0 EiB", 1024**6),
++        ("1.0 ZiB", 1024**7),
++        ("1.0 YiB", 1024**8),
++        ("1.0 RiB", 1024**9),
++        ("1.0 QiB", 1024**10),
++        ("40.0 QiB", 1024**10 * 40),
++        # GNU suffixes
++        ("1.0K", 1024),
++        ("1.0M", 1024**2),
++        ("1.0G", 1024**3),
++        ("1.0T", 1024**4),
++        ("1.0P", 1024**5),
++        ("1.0E", 1024**6),
++        ("1.0Z", 1024**7),
++        ("1.0Y", 1024**8),
++        ("1.0R", 1024**9),
++        ("1.0Q", 1024**10),
++        ("3G", 3 * 1024**3),
++        ("2.930K", 3000),
++        # Whitespace is optional between number and unit, and around the input
++        ("1.0kB", 1000),
++        ("1.0 K", 1024),
++        ("1.0KiB", 1024),
++        ("  1.0 kB  ", 1000),
++        ("\t2 MiB\n", 2 * 1024**2),
++        ("1.0   kB", 1000),
++        # Signs
++        ("+1.0 kB", 1000),
++        ("-1.0 kB", -1000),
++        ("-4.0 KiB", -4096),
++        ("-1.0M", -(1024**2)),
++        # Exponents and fraction-only numbers
++        ("2.930e+00K", 3000),
++        ("1e3 kB", 1000**2),
++        ("1E3 kB", 1000**2),
++        ("1.5e-3 MB", 1500),
++        ("-2e1 KiB", -20480),
++        # Exponents are capped at +/-100
++        ("1e100 B", 10**100),
++        ("1E+100", 10**100),
++        ("-1e100 B", -(10**100)),
++        ("1e0100 B", 10**100),
++        ("1e-100 kB", 0),
++        ("5e-100 QB", 0),
++        ("1e" + "0" * 5000 + "5", 100000),
++        ("1e-" + "0" * 5000 + "5 kB", 0),
++        (".5 kB", 500),
++        ("1. kB", 1000),
++        # Rounding: nearest, halves away from zero
++        ("2.9 KiB", 2970),
++        ("-2.9 KiB", -2970),
++        ("2.9K", 2970),
++        ("0.5 B", 1),
++        ("-0.5 B", -1),
++        ("2.5 B", 3),
++        ("-2.5 B", -3),
++        ("0.4 B", 0),
++        ("-0.4 B", 0),
++        ("-1.5", -2),
++        ("0.0005 kB", 1),
++        # Exact arithmetic for huge values
++        ("30000.0 QB", 3 * 10**34),
++        ("1.0000 QiB", 1024**10),
++        ("10.0 RB", 10**28),
++        ("2.5 RiB", 5 * 2**89),
++        ("0.25 KiB", 256),
++        ("123456789.123456789 QB", 123456789123456789 * 10**21),
++    ],
++)
++def test_parse_size(text: str, expected: int) -> None:
++    result = humanize.parse_size(text)
++    assert result == expected
++    assert type(result) is int
++
++
+<email>(
++    "text",
++    [
++        "",
++        " ",
++        "\t\n",
++        "kB",
++        "KiB",
++        "B",
++        "-",
++        "+",
++        ".",
++        "-.",
++        "e3",
++        "1e",
++        "1e+",
++        "1 e3",
++        # Exponents larger than 100 in absolute value
++        "1e101",
++        "1e-101 kB",
++        "1e+101 B",
++        "1e999999999 B",
++        "1e-999999999 B",
++        "1e" + "9" * 50,
++        "1e" + "0" * 5000 + "101",
++        "nan",
++        "NaN",
++        "inf",
++        "-inf",
++        "infinity",
++        "nan kB",
++        "1,000 kB",
++        "1_000 kB",
++        "1.0.0 kB",
++        "1 2 kB",
++        "1 kB 2",
++        "1 kB B",
++        "--1 kB",
++        "+-1 kB",
++        "- 1 kB",
++        "0x10",
++        "1/2 kB",
++        # Case-sensitive units
++        "1 KB",
++        "1 kb",
++        "1 mb",
++        "1 Mb",
++        "1 kiB",
++        "1 KIB",
++        "1 Kb",
++        "1 k",
++        "1 m",
++        "1 b",
++        "1 q",
++        # Unknown units
++        "1 XB",
++        "1 XiB",
++        "1 bit",
++        "1 bits",
++        "1 Byt",
++        "1 Bytess",
++        "1 kBytes",
++        "1 kilobyte",
++        "1 k B",
++        "1 Ki B",
++        # Non-ASCII digits
++        "١ kB",
++        "１ kB",
++        "1٠ kB",
++        "junk",
++        "1.0 kB!",
++    ],
++)
++def test_parse_size_invalid(text: str) -> None:
++    with pytest.raises(ValueError, match="Unable to parse size"):
++        humanize.parse_size(text)
++
++
+<email>(
++    "value",
++    [None, 1024, 1.5, b"1 kB", bytearray(b"1 kB"), ["1 kB"]],
++)
++def test_parse_size_type_error(value: object) -> None:
++    with pytest.raises(TypeError):
++        humanize.parse_size(value)  # type: ignore[arg-type]
++
++
++_ROUND_TRIP_VALUES = sorted(
++    {
++        0,
++        1,
++        2,
++        999,
++        1000,
++        1001,
++        1023,
++        1024,
++        1025,
++        1500,
++        3000,
++        4096,
++        999999,
++        1000000,
++        1048575,
++        1048576,
++        3141592,
++        123456789,
++        987654321,
++        1234567890123,
++        98765432109876543,
++        10**34 * 3,
++        10**40 + 7,
++        *(10**k for k in range(11)),
++        *(1024**k for k in range(11)),
++        *(10**k - 1 for k in range(1, 11)),
++        *(1024**k - 1 for k in range(1, 11)),
++        *(1000**k * 31 for k in range(1, 11)),
++    }
++)
++
++
+<email>(
++    "value", [*_ROUND_TRIP_VALUES, *(-v for v in _ROUND_TRIP_VALUES)]
++)
+<email>(
++    "binary, gnu",
++    [(False, False), (True, False), (False, True)],
++)
++def test_parse_size_round_trip(value: int, binary: bool, gnu: bool) -> None:
++    base = 1024 if (binary or gnu) else 1000
++    text = humanize.naturalsize(value, binary, gnu)
++    result = humanize.parse_size(text)
++
++    if abs(value) < base:
++        assert result == value, text
++        return
++
++    # One display unit, e.g. 1000 for "kB": the multiplier of the suffix used
++    unit = humanize.parse_size("1 " + text.lstrip("-+0123456789. "))
++    assert unit >= base
++    # "%.1f" shows one decimal place, so it is off by at most half of 0.1 unit
++    assert abs(result - value) <= unit // 20 + 1, text
++
++    if value in {base**k for k in range(11)}:
++        assert result == value, text
+diff --git a/tests/test_lists.py b/tests/test_lists.py
+index 9b3c1b7..9a974ea 100644
+--- a/tests/test_lists.py
++++ b/tests/test_lists.py
+@@ -29,3 +29,48 @@ import humanize
+ )
+ def test_natural_list(test_args: Iterable[Any], expected: str) -> None:
+     assert humanize.natural_list(*test_args) == expected
++
++
+<email>(
++    "test_args, test_kwargs, expected",
++    [
++        ([["one", "two", "three"]], {"conjunction": "or"}, "one, two or three"),
++        ([["one", "two"]], {"conjunction": "or"}, "one or two"),
++        ([["one"]], {"conjunction": "or"}, "one"),
++        ([[]], {"conjunction": "or"}, ""),
++        ([["one", "two", "three"], "or"], {}, "one, two or three"),
++        ([["one", "two"], "or"], {}, "one or two"),
++        ([["a", "b", "c"]], {"conjunction": "and/or"}, "a, b and/or c"),
++        ([["a", "b"]], {"conjunction": "as well as"}, "a as well as b"),
++        ([[1, 2, 3]], {"conjunction": "or"}, "1, 2 or 3"),
++        ([[1, "two"]], {"conjunction": "or"}, "1 or two"),
++        ([range(1, 4)], {"conjunction": "or"}, "1, 2 or 3"),
++        (
++            [(x for x in ["one", "two", "three"])],
++            {"conjunction": "or"},
++            "one, two or three",
++        ),
++        ([["one", "two", "three"]], {"conjunction": "and"}, "one, two and three"),
++        ([["one", "two"], "and"], {}, "one and two"),
++    ],
++)
++def test_natural_list_conjunction(
++    test_args: list[Any], test_kwargs: dict[str, Any], expected: str
++) -> None:
++    assert humanize.natural_list(*test_args, **test_kwargs) == expected
++
++
+<email>(
++    "items",
++    [
++        ["one", "two", "three"],
++        ["one", "two"],
++        ["one"],
++        [],
++        [1, 2, 3],
++    ],
++)
++def test_natural_list_explicit_and_equals_default(items: list[Any]) -> None:
++    assert humanize.natural_list(items, conjunction="and") == humanize.natural_list(
++        items
++    )

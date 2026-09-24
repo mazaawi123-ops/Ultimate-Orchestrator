@@ -1,0 +1,60 @@
+{
+  "cost_usd_estimate": 3.0566,
+  "cost_note": "Claude Code local estimate at list price; not a billing record",
+  "num_turns": 7,
+  "subtype": "success",
+  "per_model": {
+    "opus": {
+      "input": 94,
+      "output": 57334,
+      "cache_read": 3154876,
+      "cache_write": 149235,
+      "cost_usd_estimate": 2.7673
+    },
+    "sonnet": {
+      "input": 30,
+      "output": 9266,
+      "cache_read": 607117,
+      "cache_write": 30065,
+      "cost_usd_estimate": 0.2893
+    }
+  },
+  "usage_by_agent": {
+    "main|opus": {
+      "requests": 31,
+      "input": 62,
+      "output_at_start": 368,
+      "cache_read": 2219902,
+      "cache_write": 81021
+    },
+    "orch-verifier|opus": {
+      "requests": 16,
+      "input": 32,
+      "output_at_start": 143,
+      "cache_read": 934974,
+      "cache_write": 68214
+    },
+    "orch-rechecker|sonnet": {
+      "requests": 14,
+      "input": 28,
+      "output_at_start": 75,
+      "cache_read": 555158,
+      "cache_write": 29489
+    }
+  },
+  "dispatches": [
+    {
+      "agent": "orch-verifier",
+      "model_param": null,
+      "description": "Independent review of weekday feature"
+    },
+    {
+      "agent": "orch-rechecker",
+      "model_param": null,
+      "description": "Re-check weekday repair"
+    }
+  ],
+  "skill_used": true,
+  "wall_seconds": 647,
+  "source": "current skill (commit 29fe7f4) + agents, told to use Reviewed mode"
+}

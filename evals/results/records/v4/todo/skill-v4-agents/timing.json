@@ -1,0 +1,92 @@
+{
+  "cost_usd_estimate": 2.7949,
+  "cost_note": "Claude Code local estimate at list price; not a billing record",
+  "num_turns": 6,
+  "subtype": "success",
+  "per_model": {
+    "opus": {
+      "input": 66,
+      "output": 39597,
+      "cache_read": 1561643,
+      "cache_write": 108527,
+      "cost_usd_estimate": 1.8123
+    },
+    "haiku": {
+      "input": 346,
+      "output": 14502,
+      "cache_read": 1568029,
+      "cache_write": 47624,
+      "cost_usd_estimate": 0.2892
+    },
+    "sonnet": {
+      "input": 64,
+      "output": 15983,
+      "cache_read": 1347519,
+      "cache_write": 105585,
+      "cost_usd_estimate": 0.6934
+    }
+  },
+  "usage_by_agent": {
+    "main|opus": {
+      "requests": 21,
+      "input": 46,
+      "output_at_start": 1348,
+      "cache_read": 1181374,
+      "cache_write": 55052
+    },
+    "orch-worker-haiku|haiku": {
+      "requests": 43,
+      "input": 346,
+      "output_at_start": 76,
+      "cache_read": 1568029,
+      "cache_write": 47624
+    },
+    "orch-verifier|opus": {
+      "requests": 10,
+      "input": 20,
+      "output_at_start": 133,
+      "cache_read": 380269,
+      "cache_write": 53475
+    },
+    "orch-worker-sonnet|sonnet": {
+      "requests": 18,
+      "input": 36,
+      "output_at_start": 168,
+      "cache_read": 738712,
+      "cache_write": 50888
+    },
+    "orch-rechecker|sonnet": {
+      "requests": 12,
+      "input": 24,
+      "output_at_start": 76,
+      "cache_read": 504905,
+      "cache_write": 53014
+    }
+  },
+  "dispatches": [
+    {
+      "agent": "orch-worker-haiku",
+      "model_param": null,
+      "description": "T1: due dates feature"
+    },
+    {
+      "agent": "orch-verifier",
+      "model_param": null,
+      "description": "Verify due-dates change"
+    },
+    {
+      "agent": "orch-worker-sonnet",
+      "model_param": null,
+      "description": "Fix round 1: pin date, nits"
+    },
+    {
+      "agent": "orch-rechecker",
+      "model_param": null,
+      "description": "Scoped re-check of fix 1"
+    }
+  ],
+  "skill_used": true,
+  "wall_seconds": 625,
+  "source": "skill v4 (commit 0a162d0) with the agent files: Opus planner, Haiku/Sonnet workers, extra-high Opus verifier",
+  "usage_note": "per_model has complete token counts. usage_by_agent splits requests, input and cache tokens exactly; output_at_start is the stream's start-of-message output count, a lower bound."
+}

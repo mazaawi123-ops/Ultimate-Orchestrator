@@ -1,0 +1,225 @@
+diff --git a/README.md b/README.md
+index 4190b6e..fa11820 100644
+--- a/README.md
++++ b/README.md
+@@ -1,2 +1,13 @@
+ # textkit
+ Zero-dependency string helpers (ESM). Tests: `npm test` (Node built-in runner).
++
++- `slugify(input)` — lowercase, ASCII-alphanumeric, hyphen-separated slug.
++- `wrap(text, width = 80)` — wrap on whitespace (runs of spaces, tabs and newlines collapse to one
++  space); words longer than `width` are hard-broken so no line exceeds `width`. `width` must be an
++  integer ≥ 1 (else `RangeError`).
++- `truncate(text, max, ellipsis = "…")` — at most `max` characters including the ellipsis; text that
++  already fits is returned unchanged. If the ellipsis alone is longer than `max`, it is itself cut to
++  `max`. `max` must be an integer ≥ 0 (else `RangeError`).
++
++"Characters" means Unicode code points: surrogate pairs (e.g. emoji) are never split. Multi-code-point
++grapheme clusters (ZWJ emoji sequences, combining marks) may be split.
+diff --git a/src/index.js b/src/index.js
+index 86d8ee8..a4155d7 100644
+--- a/src/index.js
++++ b/src/index.js
+@@ -1,2 +1,3 @@
+ export { slugify } from "./slug.js";
+ export { wrap } from "./wrap.js";
++export { truncate } from "./truncate.js";
+diff --git a/src/truncate.js b/src/truncate.js
+new file mode 100644
+index 0000000..3ec2173
+--- /dev/null
++++ b/src/truncate.js
+@@ -0,0 +1,11 @@
++// Shorten text to at most `max` code points (ellipsis included); never splits a surrogate pair.
++export function truncate(text, max, ellipsis = "…") {
++  if (!Number.isInteger(max) || max < 0) {
++    throw new RangeError("max must be a non-negative integer");
++  }
++  const chars = Array.from(String(text));
++  if (chars.length <= max) return chars.join("");
++  const tail = Array.from(String(ellipsis));
++  if (tail.length >= max) return tail.slice(0, max).join("");
++  return chars.slice(0, max - tail.length).join("") + tail.join("");
++}
+diff --git a/src/wrap.js b/src/wrap.js
+index a100c02..90c3b0b 100644
+--- a/src/wrap.js
++++ b/src/wrap.js
+@@ -1,14 +1,25 @@
+ // Hard-wrap text at `width` columns, breaking on spaces.
++// Width is counted in code points; words longer than `width` are hard-broken.
+ export function wrap(text, width = 80) {
++  if (!Number.isInteger(width) || width < 1) {
++    throw new RangeError("width must be an integer >= 1");
++  }
++  const size = (s) => [...s].length;
+   const words = String(text).split(/\s+/).filter(Boolean);
+   const lines = [];
+   let line = "";
+   for (const w of words) {
+-    if ((line + " " + w).trim().length > width && line) {
++    const chars = [...w];
++    if (chars.length > width) {
++      // Long word: start a fresh line, emit full chunks, keep the tail as the current line.
++      if (line) lines.push(line);
++      while (chars.length > width) lines.push(chars.splice(0, width).join(""));
++      line = chars.join("");
++    } else if (line && size(line) + 1 + chars.length > width) {
+       lines.push(line);
+       line = w;
+     } else {
+-      line = (line + " " + w).trim();
++      line = line ? line + " " + w : w;
+     }
+   }
+   if (line) lines.push(line);
+diff --git a/test/truncate.test.js b/test/truncate.test.js
+new file mode 100644
+index 0000000..06ba7d8
+--- /dev/null
++++ b/test/truncate.test.js
+@@ -0,0 +1,77 @@
++import { test } from "node:test";
++import assert from "node:assert/strict";
++import { truncate } from "../src/index.js";
++
++const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
++
++test("short text is unchanged", () => {
++  assert.equal(truncate("hi", 10), "hi");
++});
++
++test("exact-length text is unchanged", () => {
++  assert.equal(truncate("hello", 5), "hello");
++});
++
++test("truncates with default ellipsis", () => {
++  const out = truncate("hello world", 8);
++  assert.equal(out, "hello w…");
++  assert.equal([...out].length, 8);
++  assert.ok(out.endsWith("…"));
++});
++
++test("custom ellipsis counts toward max", () => {
++  assert.equal(truncate("hello world", 8, "..."), "hello...");
++});
++
++test("empty ellipsis just cuts", () => {
++  assert.equal(truncate("hello world", 5, ""), "hello");
++});
++
++test("ellipsis longer than max is cut to max", () => {
++  assert.equal(truncate("hello world", 2, "..."), "..");
++  assert.equal(truncate("hello world", 3, "..."), "...");
++});
++
++test("max = 0 returns empty string", () => {
++  assert.equal(truncate("hello", 0), "");
++  assert.equal(truncate("", 0), "");
++});
++
++test("coerces text and ellipsis with String()", () => {
++  assert.equal(truncate(123456, 4, 0), "1230");
++  assert.equal(truncate(null, 10), "null");
++});
++
++test("never splits astral characters", () => {
++  const cases = [
++    ["😀😀😀😀😀", 3, "😀😀…"],
++    ["a😀b😀c", 4, "a😀b…"],
++    ["a😀b😀c", 3, "a😀…"],
++    ["a😀b😀c", 2, "a…"],
++  ];
++  for (const [text, max, expected] of cases) {
++    const out = truncate(text, max);
++    assert.equal(out, expected);
++    assert.ok(!LONE_SURROGATE.test(out), `lone surrogate in ${JSON.stringify(out)}`);
++    assert.ok([...out].length <= max);
++  }
++  // Astral text that fits in code points but not in UTF-16 units is unchanged.
++  assert.equal(truncate("😀😀😀", 3), "😀😀😀");
++  // Astral ellipsis cut to max stays whole.
++  assert.equal(truncate("abcdef", 1, "😀😀"), "😀");
++});
++
++test("invariants hold across all max values", () => {
++  const text = "a😀b😀c😀d";
++  for (let max = 0; max <= 10; max++) {
++    const out = truncate(text, max);
++    assert.ok(!LONE_SURROGATE.test(out));
++    assert.ok([...out].length <= max);
++  }
++});
++
++test("throws RangeError for invalid max", () => {
++  for (const bad of [-1, 1.5, NaN, Infinity, "5", undefined]) {
++    assert.throws(() => truncate("hello", bad), RangeError);
++  }
++});
+diff --git a/test/wrap.test.js b/test/wrap.test.js
+index 9196c90..c24bec8 100644
+--- a/test/wrap.test.js
++++ b/test/wrap.test.js
+@@ -5,3 +5,62 @@ import { wrap } from "../src/wrap.js";
+ test("wraps at width", () => {
+   assert.equal(wrap("aaa bbb ccc ddd", 7), "aaa bbb\nccc ddd");
+ });
++
++test("hard-breaks a long word on its own", () => {
++  assert.equal(wrap("abcdefghij", 4), "abcd\nefgh\nij");
++});
++
++test("does not break a word exactly width long", () => {
++  assert.equal(wrap("abcd", 4), "abcd");
++  assert.equal(wrap("ab abcd ef", 4), "ab\nabcd\nef");
++});
++
++test("long word mid-sentence starts a fresh line", () => {
++  assert.equal(wrap("a bbbbbbbbbb c", 4), "a\nbbbb\nbbbb\nbb c");
++});
++
++test("later words join the tail of a broken word if they fit", () => {
++  assert.equal(wrap("abcdefg h i jk", 5), "abcde\nfg h\ni jk");
++});
++
++test("width 1 puts one code point per line", () => {
++  assert.equal(wrap("ab c", 1), "a\nb\nc");
++});
++
++test("never splits surrogate pairs", () => {
++  const out = wrap("😀😀😀😀😀", 2);
++  assert.equal(out, "😀😀\n😀😀\n😀");
++  // No lone high or low surrogates anywhere in the output.
++  assert.ok(!/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(out));
++});
++
++test("lines never exceed width and content is preserved", () => {
++  const inputs = [
++    "aaa bbb ccc ddd",
++    "a bbbbbbbbbb c",
++    "supercalifragilisticexpialidocious is long",
++    "x  y\tz\nlongerwordhere q",
++    "😀😀😀 ab 😀😀😀😀😀😀 cd",
++    "mixed😀word with 𝒳𝒴𝒵 astral",
++    "",
++  ];
++  for (const input of inputs) {
++    for (const width of [1, 2, 3, 4, 5, 7, 10, 80]) {
++      const out = wrap(input, width);
++      for (const line of out.split("\n")) {
++        assert.ok([...line].length <= width, `${JSON.stringify(line)} > ${width}`);
++      }
++      assert.equal(out.replace(/\s/g, ""), input.replace(/\s/g, ""));
++    }
++  }
++});
++
++test("throws RangeError for invalid width", () => {
++  for (const width of [0, -1, 2.5]) {
++    assert.throws(() => wrap("abc", width), RangeError);
++  }
++});
++
++test("empty string returns empty string", () => {
++  assert.equal(wrap(""), "");
++});

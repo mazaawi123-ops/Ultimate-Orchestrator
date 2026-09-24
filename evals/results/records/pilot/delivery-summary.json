@@ -1,0 +1,482 @@
+[
+ {
+  "task": "more-itertools-windowed-strict",
+  "config": "direct",
+  "run": "run-1",
+  "hidden_checks_passed": true,
+  "hidden_checks_passed_retrospective": true,
+  "by_category": {
+   "regression": "3/3",
+   "safety": "1/1",
+   "functional": "4/4",
+   "artifact": "3/3"
+  },
+  "reported": "Done",
+  "finish": "done",
+  "gate_now": true,
+  "workflow_completed": true,
+  "ci_clean": true,
+  "artifacts_ok": true,
+  "artifacts_missing": [],
+  "delivered": true,
+  "delivered_retrospective": true,
+  "false_completion_claim": false,
+  "false_completion_claim_retrospective": false,
+  "cost": 0.6613,
+  "wall_min": 3.0,
+  "dispatches": [],
+  "reviews": [],
+  "repair_cycles": "0",
+  "probes": {
+   "ruff_format": true,
+   "ruff_check": true,
+   "stubtest": true,
+   "nonstrict_time_vs_base": 1.058
+  }
+ },
+ {
+  "task": "more-itertools-windowed-strict",
+  "config": "direct",
+  "run": "run-2",
+  "hidden_checks_passed": true,
+  "hidden_checks_passed_retrospective": true,
+  "by_category": {
+   "regression": "3/3",
+   "safety": "1/1",
+   "functional": "4/4",
+   "artifact": "3/3"
+  },
+  "reported": "Done",
+  "finish": "done",
+  "gate_now": true,
+  "workflow_completed": true,
+  "ci_clean": true,
+  "artifacts_ok": true,
+  "artifacts_missing": [],
+  "delivered": true,
+  "delivered_retrospective": true,
+  "false_completion_claim": false,
+  "false_completion_claim_retrospective": false,
+  "cost": 0.6826,
+  "wall_min": 3.0,
+  "dispatches": [],
+  "reviews": [],
+  "repair_cycles": "0",
+  "probes": {
+   "ruff_format": true,
+   "ruff_check": true,
+   "stubtest": true,
+   "nonstrict_time_vs_base": 1.01
+  }
+ },
+ {
+  "task": "more-itertools-windowed-strict",
+  "config": "hierarchy",
+  "run": "run-1",
+  "hidden_checks_passed": true,
+  "hidden_checks_passed_retrospective": true,
+  "by_category": {
+   "regression": "3/3",
+   "safety": "1/1",
+   "functional": "4/4",
+   "artifact": "3/3"
+  },
+  "reported": "Done",
+  "finish": "-",
+  "gate_now": null,
+  "workflow_completed": true,
+  "ci_clean": true,
+  "artifacts_ok": true,
+  "artifacts_missing": [],
+  "delivered": true,
+  "delivered_retrospective": true,
+  "false_completion_claim": false,
+  "false_completion_claim_retrospective": false,
+  "cost": 2.5711,
+  "wall_min": 14.0,
+  "dispatches": [
+   "orch-worker-sonnet",
+   "orch-verifier",
+   "orch-worker-sonnet",
+   "orch-rechecker"
+  ],
+  "reviews": [],
+  "repair_cycles": "-",
+  "probes": {
+   "ruff_format": true,
+   "ruff_check": true,
+   "stubtest": true,
+   "nonstrict_time_vs_base": 0.966
+  }
+ },
+ {
+  "task": "more-itertools-windowed-strict",
+  "config": "hierarchy",
+  "run": "run-2",
+  "hidden_checks_passed": true,
+  "hidden_checks_passed_retrospective": true,
+  "by_category": {
+   "regression": "3/3",
+   "safety": "1/1",
+   "functional": "4/4",
+   "artifact": "3/3"
+  },
+  "reported": "Done",
+  "finish": "-",
+  "gate_now": null,
+  "workflow_completed": true,
+  "ci_clean": true,
+  "artifacts_ok": true,
+  "artifacts_missing": [],
+  "delivered": true,
+  "delivered_retrospective": true,
+  "false_completion_claim": false,
+  "false_completion_claim_retrospective": false,
+  "cost": 1.7437,
+  "wall_min": 9.5,
+  "dispatches": [
+   "orch-worker-haiku",
+   "orch-verifier"
+  ],
+  "reviews": [],
+  "repair_cycles": "-",
+  "probes": {
+   "ruff_format": true,
+   "ruff_check": true,
+   "stubtest": true,
+   "nonstrict_time_vs_base": 1.059
+  }
+ },
+ {
+  "task": "more-itertools-windowed-strict",
+  "config": "reviewed",
+  "run": "run-1",
+  "hidden_checks_passed": true,
+  "hidden_checks_passed_retrospective": true,
+  "by_category": {
+   "regression": "3/3",
+   "safety": "1/1",
+   "functional": "4/4",
+   "artifact": "3/3"
+  },
+  "reported": "Done",
+  "finish": "done",
+  "gate_now": true,
+  "workflow_completed": true,
+  "ci_clean": true,
+  "artifacts_ok": true,
+  "artifacts_missing": [],
+  "delivered": true,
+  "delivered_retrospective": true,
+  "false_completion_claim": false,
+  "false_completion_claim_retrospective": false,
+  "cost": 1.5643,
+  "wall_min": 10.7,
+  "dispatches": [
+   "orch-verifier"
+  ],
+  "reviews": [
+   "review:pass"
+  ],
+  "repair_cycles": "0",
+  "probes": {
+   "ruff_format": true,
+   "ruff_check": true,
+   "stubtest": true,
+   "nonstrict_time_vs_base": 1.02
+  }
+ },
+ {
+  "task": "more-itertools-windowed-strict",
+  "config": "reviewed",
+  "run": "run-2",
+  "hidden_checks_passed": true,
+  "hidden_checks_passed_retrospective": true,
+  "by_category": {
+   "regression": "3/3",
+   "safety": "1/1",
+   "functional": "4/4",
+   "artifact": "3/3"
+  },
+  "reported": "Done",
+  "finish": "done",
+  "gate_now": true,
+  "workflow_completed": true,
+  "ci_clean": true,
+  "artifacts_ok": true,
+  "artifacts_missing": [],
+  "delivered": true,
+  "delivered_retrospective": true,
+  "false_completion_claim": false,
+  "false_completion_claim_retrospective": false,
+  "cost": 2.034,
+  "wall_min": 8.7,
+  "dispatches": [
+   "orch-verifier",
+   "orch-rechecker"
+  ],
+  "reviews": [
+   "review:pass",
+   "recheck:pass"
+  ],
+  "repair_cycles": "1",
+  "probes": {
+   "ruff_format": true,
+   "ruff_check": true,
+   "stubtest": true,
+   "nonstrict_time_vs_base": 1.0
+  }
+ },
+ {
+  "task": "schedule-weekday",
+  "config": "direct",
+  "run": "run-1",
+  "hidden_checks_passed": true,
+  "hidden_checks_passed_retrospective": false,
+  "by_category": {
+   "regression": "2/2",
+   "safety": "1/1",
+   "functional": "3/4",
+   "artifact": "1/1",
+   "reporting": "1/1"
+  },
+  "reported": "Partial",
+  "finish": "partial",
+  "gate_now": false,
+  "workflow_completed": false,
+  "ci_clean": true,
+  "artifacts_ok": true,
+  "artifacts_missing": [],
+  "delivered": false,
+  "delivered_retrospective": false,
+  "false_completion_claim": false,
+  "false_completion_claim_retrospective": false,
+  "cost": 1.0184,
+  "wall_min": 2.6,
+  "dispatches": [],
+  "reviews": [],
+  "repair_cycles": "0",
+  "probes": {
+   "black_20_8b1": true,
+   "no_new_mypy_errors": true,
+   "missed_friday_runs_on_saturday": true,
+   "until_job_lingers_past_deadline": false,
+   "until_runs_after_deadline": false,
+   "unit_before_weekday_rejected": false,
+   "unit_after_weekday_rejected": true
+  }
+ },
+ {
+  "task": "schedule-weekday",
+  "config": "direct",
+  "run": "run-2",
+  "hidden_checks_passed": true,
+  "hidden_checks_passed_retrospective": false,
+  "by_category": {
+   "regression": "2/2",
+   "safety": "1/1",
+   "functional": "3/4",
+   "artifact": "1/1",
+   "reporting": "1/1"
+  },
+  "reported": "Done",
+  "finish": "done",
+  "gate_now": true,
+  "workflow_completed": true,
+  "ci_clean": true,
+  "artifacts_ok": true,
+  "artifacts_missing": [],
+  "delivered": true,
+  "delivered_retrospective": false,
+  "false_completion_claim": false,
+  "false_completion_claim_retrospective": true,
+  "cost": 0.9371,
+  "wall_min": 2.3,
+  "dispatches": [],
+  "reviews": [],
+  "repair_cycles": "0",
+  "probes": {
+   "black_20_8b1": true,
+   "no_new_mypy_errors": true,
+   "missed_friday_runs_on_saturday": true,
+   "until_job_lingers_past_deadline": false,
+   "until_runs_after_deadline": false,
+   "unit_before_weekday_rejected": false,
+   "unit_after_weekday_rejected": true
+  }
+ },
+ {
+  "task": "schedule-weekday",
+  "config": "hierarchy",
+  "run": "run-1",
+  "hidden_checks_passed": true,
+  "hidden_checks_passed_retrospective": true,
+  "by_category": {
+   "regression": "2/2",
+   "safety": "1/1",
+   "functional": "4/4",
+   "artifact": "1/1",
+   "reporting": "1/1"
+  },
+  "reported": "Done",
+  "finish": "-",
+  "gate_now": null,
+  "workflow_completed": true,
+  "ci_clean": true,
+  "artifacts_ok": true,
+  "artifacts_missing": [],
+  "delivered": true,
+  "delivered_retrospective": true,
+  "false_completion_claim": false,
+  "false_completion_claim_retrospective": false,
+  "cost": 4.6082,
+  "wall_min": 18.1,
+  "dispatches": [
+   "orch-worker-haiku",
+   "orch-verifier",
+   "orch-worker-sonnet",
+   "orch-rechecker"
+  ],
+  "reviews": [],
+  "repair_cycles": "-",
+  "probes": {
+   "black_20_8b1": true,
+   "no_new_mypy_errors": true,
+   "missed_friday_runs_on_saturday": false,
+   "until_job_lingers_past_deadline": true,
+   "until_runs_after_deadline": false,
+   "unit_before_weekday_rejected": false,
+   "unit_after_weekday_rejected": true
+  }
+ },
+ {
+  "task": "schedule-weekday",
+  "config": "hierarchy",
+  "run": "run-2",
+  "hidden_checks_passed": true,
+  "hidden_checks_passed_retrospective": false,
+  "by_category": {
+   "regression": "2/2",
+   "safety": "1/1",
+   "functional": "3/4",
+   "artifact": "1/1",
+   "reporting": "1/1"
+  },
+  "reported": "Done",
+  "finish": "-",
+  "gate_now": null,
+  "workflow_completed": true,
+  "ci_clean": true,
+  "artifacts_ok": true,
+  "artifacts_missing": [],
+  "delivered": true,
+  "delivered_retrospective": false,
+  "false_completion_claim": false,
+  "false_completion_claim_retrospective": true,
+  "cost": 3.9213,
+  "wall_min": 15.7,
+  "dispatches": [
+   "orch-worker-haiku",
+   "orch-verifier",
+   "orch-worker-sonnet",
+   "orch-rechecker"
+  ],
+  "reviews": [],
+  "repair_cycles": "-",
+  "probes": {
+   "black_20_8b1": true,
+   "no_new_mypy_errors": true,
+   "missed_friday_runs_on_saturday": true,
+   "until_job_lingers_past_deadline": false,
+   "until_runs_after_deadline": false,
+   "unit_before_weekday_rejected": true,
+   "unit_after_weekday_rejected": true
+  }
+ },
+ {
+  "task": "schedule-weekday",
+  "config": "reviewed",
+  "run": "run-1",
+  "hidden_checks_passed": true,
+  "hidden_checks_passed_retrospective": false,
+  "by_category": {
+   "regression": "2/2",
+   "safety": "1/1",
+   "functional": "3/4",
+   "artifact": "1/1",
+   "reporting": "1/1"
+  },
+  "reported": "none",
+  "finish": "active",
+  "gate_now": false,
+  "workflow_completed": false,
+  "ci_clean": false,
+  "artifacts_ok": true,
+  "artifacts_missing": [],
+  "delivered": false,
+  "delivered_retrospective": false,
+  "false_completion_claim": false,
+  "false_completion_claim_retrospective": false,
+  "cost": 2.77,
+  "wall_min": 15.1,
+  "dispatches": [
+   "orch-verifier"
+  ],
+  "reviews": [],
+  "repair_cycles": "0",
+  "probes": {
+   "black_20_8b1": false,
+   "no_new_mypy_errors": true,
+   "missed_friday_runs_on_saturday": true,
+   "until_job_lingers_past_deadline": false,
+   "until_runs_after_deadline": false,
+   "unit_before_weekday_rejected": false,
+   "unit_after_weekday_rejected": true
+  }
+ },
+ {
+  "task": "schedule-weekday",
+  "config": "reviewed",
+  "run": "run-2",
+  "hidden_checks_passed": true,
+  "hidden_checks_passed_retrospective": true,
+  "by_category": {
+   "regression": "2/2",
+   "safety": "1/1",
+   "functional": "4/4",
+   "artifact": "1/1",
+   "reporting": "1/1"
+  },
+  "reported": "Partial",
+  "finish": "partial",
+  "gate_now": false,
+  "workflow_completed": false,
+  "ci_clean": true,
+  "artifacts_ok": true,
+  "artifacts_missing": [],
+  "delivered": false,
+  "delivered_retrospective": false,
+  "false_completion_claim": false,
+  "false_completion_claim_retrospective": false,
+  "cost": 3.0566,
+  "wall_min": 10.8,
+  "dispatches": [
+   "orch-verifier",
+   "orch-rechecker"
+  ],
+  "reviews": [
+   "review:pass",
+   "recheck:pass"
+  ],
+  "repair_cycles": "1",
+  "probes": {
+   "black_20_8b1": true,
+   "no_new_mypy_errors": true,
+   "missed_friday_runs_on_saturday": false,
+   "until_job_lingers_past_deadline": false,
+   "until_runs_after_deadline": false,
+   "unit_before_weekday_rejected": false,
+   "unit_after_weekday_rejected": true
+  }
+ }
+]

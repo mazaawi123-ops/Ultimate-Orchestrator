@@ -1,0 +1,92 @@
+{
+  "cost_usd_estimate": 3.2318,
+  "cost_note": "Claude Code local estimate at list price; not a billing record",
+  "num_turns": 6,
+  "subtype": "success",
+  "per_model": {
+    "opus": {
+      "input": 76,
+      "output": 50876,
+      "cache_read": 2070327,
+      "cache_write": 115412,
+      "cost_usd_estimate": 2.2001
+    },
+    "haiku": {
+      "input": 354,
+      "output": 16578,
+      "cache_read": 2280491,
+      "cache_write": 51990,
+      "cost_usd_estimate": 0.3763
+    },
+    "sonnet": {
+      "input": 62,
+      "output": 19613,
+      "cache_read": 1272969,
+      "cache_write": 81836,
+      "cost_usd_estimate": 0.6554
+    }
+  },
+  "usage_by_agent": {
+    "main|opus": {
+      "requests": 20,
+      "input": 44,
+      "output_at_start": 285,
+      "cache_read": 1250944,
+      "cache_write": 63719
+    },
+    "orch-worker-haiku|haiku": {
+      "requests": 44,
+      "input": 354,
+      "output_at_start": 93,
+      "cache_read": 2280491,
+      "cache_write": 51990
+    },
+    "orch-verifier|opus": {
+      "requests": 16,
+      "input": 32,
+      "output_at_start": 1067,
+      "cache_read": 819383,
+      "cache_write": 51693
+    },
+    "orch-worker-sonnet|sonnet": {
+      "requests": 22,
+      "input": 44,
+      "output_at_start": 176,
+      "cache_read": 933098,
+      "cache_write": 28469
+    },
+    "orch-rechecker|sonnet": {
+      "requests": 7,
+      "input": 14,
+      "output_at_start": 24,
+      "cache_read": 237841,
+      "cache_write": 50194
+    }
+  },
+  "dispatches": [
+    {
+      "agent": "orch-worker-haiku",
+      "model_param": null,
+      "description": "Build click.Duration type"
+    },
+    {
+      "agent": "orch-verifier",
+      "model_param": null,
+      "description": "Verify click.Duration change"
+    },
+    {
+      "agent": "orch-worker-sonnet",
+      "model_param": null,
+      "description": "Fix round 1 for Duration"
+    },
+    {
+      "agent": "orch-rechecker",
+      "model_param": null,
+      "description": "Scoped re-check of fix 1"
+    }
+  ],
+  "skill_used": true,
+  "wall_seconds": 839,
+  "source": "skill v5 (commit 27b8315) with the agent files, Haiku worker",
+  "usage_note": "per_model has complete token counts. usage_by_agent splits requests, input and cache tokens exactly; output_at_start is the stream's start-of-message output count, a lower bound."
+}
