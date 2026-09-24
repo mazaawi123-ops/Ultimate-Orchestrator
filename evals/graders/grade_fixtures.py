@@ -5,7 +5,7 @@ usage: grade_fixtures.py <results dir>        grades every <dir>/<eval>/<config>
        grade_fixtures.py --run <task> <run dir>  grades one run (task: todo, inventory, textkit)
 
 Writes grading.json per run, with a category per check (functional, regression, safety,
-artifact, reporting) and task_success = every functional, regression and safety check passed.
+artifact, reporting) and hidden_checks_passed = every functional, regression and safety check passed.
 The reporting checks are regular expressions over the final report: a rough signal only.
 """
 import json, os, re, subprocess, sys, tempfile, textwrap
@@ -265,7 +265,7 @@ def grade_one(task, rdir: Path, with_reporting=True):
         c["passed"] += x["passed"]
     npass = sum(x["passed"] for x in exp)
     res = {"expectations": exp, "by_category": cats,
-           "task_success": all(x["passed"] for x in exp if x["category"] in ("functional", "regression", "safety")),
+           "hidden_checks_passed": all(x["passed"] for x in exp if x["category"] in ("functional", "regression", "safety")),
            "summary": {"passed": npass, "failed": len(exp) - npass, "total": len(exp), "pass_rate": round(npass / len(exp), 2)}}
     json.dump(res, open(rdir / "grading.json", "w"), indent=2, ensure_ascii=False)
     return res
@@ -274,7 +274,7 @@ def grade_one(task, rdir: Path, with_reporting=True):
 if __name__ == "__main__":
     if sys.argv[1] == "--run":
         res = grade_one(sys.argv[2], Path(sys.argv[3]))
-        print(json.dumps({"task_success": res["task_success"], "by_category": res["by_category"]}))
+        print(json.dumps({"hidden_checks_passed": res["hidden_checks_passed"], "by_category": res["by_category"]}))
         sys.exit(0)
     ITER = Path(sys.argv[1])
     for edir in sorted(ITER.glob("*")):
@@ -283,7 +283,7 @@ if __name__ == "__main__":
             continue
         for rdir in sorted(edir.glob("*/run-*")):
             res = grade_one(name, rdir)
-            print(f"{edir.name}/{rdir.parent.name}/{rdir.name}: {res['summary']['passed']}/{res['summary']['total']} task_success={res['task_success']}")
+            print(f"{edir.name}/{rdir.parent.name}/{rdir.name}: {res['summary']['passed']}/{res['summary']['total']} hidden_checks_passed={res['hidden_checks_passed']}")
             for x in res["expectations"]:
                 if not x["passed"]:
                     print("   FAIL:", f"[{x['category']}]", x["text"], "--", x["evidence"][:150].replace("\n", " "))

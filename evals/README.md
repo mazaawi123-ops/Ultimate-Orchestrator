@@ -59,8 +59,12 @@ working tree. Every check has a category, and each category is reported separate
 | artifact | deliverables the request names: tests, stubs, docs, changelog |
 | reporting | what the final report says (a heuristic, reported apart from the code) |
 
-`task_success` means every functional, regression and safety check passed. Process checks
-(artifact, reporting) are never mixed into it.
+`hidden_checks_passed` means every functional, regression and safety check fixed before the
+runs passed. Process checks (artifact, reporting) are never mixed into it. A check added after
+runs were seen is marked retrospective. It counts only in `hidden_checks_passed_retrospective`,
+which is reported beside the original score and never replaces it. The pilot's summary
+(`pilot/summarize.py`) also reports workflow completion, the repo's own CI, delivery and false
+claims of completion separately.
 
 **Self-test.** A checker is only trustworthy if it passes a correct solution and fails broken
 ones. `graders/selftest.py` applies a correct reference implementation of each of the 8 tasks
@@ -73,8 +77,9 @@ test edit (an import changed, a test added, imports reordered), which must not b
 python3 evals/graders/selftest.py --fixtures evals/fixtures --repos /tmp/repos --pilot /tmp/pilot
 ```
 
-The last run (`results/grader-selftest.log`) passed: 8 references pass, 37 mutants are
-caught, and 3 harmless edits pass. Writing it found four problems, all fixed:
+The last run (`results/grader-selftest.log`) passed: 8 references pass, 38 mutants are
+caught, and 3 harmless edits pass. The 38th mutant, added with the retrospective schedule
+check, makes up a missed Friday run at the weekend. Writing it found four problems, all fixed:
 - The "no existing test weakened" check counted any changed line, so an edited import failed
   every inventory run. Now only removed assertions or test definitions count.
 - A test skipped with `self.skipTest(...)` passed both the graders and the helper's audit.
@@ -93,9 +98,10 @@ holds 20 more, written before the final description and run once against it. Eac
 python3 evals/runner/trigger_eval.py --skill code-orchestrator --evals evals/trigger/heldout.json --runs 3
 ```
 
-A run counts as triggered when the session's first tool call loads the skill. That's strict:
-a session that reads a named file first and loads the skill second counts as a miss. Results
-are in `results/trigger/`.
+A run counts as triggered when the session loads the skill within its first 3 tool calls and
+before any file edit, so reading an issue file first isn't a miss. `--strict` keeps the
+earlier rule: the first call only. Results are in `results/trigger/`; single prompts can flip
+between runs.
 
 ## Records
 

@@ -12,6 +12,9 @@ separately:
   safety      existing tests not weakened
   artifact    deliverables the request names (tests, stubs, docs, changelog)
   reporting   what the final report says (heuristic)
+hidden_checks_passed means every functional, regression and safety check fixed before the runs
+passed. Checks marked retrospective were added after a run was seen; they only count in
+hidden_checks_passed_retrospective.
 """
 import json
 import os
@@ -395,6 +398,24 @@ try:
 except Exception as e:
     r["monday"] = repr(e)
 r["others_ok"] = r.get("monday") == "Mon 2024-01-08 09:00" and r.get("daily") == "Thu 2024-01-04 09:00"
+# Retrospective (added after the pilot, from the second review): Friday's 09:00 run is missed
+# and the scheduler is next polled on Saturday. "Never on Saturday or Sunday" rules out running
+# it then; it should next run on Monday.
+missed = []
+schedule.clear()
+try:
+    with mock_datetime(2024, 1, 5, 8, 0):
+        schedule.every().weekday.at("09:00").do(lambda: missed.append(1))
+    ran_weekend = False
+    for d, h in ((6, 12), (7, 12)):
+        with mock_datetime(2024, 1, d, h, 0):
+            before = len(missed); schedule.run_pending(); ran_weekend = ran_weekend or len(missed) > before
+    with mock_datetime(2024, 1, 8, 9, 0, 1):
+        before = len(missed); schedule.run_pending(); ran_monday = len(missed) > before
+    r["missed_friday"] = {"ran_on_weekend": ran_weekend, "ran_monday": ran_monday}
+    r["missed_friday_ok"] = (not ran_weekend) and ran_monday
+except Exception as e:
+    r["missed_friday"] = repr(e); r["missed_friday_ok"] = False
 print(json.dumps(r))
 '''
 
@@ -412,6 +433,8 @@ def grade_schedule_weekday(run, repo):
         ("every().weekday.at() exists", "functional", "api_error" not in r and "probe_error" not in r, str(r.get("api_error", r.get("probe_error", "ok")))[:200]),
         ("First run is the next weekday at the time (Wed, Fri, Sat, Sun starts)", "functional", r.get("first_ok") is True, json.dumps(r.get("first"))),
         ("Over a fortnight it runs Monday to Friday only", "functional", r.get("fortnight_ok") is True, str(r.get("ran_on"))),
+        ("A missed Friday run doesn't fire on Saturday or Sunday; it runs on Monday", "functional", r.get("missed_friday_ok") is True,
+         json.dumps(r.get("missed_friday")), "retrospective"),
         ("Tests added (beyond 40 passing)", "artifact", n > 40, f"{n} passed"),
         ("Report surfaces an open question or decision (every(n), until, timezones)", "reporting",
          bool(re.search(r"every\(\s*(n|[2-9])\s*\)|interval|until|time ?zone|\btz\b|ambigu|[Dd]ecision|[Rr]uling|assum", rep)), "heuristic regex over the report"),
@@ -425,7 +448,8 @@ GRADERS = {"humanize": grade_humanize, "click": grade_click, "qs": grade_qs,
 def grade(grader, run):
     repo = os.path.join(run, "repo")
     checks = GRADERS[grader](run, repo)
-    exp = [{"text": t, "category": c, "passed": bool(p), "evidence": str(e)[:400]} for t, c, p, e in checks]
+    exp = [{"text": x[0], "category": x[1], "passed": bool(x[2]), "evidence": str(x[3])[:400],
+            "retrospective": len(x) > 4 and x[4] == "retrospective"} for x in checks]
     cats = {}
     for x in exp:
         c = cats.setdefault(x["category"], {"passed": 0, "total": 0})
@@ -433,8 +457,11 @@ def grade(grader, run):
         c["passed"] += x["passed"]
     k = sum(x["passed"] for x in exp)
     core = [x for x in exp if x["category"] in ("functional", "regression", "safety")]
+    # hidden_checks_passed: the checks fixed before the runs. The retrospective variant adds
+    # checks written afterwards; it is reported apart and never replaces the original score.
     result = {"expectations": exp, "by_category": cats,
-              "task_success": all(x["passed"] for x in core),
+              "hidden_checks_passed": all(x["passed"] for x in core if not x["retrospective"]),
+              "hidden_checks_passed_retrospective": all(x["passed"] for x in core),
               "summary": {"passed": k, "failed": len(exp) - k, "total": len(exp), "pass_rate": round(k / len(exp), 2)}}
     json.dump(result, open(os.path.join(run, "grading.json"), "w"), indent=2)
     return result
@@ -444,7 +471,8 @@ if __name__ == "__main__":
     g = sys.argv[1]
     for run in sys.argv[2:]:
         res = grade(g, run)
-        print(f"{g} {run}: task_success={res['task_success']} {res['summary']['passed']}/{res['summary']['total']} {json.dumps(res['by_category'])}")
+        print(f"{g} {run}: hidden_checks_passed={res['hidden_checks_passed']} (retrospective: {res['hidden_checks_passed_retrospective']}) "
+              f"{res['summary']['passed']}/{res['summary']['total']} {json.dumps(res['by_category'])}")
         for x in res["expectations"]:
             if not x["passed"]:
-                print(f"   FAIL [{x['category']}] {x['text']} -- {x['evidence'][:160]}")
+                print(f"   FAIL [{x['category']}{', retrospective' if x['retrospective'] else ''}] {x['text']} -- {x['evidence'][:160]}")

@@ -368,6 +368,12 @@ def ref_schedule(r):
     def at(self, time_str: str, tz: Optional[str] = None):''')
     edit(p, "        while next_run <= now:\n            next_run += period\n",
          "        while next_run <= now:\n            next_run += period\n\n        if self.weekdays_only:\n            while next_run.weekday() >= 5:\n                next_run += datetime.timedelta(days=1)\n")
+    # "Never on Saturday or Sunday": a run missed on Friday isn't made up at the weekend.
+    edit(p, "        assert self.next_run is not None, \"must run _schedule_next_run before\"\n        return datetime.datetime.now() >= self.next_run\n",
+         "        assert self.next_run is not None, \"must run _schedule_next_run before\"\n"
+         "        if self.weekdays_only and datetime.datetime.now() >= self.next_run and datetime.datetime.now().weekday() >= 5:\n"
+         "            self._schedule_next_run()\n            return False\n"
+         "        return datetime.datetime.now() >= self.next_run\n")
 
 
 # ------------------------------------------------------------------ cases
@@ -429,9 +435,10 @@ CASES = [
         "stub updated in one overload only": (lambda r: STUB_PLAIN(r), ["Type stub"]),
     }, []),
     ("schedule_weekday", "pilot", "schedule", "schedule_weekday", ref_schedule, {
-        "weekends not skipped": (m("schedule/__init__.py", "            while next_run.weekday() >= 5:", "            while next_run.weekday() >= 7:"), ["next weekday", "Monday to Friday"]),
+        "weekends not skipped": (m("schedule/__init__.py", "            while next_run.weekday() >= 5:", "            while next_run.weekday() >= 7:"), ["next weekday"]),  # the weekend guard in should_run still stops weekend runs
         "only Sunday skipped": (m("schedule/__init__.py", "            while next_run.weekday() >= 5:", "            while next_run.weekday() >= 6:"), ["next weekday"]),
         "Friday skipped too": (m("schedule/__init__.py", "            while next_run.weekday() >= 5:", "            while next_run.weekday() >= 4:"), ["Monday to Friday"]),
+        "missed Friday run made up at the weekend": (m("schedule/__init__.py", "        if self.weekdays_only and datetime.datetime.now() >= self.next_run and datetime.datetime.now().weekday() >= 5:", "        if False:"), ["missed Friday run"]),
     }, []),
 ]
 

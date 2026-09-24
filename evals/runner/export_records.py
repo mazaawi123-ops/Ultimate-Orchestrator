@@ -70,7 +70,7 @@ def put(dst, text):
 
 def main():
     manifest, out = json.load(open(sys.argv[1])), Path(sys.argv[2])
-    rows = [["record", "label", "cost_usd_estimate", "wall_seconds", "task_success", "functional", "regression",
+    rows = [["record", "label", "cost_usd_estimate", "wall_seconds", "hidden_checks_passed", "functional", "regression",
              "safety", "artifact", "reporting", "dispatches", "note"]]
     for r in manifest["runs"]:
         src, dst = Path(r["src"]), out / r["record"]
@@ -110,7 +110,7 @@ def main():
         cat = g["by_category"]
         cell = lambda c: f"{cat[c]['passed']}/{cat[c]['total']}" if c in cat else "-"
         rows.append([r["record"], r["label"], f"{timing['cost_usd_estimate']:.2f}", str(timing["wall_seconds"]),
-                     str(g["task_success"]), cell("functional"), cell("regression"), cell("safety"), cell("artifact"),
+                     str(g["hidden_checks_passed"]), cell("functional"), cell("regression"), cell("safety"), cell("artifact"),
                      cell("reporting"), " ".join(d["agent"] for d in timing["dispatches"]) or "-", r.get("note", "")])
         print("\t".join(rows[-1][:10]))
     (out / "summary.tsv").write_text("\n".join("\t".join(x) for x in rows) + "\n")

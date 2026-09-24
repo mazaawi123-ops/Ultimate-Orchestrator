@@ -9,16 +9,28 @@ grading, probes and agent replies are in `records/pilot/`.
 **This is directional.** Two tasks, two repeats and one main-session model can expose a
 wasteful route, but they can't show that one route is better in general.
 
-## Outcome and cost
+## Outcome, delivery and cost
 
-Task success means every hidden functional, regression and safety check passed. The checks
-were written and self-tested before the runs.
+Each measure is reported on its own (`../pilot/summarize.py`; per run:
+`records/pilot/delivery-summary.json`):
 
-| Arm | Runs | Task success | First-pass success | Est. cost total | Est. cost per success | Mean wall time |
-|---|---|---|---|---|---|---|
-| A `direct`: one builder | 4 | 4/4 | 4/4 | $3.30 | $0.82 | 2.7 min |
-| B `reviewed`: builder + reviewer | 4 | 4/4 | 4/4 | $9.42 | $2.36 | 11.3 min |
-| C `hierarchy`: previous skill | 4 | 4/4 | 4/4 | $12.84 | $3.21 | 14.3 min |
+- **Hidden checks:** the functional, regression and safety checks written and self-tested
+  before the runs. This is the original held-out score.
+- **+ retrospective:** the hidden checks plus one check added after the second independent
+  review. A Friday run missed until the weekend must not fire on Saturday or Sunday, because
+  the task says "never on Saturday or Sunday". It is reported beside the original score and
+  never replaces it.
+- **Workflow completed:** the run finished Done. For the current skill, that means through its
+  own gate. The previous skill has no gate, so its own "Done" is taken at its word.
+- **Repo CI clean:** the repo's own CI checks pass (post-hoc probes).
+- **Delivered:** all of the above. Cost per delivered success keeps every attempt's cost.
+- **False Done claims:** the run said Done while a hidden or CI check fails.
+
+| Arm | Hidden checks | + retrospective | Workflow completed | Repo CI clean | Delivered | Delivered (retro.) | False Done claims (retro.) | Est. cost total | Per delivered (retro.) | Mean wall |
+|---|---|---|---|---|---|---|---|---|---|---|
+| A `direct`: one builder | 4/4 | 2/4 | 3/4 | 4/4 | 3/4 | 2/4 | 0/4 (1/4) | $3.30 | $1.10 ($1.65) | 2.7 min |
+| B `reviewed`: builder + reviewer | 4/4 | 3/4 | 2/4 | 3/4 | 2/4 | 2/4 | 0/4 (0/4) | $9.42 | $4.71 ($4.71) | 11.3 min |
+| C `hierarchy`: previous skill | 4/4 | 3/4 | 4/4 | 4/4 | 4/4 | 3/4 | 0/4 (1/4) | $12.84 | $3.21 ($4.28) | 14.3 min |
 
 | Task | A direct | B reviewed | C hierarchy |
 |---|---|---|---|
@@ -27,11 +39,19 @@ were written and self-tested before the runs.
 
 Costs are Claude Code's local estimates at list price, not bills.
 
-- **Every candidate passed every hidden check, final and first-pass alike.** "First pass"
-  means the code the first review saw. Review and repair didn't change task success in any
-  of the 12 runs.
-- **Direct cost about a third as much as Reviewed and a quarter as much as the old
-  hierarchy, and took a fifth to a quarter of the time,** for the same hidden-check result.
+- **Every candidate passed every original hidden check, final and first-pass alike.** Review
+  and repair didn't change that score in any of the 12 runs.
+- **Passing hidden checks isn't delivery.** On the schedule task, one Direct run and one
+  Reviewed run finished Partial on correct code: a count flag that couldn't be approved,
+  since fixed. The other Reviewed run lost its review and never finished. B's delivery rate
+  mostly reflects helper problems that are fixed in the final revision, but not re-piloted.
+- **By the literal reading of "never", 4 of 6 schedule candidates have a requirement
+  defect:** both Direct runs, one Reviewed run and one old-skill run fire a missed Friday run
+  on Saturday. Two of them reported Done anyway. The original grader polled every day, so it
+  missed this.
+- **Direct cost about a third as much as Reviewed and a quarter as much as the old hierarchy
+  per run, and took a fifth to a quarter of the time.** Per delivered success it still costs
+  least: $1.10 against $3.21 and $4.71 ($1.65 against $4.28 and $4.71 retrospectively).
 
 ## What the reviews found, adjudicated
 
@@ -52,20 +72,24 @@ from the hidden checks.
 | C schedule 1 | PASS | nits only (a dead condition, no timezone test, a docs comment), a DST corner case, and whether a missed Friday run may fire on Saturday | fix round + re-check. It adopted "never on the weekend", and that change **introduced** the `until()` lingering defect. The re-check missed it |
 | C schedule 2 | PASS | **2 confirmed:** fails the CI format check; accepts `every().hour.weekday` against its own "fail loudly" ruling | fix round + re-check; both fixed |
 
-- **The confirmed defects were in the reviewed runs' own drafts.** The unreviewed Direct
-  candidates have none of them: they pass the pinned `black` check, have no `until()`
+- **The defects the reviews confirmed were in the reviewed runs' own drafts.** The Direct
+  candidates don't have those: they pass the pinned `black` check, have no `until()`
   lingering and use O(n) memory. The memory defect came from delegated code, as in the
-  earlier real-repo runs.
+  earlier real-repo runs. The Direct candidates do share the missed-Friday defect (below),
+  which no review flagged as blocking.
 - **One repair made things worse.** An old-skill fix round, acting on nits, introduced a
   defect that its re-check didn't catch.
 - **A cheap deterministic check covers the most common finding.** 3 of 6 first drafts of the
   schedule task failed the repo's pinned formatting check. One shipped that way, because its
   review was lost. The skill now tells the builder to run the repo's own CI checks on the
   candidate.
-- **Interpretation, not defects:** the request said "never on Saturday or Sunday", but not
-  what happens to a Friday run that's missed until Saturday. Four candidates run it late on
-  Saturday, as the library does for every daily job. Two skip it. Only one candidate rejects
-  a unit placed before `.weekday`. These choices split across all arms.
+- **A missed Friday run on Saturday is a defect by the literal reading.** The first version
+  of this report called it an interpretation. The second independent review disagreed,
+  because the request says "never", and I agree. Four candidates run it late on Saturday,
+  as the library does for daily jobs, and two skip it. Two old-skill verifiers noticed it:
+  one raised it as a nit needing a decision, and the other declined to judge it. The retrospective check now scores it, apart from the original
+  score, and the skill now says to read absolute words literally. Rejecting a unit placed
+  before `.weekday` remains a strictness choice: only one candidate does it.
 
 ## Reliability problems the pilot found, all fixed afterwards
 
@@ -87,8 +111,9 @@ from the hidden checks.
 ## What this means for routing
 
 - On these two tasks, well specified or mildly ambiguous with a decent test suite, **Direct
-  delivered the same hidden-check result for a quarter to a third of the cost**. The
-  current default is Direct, and the pilot supports it.
+  passed the same hidden checks for a quarter to a third of the cost**, and had the lowest
+  cost per delivered success. That supports Direct as a cost-conscious default. It doesn't
+  show equal delivered quality, or that review is unnecessary on riskier work.
 - **Review found real, low-severity issues:** CI formatting, a deadline edge case, and memory
   in delegated code. None changed task success here. It's worth its cost where consequences
   are serious or tests are weak, which is where the skill routes it.
@@ -104,3 +129,6 @@ from the hidden checks.
   would use independent, blinded raters.
 - The runs shared one machine, six at a time. Wall times include that contention.
 - The cost of lost or failed work stays in each arm's total.
+- **The pilot ran commit 29fe7f4, not the final revision.** The helper and skill changes made
+  since then are validated by unit tests and a small end-to-end release check
+  (`release-validation.md`), not by re-running the pilot.

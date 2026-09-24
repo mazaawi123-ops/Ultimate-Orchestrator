@@ -1,0 +1,376 @@
+[
+ {
+  "task": "more-itertools-windowed-strict",
+  "config": "direct",
+  "run": "run-1",
+  "hidden_checks_passed": true,
+  "hidden_checks_passed_retrospective": true,
+  "by_category": {
+   "regression": "3/3",
+   "safety": "1/1",
+   "functional": "4/4",
+   "artifact": "3/3"
+  },
+  "reported": "Done",
+  "finish": "done",
+  "workflow_completed": true,
+  "ci_clean": true,
+  "delivered": true,
+  "delivered_retrospective": true,
+  "false_completion_claim": false,
+  "false_completion_claim_retrospective": false,
+  "cost": 0.6613,
+  "wall_min": 3.0,
+  "dispatches": [],
+  "reviews": [],
+  "repair_cycles": "0"
+ },
+ {
+  "task": "more-itertools-windowed-strict",
+  "config": "direct",
+  "run": "run-2",
+  "hidden_checks_passed": true,
+  "hidden_checks_passed_retrospective": true,
+  "by_category": {
+   "regression": "3/3",
+   "safety": "1/1",
+   "functional": "4/4",
+   "artifact": "3/3"
+  },
+  "reported": "Done",
+  "finish": "done",
+  "workflow_completed": true,
+  "ci_clean": true,
+  "delivered": true,
+  "delivered_retrospective": true,
+  "false_completion_claim": false,
+  "false_completion_claim_retrospective": false,
+  "cost": 0.6826,
+  "wall_min": 3.0,
+  "dispatches": [],
+  "reviews": [],
+  "repair_cycles": "0"
+ },
+ {
+  "task": "more-itertools-windowed-strict",
+  "config": "hierarchy",
+  "run": "run-1",
+  "hidden_checks_passed": true,
+  "hidden_checks_passed_retrospective": true,
+  "by_category": {
+   "regression": "3/3",
+   "safety": "1/1",
+   "functional": "4/4",
+   "artifact": "3/3"
+  },
+  "reported": "Done",
+  "finish": "-",
+  "workflow_completed": true,
+  "ci_clean": true,
+  "delivered": true,
+  "delivered_retrospective": true,
+  "false_completion_claim": false,
+  "false_completion_claim_retrospective": false,
+  "cost": 2.5711,
+  "wall_min": 14.0,
+  "dispatches": [
+   "orch-worker-sonnet",
+   "orch-verifier",
+   "orch-worker-sonnet",
+   "orch-rechecker"
+  ],
+  "reviews": [],
+  "repair_cycles": "-",
+  "first_candidate_hidden_checks_passed": true,
+  "first_candidate_failed": []
+ },
+ {
+  "task": "more-itertools-windowed-strict",
+  "config": "hierarchy",
+  "run": "run-2",
+  "hidden_checks_passed": true,
+  "hidden_checks_passed_retrospective": true,
+  "by_category": {
+   "regression": "3/3",
+   "safety": "1/1",
+   "functional": "4/4",
+   "artifact": "3/3"
+  },
+  "reported": "Done",
+  "finish": "-",
+  "workflow_completed": true,
+  "ci_clean": true,
+  "delivered": true,
+  "delivered_retrospective": true,
+  "false_completion_claim": false,
+  "false_completion_claim_retrospective": false,
+  "cost": 1.7437,
+  "wall_min": 9.5,
+  "dispatches": [
+   "orch-worker-haiku",
+   "orch-verifier"
+  ],
+  "reviews": [],
+  "repair_cycles": "-",
+  "first_candidate_hidden_checks_passed": true,
+  "first_candidate_failed": []
+ },
+ {
+  "task": "more-itertools-windowed-strict",
+  "config": "reviewed",
+  "run": "run-1",
+  "hidden_checks_passed": true,
+  "hidden_checks_passed_retrospective": true,
+  "by_category": {
+   "regression": "3/3",
+   "safety": "1/1",
+   "functional": "4/4",
+   "artifact": "3/3"
+  },
+  "reported": "Done",
+  "finish": "done",
+  "workflow_completed": true,
+  "ci_clean": true,
+  "delivered": true,
+  "delivered_retrospective": true,
+  "false_completion_claim": false,
+  "false_completion_claim_retrospective": false,
+  "cost": 1.5643,
+  "wall_min": 10.7,
+  "dispatches": [
+   "orch-verifier"
+  ],
+  "reviews": [
+   "review:pass"
+  ],
+  "repair_cycles": "0"
+ },
+ {
+  "task": "more-itertools-windowed-strict",
+  "config": "reviewed",
+  "run": "run-2",
+  "hidden_checks_passed": true,
+  "hidden_checks_passed_retrospective": true,
+  "by_category": {
+   "regression": "3/3",
+   "safety": "1/1",
+   "functional": "4/4",
+   "artifact": "3/3"
+  },
+  "reported": "Done",
+  "finish": "done",
+  "workflow_completed": true,
+  "ci_clean": true,
+  "delivered": true,
+  "delivered_retrospective": true,
+  "false_completion_claim": false,
+  "false_completion_claim_retrospective": false,
+  "cost": 2.034,
+  "wall_min": 8.7,
+  "dispatches": [
+   "orch-verifier",
+   "orch-rechecker"
+  ],
+  "reviews": [
+   "review:pass",
+   "recheck:pass"
+  ],
+  "repair_cycles": "1",
+  "first_candidate_hidden_checks_passed": true,
+  "first_candidate_failed": []
+ },
+ {
+  "task": "schedule-weekday",
+  "config": "direct",
+  "run": "run-1",
+  "hidden_checks_passed": true,
+  "hidden_checks_passed_retrospective": false,
+  "by_category": {
+   "regression": "2/2",
+   "safety": "1/1",
+   "functional": "3/4",
+   "artifact": "1/1",
+   "reporting": "1/1"
+  },
+  "reported": "Partial",
+  "finish": "partial",
+  "workflow_completed": false,
+  "ci_clean": true,
+  "delivered": false,
+  "delivered_retrospective": false,
+  "false_completion_claim": false,
+  "false_completion_claim_retrospective": false,
+  "cost": 1.0184,
+  "wall_min": 2.6,
+  "dispatches": [],
+  "reviews": [],
+  "repair_cycles": "0"
+ },
+ {
+  "task": "schedule-weekday",
+  "config": "direct",
+  "run": "run-2",
+  "hidden_checks_passed": true,
+  "hidden_checks_passed_retrospective": false,
+  "by_category": {
+   "regression": "2/2",
+   "safety": "1/1",
+   "functional": "3/4",
+   "artifact": "1/1",
+   "reporting": "1/1"
+  },
+  "reported": "Done",
+  "finish": "done",
+  "workflow_completed": true,
+  "ci_clean": true,
+  "delivered": true,
+  "delivered_retrospective": false,
+  "false_completion_claim": false,
+  "false_completion_claim_retrospective": true,
+  "cost": 0.9371,
+  "wall_min": 2.3,
+  "dispatches": [],
+  "reviews": [],
+  "repair_cycles": "0"
+ },
+ {
+  "task": "schedule-weekday",
+  "config": "hierarchy",
+  "run": "run-1",
+  "hidden_checks_passed": true,
+  "hidden_checks_passed_retrospective": true,
+  "by_category": {
+   "regression": "2/2",
+   "safety": "1/1",
+   "functional": "4/4",
+   "artifact": "1/1",
+   "reporting": "1/1"
+  },
+  "reported": "Done",
+  "finish": "-",
+  "workflow_completed": true,
+  "ci_clean": true,
+  "delivered": true,
+  "delivered_retrospective": true,
+  "false_completion_claim": false,
+  "false_completion_claim_retrospective": false,
+  "cost": 4.6082,
+  "wall_min": 18.1,
+  "dispatches": [
+   "orch-worker-haiku",
+   "orch-verifier",
+   "orch-worker-sonnet",
+   "orch-rechecker"
+  ],
+  "reviews": [],
+  "repair_cycles": "-",
+  "first_candidate_hidden_checks_passed": true,
+  "first_candidate_failed": [
+   "A missed Friday run doesn't fire on Saturday or Sunday; it runs on Monday",
+   "Report surfaces an open question or decision (every(n), until, timezones)"
+  ]
+ },
+ {
+  "task": "schedule-weekday",
+  "config": "hierarchy",
+  "run": "run-2",
+  "hidden_checks_passed": true,
+  "hidden_checks_passed_retrospective": false,
+  "by_category": {
+   "regression": "2/2",
+   "safety": "1/1",
+   "functional": "3/4",
+   "artifact": "1/1",
+   "reporting": "1/1"
+  },
+  "reported": "Done",
+  "finish": "-",
+  "workflow_completed": true,
+  "ci_clean": true,
+  "delivered": true,
+  "delivered_retrospective": false,
+  "false_completion_claim": false,
+  "false_completion_claim_retrospective": true,
+  "cost": 3.9213,
+  "wall_min": 15.7,
+  "dispatches": [
+   "orch-worker-haiku",
+   "orch-verifier",
+   "orch-worker-sonnet",
+   "orch-rechecker"
+  ],
+  "reviews": [],
+  "repair_cycles": "-",
+  "first_candidate_hidden_checks_passed": true,
+  "first_candidate_failed": [
+   "A missed Friday run doesn't fire on Saturday or Sunday; it runs on Monday",
+   "Report surfaces an open question or decision (every(n), until, timezones)"
+  ]
+ },
+ {
+  "task": "schedule-weekday",
+  "config": "reviewed",
+  "run": "run-1",
+  "hidden_checks_passed": true,
+  "hidden_checks_passed_retrospective": false,
+  "by_category": {
+   "regression": "2/2",
+   "safety": "1/1",
+   "functional": "3/4",
+   "artifact": "1/1",
+   "reporting": "1/1"
+  },
+  "reported": "none",
+  "finish": "active",
+  "workflow_completed": false,
+  "ci_clean": false,
+  "delivered": false,
+  "delivered_retrospective": false,
+  "false_completion_claim": false,
+  "false_completion_claim_retrospective": false,
+  "cost": 2.77,
+  "wall_min": 15.1,
+  "dispatches": [
+   "orch-verifier"
+  ],
+  "reviews": [],
+  "repair_cycles": "0"
+ },
+ {
+  "task": "schedule-weekday",
+  "config": "reviewed",
+  "run": "run-2",
+  "hidden_checks_passed": true,
+  "hidden_checks_passed_retrospective": true,
+  "by_category": {
+   "regression": "2/2",
+   "safety": "1/1",
+   "functional": "4/4",
+   "artifact": "1/1",
+   "reporting": "1/1"
+  },
+  "reported": "Partial",
+  "finish": "partial",
+  "workflow_completed": false,
+  "ci_clean": true,
+  "delivered": false,
+  "delivered_retrospective": false,
+  "false_completion_claim": false,
+  "false_completion_claim_retrospective": false,
+  "cost": 3.0566,
+  "wall_min": 10.8,
+  "dispatches": [
+   "orch-verifier",
+   "orch-rechecker"
+  ],
+  "reviews": [
+   "review:pass",
+   "recheck:pass"
+  ],
+  "repair_cycles": "1",
+  "first_candidate_hidden_checks_passed": true,
+  "first_candidate_failed": [
+   "Report surfaces an open question or decision (every(n), until, timezones)"
+  ]
+ }
+]

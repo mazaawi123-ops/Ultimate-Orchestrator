@@ -53,23 +53,26 @@ proven optima.
 
 ## Evidence so far
 
-- **The independent review's four reproduced helper flaws are fixed.** The reviewer's own
-  script reproduces 4 of 4 on revision 919240501; the same scenarios reproduce 0 of 4 on the
-  current helper. See `docs/review/`.
-- **The graders are self-tested.** For each of the 8 graded tasks, a correct reference must
-  pass every core check, and 37 deliberately broken variants must each fail the checks aimed at
-  them (`evals/README.md`).
-- **Trigger description:** 20/20 on the development prompts; 18/20 on 20 held-out prompts,
-  run once on the final wording (`evals/results/trigger/`).
+- **Both independent reviews' reproduced helper flaws are fixed.** The first review's 4 cases
+  reproduce 4/4 on revision 9192405 and 0/4 now. The second review's 7 cases reproduce 7/7 on
+  77e8ff3 and 0/7 now. Every case is also a regression test, in both directions (`docs/review/`,
+  `tests/helper/`).
+- **The graders are self-tested.** For each of the 8 graded tasks, a correct reference passes
+  every core check, and 38 deliberately broken variants each fail the checks aimed at them
+  (`evals/README.md`).
+- **Trigger description:** 20/20 on the development prompts. On 20 held-out prompts: 18/20
+  with the strict first-call metric, and 17/20 on a second run with the revised metric (loaded
+  within 3 calls, before any edit). No false triggers either time. Single prompts flipped
+  between runs (`evals/results/trigger/`).
 - **Routing pilot on 2 held-out tasks** (`evals/results/pilot.md`): 12 runs, 3 routes, 2
-  repeats. Every run passed every hidden check. Direct cost $0.82 a run and took 2.7 min;
-  Reviewed cost $2.36 and 11.3 min; the previous always-delegate design cost $3.21 and
-  14.3 min (all estimated). The reviews found real but low-severity issues, all in the
-  reviewed runs' own drafts, and never changed task success. One old-design repair
-  introduced a defect. It's directional: two tasks can't settle the question.
-- **The pilot also exposed four reliability problems, now fixed:** count flags that couldn't
-  be approved; a review lost in headless mode; a reviewer installing into the shared
-  environment; and per-agent token accounting.
+  repeats, on commit 29fe7f4.
+  - Every run passed the original hidden checks. Delivery (Done, gate, repo CI and hidden
+    checks) was 3/4 Direct, 2/4 Reviewed and 4/4 for the old always-delegate skill.
+  - The Reviewed and Direct misses came from helper problems since fixed.
+  - A retrospective check shows 4 of 6 schedule candidates break "never on the weekend".
+  - Estimated cost per delivered success: Direct $1.10, old skill $3.21, Reviewed $4.71.
+  - It's directional: two tasks can't settle the routing question.
+- **The final revision's end-to-end check:** `evals/results/release-validation.md`.
 - Earlier designs' measurements, with the published run records, are in
   `evals/results/measurements.md`. Their limits are stated there: dollar figures are Claude
   Code's local estimates, not bills; the "no skill" runs were prompted to delegate; most

@@ -40,10 +40,11 @@ ok   windowed_strict / mutant 'padding dropped when not strict': caught
 ok   windowed_strict / mutant 'stub not updated': caught
 ok   windowed_strict / mutant 'stub updated in one overload only': caught
 ok   windowed_strict / mutant 'existing test weakened': caught
-ok   schedule_weekday: reference passes 6/6 core checks
+ok   schedule_weekday: reference passes 7/7 core checks
 ok   schedule_weekday / mutant 'weekends not skipped': caught
 ok   schedule_weekday / mutant 'only Sunday skipped': caught
 ok   schedule_weekday / mutant 'Friday skipped too': caught
+ok   schedule_weekday / mutant 'missed Friday run made up at the weekend': caught
 ok   schedule_weekday / mutant 'existing test weakened': caught
 ok   schedule_weekday / benign test edit (imports reordered): passes
 ALL GRADER SELF-TESTS PASSED
