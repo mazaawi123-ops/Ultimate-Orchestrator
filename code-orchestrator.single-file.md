@@ -117,6 +117,8 @@ Blocked or Partial.
    verdict.
    - Anything you change afterwards needs a new `check`; so does every other piece of
      evidence. Only the latest result of each check counts, and only for this candidate.
+     After a dependency change, rerun every check, not just the tests: each is tied to the
+     environment it ran in.
    - Run each registered CI check: `orch.sh run <id> -- <command>`, with the pinned versions
      (in a throwaway environment under /tmp if they aren't installed). A failing run blocks
      `done` until a later run of the same id passes. Mark a run that is meant to fail, such
@@ -476,7 +478,11 @@ Run lifecycle
 
 Candidate and evidence
   One rule decides what counts: a check is identified by its kind and label, only its latest
-  result counts, and that result must be for the current candidate and passing.
+  result counts, and that result must be for the current candidate and passing. Command and
+  manual evidence must also be for the current environment (see below); a review is tied to
+  the candidate only. Each command's evidence names the checkout it ran in, as it was before
+  the command, and is void if the command changed that checkout (HEAD, index, file flags,
+  tracked or untracked files), the main checkout or the environment fingerprint.
   check [--label L] [--offline] -- <test command>
                       Freeze the candidate (refuses uncommitted or untracked leftovers), run
                       the tests against it, re-check the tree afterwards, audit test changes,
@@ -491,7 +497,8 @@ Candidate and evidence
   fresh [--label L] [--offline] [--keep-home] [--keep VAR] [--deps copy|none] [VAR=value ...] -- <command>
                       Run in a fresh checkout of the candidate: no ignored or untracked files,
                       an allowlisted environment and a temporary HOME. Give it the setup too
-                      (e.g. -- sh -c 'make generate && pytest'). NOT a filesystem sandbox:
+                      (e.g. -- sh -c 'make generate && pytest'); files the setup generates must
+                      be git-ignored (.gitignore or orch.sh ignore). NOT a filesystem sandbox:
                       absolute paths outside the checkout stay readable.
   tests               Audit changes to tests that existed at BASE: deleted lines, added
                       skip/only/xfail markers, runner configuration, fixtures and snapshots,
@@ -517,19 +524,23 @@ loopback probe proves the block. It exits 5, running nothing, if this host can't
 the probe doesn't return exactly "verified". Only such runs satisfy `require offline`.
 
 The environment fingerprint covers the OS, git, node and python versions and dependency-lock
-metadata. `gate` also notices files in dependency folders or git-ignored inputs added or
-modified after the latest check (by modification time, caches excluded). None of this proves
-which files the tests actually read: a passing `fresh` run is the proof of a clean candidate.
+metadata. `gate` holds each piece of command and manual evidence to it separately: a check whose
+fingerprint differs from the current one, or after which files in dependency folders or
+git-ignored inputs were added or modified (by modification time, caches excluded), must be run
+again. Rerunning one check never refreshes another. None of this proves which files the tests
+actually read: a passing `fresh` run is the proof of a clean candidate.
 
 Parallel workers
   stamp / stray       Before and after parallel dispatch: detect writes to the main tree,
                       git-ignored files included.
   wt-add <task> [--deps copy|none|link]
                       Worktree .orchestrator/worktrees/<task> on branch orch-wt/<task>.
-                      Dependency folders are copied (copy-on-write where supported); links in
-                      them that lead back into the main checkout are re-pointed or copied, and
-                      a venv's launchers are re-pointed. Links to places outside the checkout
-                      stay shared and are reported. `link` shares the folders writably.
+                      Dependency folders are copied (copy-on-write where supported). Links in
+                      them, or chains of links, that end in the main checkout are re-pointed to
+                      the copy or their targets copied, and a venv's launchers are re-pointed.
+                      A link cycle or a link to the checkout's root is refused (so is `fresh`
+                      with such a copy). Links to places outside the checkout stay shared and
+                      are reported. `link` shares the folders writably.
   wt-finish <task>    Copy the worker's report out, remove the worktree, delete the merged branch.
   caps                What this host can enforce, and what it can't.
 EOF
@@ -542,6 +553,7 @@ cd "$ROOT" || die "cannot cd to $ROOT"
 O=.orchestrator
 EV="$O/evidence.tsv"
 DEP_DIRS="node_modules .venv venv"
+NL=$'\n'
 
 now() { date -u '+%Y-%m-%dT%H:%M:%SZ'; }
 
@@ -696,18 +708,16 @@ ignored_inputs() {
     grep -vE "^($O|node_modules|\.venv|venv)(/|$)" | grep -vE "$CACHE_RE" | LC_ALL=C sort
 }
 
-# Files in dependency folders or ignored inputs added or modified after the latest check
-# (by modification time; caches excluded). Prints up to three.
-changed_since_check() {
-  [ -f "$O/check-stamp" ] || return 0
+# Files in dependency folders or git-ignored inputs (the recorded list and the current one) added
+# or modified after a stamp (by modification time; caches excluded). Prints up to three.
+changed_since() {  # stamp file
   local roots=() d p
   for d in $DEP_DIRS; do [ -e "$d" ] && roots+=("$d"); done
-  if [ -f "$O/ignored-inputs" ]; then
-    while IFS= read -r p; do p=${p%/}; [ -n "$p" ] && [ -e "$p" ] && roots+=("$p"); done < "$O/ignored-inputs"
-  fi
+  while IFS= read -r p; do p=${p%/}; [ -n "$p" ] && [ -e "$p" ] && roots+=("$p"); done \
+    < <({ cat "$O/ignored-inputs" 2>/dev/null; ignored_inputs; } | LC_ALL=C sort -u)
   [ ${#roots[@]} -gt 0 ] || return 0
   find "${roots[@]}" \( -name __pycache__ -o -path '*node_modules/.cache' -o -path '*node_modules/.vite' \) -prune \
-    -o -type f -newer "$O/check-stamp" -print 2>/dev/null | head -3
+    -o -type f -newer "$1" -print 2>/dev/null | head -3
 }
 
 # ---------------------------------------------------------------- offline enforcement
@@ -784,17 +794,44 @@ offline_or_die() {
 
 # ---------------------------------------------------------------- command evidence
 
+# The identity of a checkout: HEAD, the index, per-file flags (assume-unchanged, skip-worktree)
+# and its status (tracked changes and untracked files that aren't ignored).
+co_state() {
+  printf 'HEAD %s\n' "$(git -C "$1" rev-parse HEAD 2>/dev/null)"
+  printf 'index %s\n' "$(git -C "$1" ls-files -s 2>/dev/null | git hash-object --stdin)"
+  printf 'flags %s\n' "$(git -C "$1" ls-files -v 2>/dev/null | grep -v '^H ' | git hash-object --stdin)"
+  git -C "$1" status --porcelain --untracked-files=normal -- . ":(exclude)$O" 2>/dev/null
+}
+# What changed between two co_state outputs, one line per kind of change.
+co_diff() {
+  [ "$(printf '%s\n' "$1" | sed -n 1p)" = "$(printf '%s\n' "$2" | sed -n 1p)" ] || echo "HEAD moved"
+  [ "$(printf '%s\n' "$1" | sed -n 2p)" = "$(printf '%s\n' "$2" | sed -n 2p)" ] || echo "the index changed"
+  [ "$(printf '%s\n' "$1" | sed -n 3p)" = "$(printf '%s\n' "$2" | sed -n 3p)" ] || echo "file flags changed (assume-unchanged or skip-worktree)"
+  printf '%s\n' "$2" | sed -n '4,$p'
+}
+
 # run_capture <kind> <label> <compare-baseline 0|1> <offline method or -> <workdir> -- cmd...
-# Sets RC and STATUS; appends an evidence row.
+# Sets RC and STATUS; appends an evidence row. The row names the checkout the command ran in, as
+# it was before the command; the command is void if it changed that checkout, the main one or
+# the environment fingerprint while running.
 run_capture() {
   local kind=$1 label=$2 cmpbase=$3 om=$4 wd=$5; shift 5; [ "${1:-}" = "--" ] && shift
-  local seq log t0 t1 counts new cur
-  seq=$(next_seq); mkdir -p "$O/logs"; log="$O/logs/$seq-$label.log"
+  local seq log t0 t1 counts new cur head tree fp0 fp1 wd0 wd1 m0 m1 moved=""
+  seq=$(next_seq); mkdir -p "$O/logs" "$O/stamps"; log="$O/logs/$seq-$label.log"
+  head=$(git -C "$wd" rev-parse HEAD); tree=$(git -C "$wd" rev-parse 'HEAD^{tree}')
+  fp0=$(env_fp); wd0=$(co_state "$wd"); [ "$wd" = "$ROOT" ] || m0=$(co_state "$ROOT")
   t0=$(date +%s)
   if [ "$om" = "-" ]; then ( cd "$wd" && "$@" ) > "$log" 2>&1
   else ( cd "$wd" && wrap_offline "$om" "$@" ) > "$log" 2>&1; fi
   RC=$?
   t1=$(date +%s)
+  touch "$O/stamps/$seq"
+  fp1=$(env_fp); wd1=$(co_state "$wd")
+  if [ "$wd1" != "$wd0" ] || [ -n "$(printf '%s\n' "$wd1" | sed -n '4,$p')" ]; then moved=$(co_diff "$wd0" "$wd1"); fi
+  if [ "$wd" != "$ROOT" ]; then
+    m1=$(co_state "$ROOT")
+    [ "$m1" = "$m0" ] || moved="$moved${moved:+$NL}main checkout: $(co_diff "$m0" "$m1" | tr '\n' ' ')"
+  fi
   counts=$(parse_counts "$log")
   STATUS=pass; NEWFAIL=""
   if [ $RC -ne 0 ]; then
@@ -805,16 +842,21 @@ run_capture() {
       if [ -n "$cur" ] && [ -z "$new" ]; then STATUS=known-failures; else NEWFAIL=${new:-"(unidentified: exit $RC)"}; fi
     fi
   fi
-  if [ -n "$(leftovers)" ]; then STATUS=dirty-after; fi
+  if [ -n "$moved" ]; then STATUS=dirty-after
+  elif [ "$fp1" != "$fp0" ]; then STATUS=env-changed; fi
   local net=-; [ "$om" = "-" ] || net="offline-verified:$om"
-  ev_append "$seq" "$(now)" "$kind" "$label" "$(git rev-parse HEAD)" "$(git rev-parse 'HEAD^{tree}')" \
-    "$RC" "$STATUS" "$((t1 - t0))" "$(env_fp)" "$(echo "$counts" | tr ' ' '/')" "$log" "$(show_cmd "$@")" "$net" "${ROLE:--}"
+  ev_append "$seq" "$(now)" "$kind" "$label" "$head" "$tree" \
+    "$RC" "$STATUS" "$((t1 - t0))" "$fp1" "$(echo "$counts" | tr ' ' '/')" "$log" "$(show_cmd "$@")" "$net" "${ROLE:--}"
   echo "== $kind '$label': exit $RC, $STATUS, $((t1 - t0))s, counts passed/failed/skipped/ran/runner = $(echo "$counts" | tr ' ' '/')"
   tail -12 "$log" | sed 's/^/  | /'
   echo "  log: $log"
   if [ -n "$NEWFAIL" ]; then echo "  new failures (not in the baseline):"; printf '%s\n' "$NEWFAIL" | head -20 | sed 's/^/    /'; fi
   if [ "$STATUS" = known-failures ]; then echo "  every failure was already failing at BASE (see .orchestrator/baseline/failures.txt): disclose them"; fi
-  if [ "$STATUS" = dirty-after ]; then echo "  DIRTY AFTER: the command changed the tree, so this evidence is void:"; leftovers | sed 's/^/    /'; fi
+  if [ "$STATUS" = dirty-after ]; then
+    echo "  DIRTY AFTER: the command changed the checkout it ran in, so this evidence is void:"; printf '%s\n' "$moved" | head -20 | sed 's/^/    /'
+    echo "  Files a setup step generates on purpose must be git-ignored (orch.sh ignore <pattern>); source and tests must not change."
+  fi
+  if [ "$STATUS" = env-changed ]; then echo "  ENVIRONMENT CHANGED while it ran (fingerprint $fp0 -> $fp1), so it isn't clear which environment it tested: run it again"; fi
 }
 
 # ---------------------------------------------------------------- test-change audit
@@ -917,27 +959,59 @@ cow_copy() {
     *) cp -R --reflink=auto "$1" "$2" 2>/dev/null || { rm -rf "$2"; cp -R "$1" "$2"; } ;;
   esac
 }
-# A copied dependency folder can still contain links back into the main checkout, and a copied
-# venv's launchers name the original venv. Re-point those into the copy, or copy what they point
-# to, and report links to places outside the checkout (writes through them are shared).
+# Follows a chain of links, resolving each hop physically. Sets FIRST (where the first hop points)
+# and END (where the chain ends: an existing path, or where a dangling link points). Returns 1 on
+# a cycle.
+link_end() {
+  local p=$1 t td d n=0
+  FIRST=""; END=""
+  while [ -L "$p" ]; do
+    n=$((n + 1)); [ $n -le 40 ] || return 1
+    t=$(readlink "$p") || return 1
+    case "$t" in /*) ;; *) t="${p%/*}/$t" ;; esac
+    td=${t%/*}; [ -n "$td" ] || td=/
+    if d=$(cd "$td" 2>/dev/null && pwd -P); then p="${d%/}/${t##*/}"; else p=$t; [ -n "$FIRST" ] || FIRST=$p; END=$p; return 0; fi
+    [ -n "$FIRST" ] || FIRST=$p
+  done
+  [ -d "$p" ] && p=$(cd "$p" && pwd -P)
+  END=$p
+}
+
+# A copied dependency folder can still contain links, or chains of links, that end in the main
+# checkout, and a copied venv's launchers name the original venv. Each such link is re-pointed to
+# the copy's own counterpart when there is one, or what it ends at is copied; the folder is
+# scanned again until no link ends in the main checkout. A link cycle, a link to the checkout's
+# root, or a chain that still leads back after 8 passes is refused (returns 1). Links to places
+# outside the checkout are reported: writes through them are shared.
 isolate_copy() {  # copied dependency dir, destination checkout root
-  local dd=$1 droot rootp l tgt abs res rel fixed=0 outside=0 example="" f
-  droot=$(cd "$2" && pwd -P) || return 0; rootp=$(cd "$ROOT" && pwd -P) || return 0
-  while IFS= read -r l; do
-    tgt=$(readlink "$l") || continue
-    case "$tgt" in /*) abs=$tgt ;; *) abs="$(dirname "$l")/$tgt" ;; esac
-    res=$(cd "$(dirname "$abs")" 2>/dev/null && printf '%s/%s' "$(pwd -P)" "$(basename "$abs")") || continue
-    case "$res" in
-      "$droot"|"$droot"/*) ;;
-      "$rootp"|"$rootp"/*)
-        rel=${res#"$rootp"}; rel=${rel#/}
-        if [ -n "$rel" ] && [ -e "$droot/$rel" ]; then ln -sfn "$droot/$rel" "$l"
-        else rm -f "$l"; cp -R "$res" "$l"; fi
-        fixed=$((fixed + 1)) ;;
-      *) case "$l" in */bin/python*|*/bin/node*) ;; *) outside=$((outside + 1)); [ -n "$example" ] || example="${l#"$2"/} -> $res" ;; esac ;;
-    esac
-  done < <(find "$dd" -type l 2>/dev/null)
-  [ $fixed -gt 0 ] && echo "  re-pointed or copied $fixed link(s) in ${dd##*/} that led back into the main checkout"
+  local dd=$1 droot rootp l i rel end pass=0 repointed=0 copied=0 outside example any f
+  local tl te tf
+  droot=$(cd "$2" && pwd -P) || return 1; rootp=$(cd "$ROOT" && pwd -P) || return 1
+  while :; do
+    pass=$((pass + 1)); tl=(); te=(); tf=(); outside=0; example=""
+    while IFS= read -r l; do
+      link_end "$l" || { echo "  REFUSED: ${l#"$droot"/} is part of a link cycle, so where writes through it go can't be settled"; return 1; }
+      case "$END" in
+        "$droot"|"$droot"/*) ;;
+        "$rootp") echo "  REFUSED: ${l#"$droot"/} leads to the main checkout's root"; return 1 ;;
+        "$rootp"/*) tl+=("$l"); te+=("$END"); tf+=("$FIRST") ;;
+        *) case "$l" in */bin/python*|*/bin/node*) ;; *) outside=$((outside + 1)); [ -n "$example" ] || example="${l#"$droot"/} -> $END" ;; esac ;;
+      esac
+    done < <(find "$dd" -type l 2>/dev/null)
+    [ ${#tl[@]} -gt 0 ] || break
+    [ $pass -le 8 ] || { echo "  REFUSED: links in ${dd##*/} still lead into the main checkout after 8 passes (e.g. ${tl[0]#"$droot"/} -> ${te[0]})"; return 1; }
+    # Fix the links whose first hop leaves the copy; links that reach them through the copy follow.
+    any=0; for i in "${!tl[@]}"; do case "${tf[$i]}" in "$droot"|"$droot"/*) ;; *) any=1 ;; esac; done
+    for i in "${!tl[@]}"; do
+      l=${tl[$i]}; end=${te[$i]}; rel=${end#"$rootp"/}
+      if [ $any = 1 ]; then case "${tf[$i]}" in "$droot"|"$droot"/*) continue ;; esac; fi
+      if { [ -e "$droot/$rel" ] || [ -L "$droot/$rel" ]; } && link_end "$droot/$rel" && case "$END" in "$droot"|"$droot"/*) true ;; *) false ;; esac; then
+        ln -sfn "$droot/$rel" "$l"; repointed=$((repointed + 1))
+      elif [ -e "$end" ]; then rm -f "$l"; cow_copy "$end" "$l"; copied=$((copied + 1))
+      else ln -sfn "$droot/$rel" "$l"; repointed=$((repointed + 1)); fi
+    done
+  done
+  [ $((repointed + copied)) -gt 0 ] && echo "  re-pointed $repointed and copied the targets of $copied link(s) in ${dd##*/} that led back into the main checkout"
   [ $outside -gt 0 ] && echo "  NOTE: $outside link(s) in ${dd##*/} point outside the checkout (e.g. $example): writes through them are shared"
   for f in "$dd"/bin/*; do
     [ -f "$f" ] && [ ! -L "$f" ] || continue
@@ -957,7 +1031,11 @@ place_deps() {  # dest mode
       none) continue ;;
       link) ln -s "$ROOT/$d" "$dest/$d"; echo "  WARNING: $d is a writable link to the main tree's; writes there change it for everyone" ;;
       *) cow_copy "$ROOT/$d" "$dest/$d"; echo "  copied $d"
-         isolate_copy "$dest/$d" "$dest"
+         if ! isolate_copy "$dest/$d" "$dest"; then
+           rm -rf "$dest/$d"
+           echo "  $d was not placed. Use --deps none and install it in the checkout, or --deps link to share it, writes included."
+           return 1
+         fi
          if [ "$d" != node_modules ] && grep -rlsF "$ROOT" "$dest/$d"/lib/python*/site-packages/*.pth "$dest/$d"/lib/python*/site-packages/__editable__* >/dev/null 2>&1; then
            echo "  WARNING: $d has an editable install pointing at the main checkout: imports load the main tree's source. Run with PYTHONPATH set to the worktree's source, or reinstall there."
          fi ;;
@@ -1078,7 +1156,7 @@ cmd_check() {
   echo "candidate: $(cand commit)"
   run_capture check "$label" 1 "$om" "$ROOT" -- "$@"
   local status=$STATUS
-  ignored_inputs > "$O/ignored-inputs"; touch "$O/check-stamp"
+  ignored_inputs > "$O/ignored-inputs"
   if [ -s "$O/ignored-inputs" ]; then
     echo "  note: git-ignored files the candidate doesn't contain were present, so the tests could have read them:"
     head -8 "$O/ignored-inputs" | sed 's/^/    /'
@@ -1129,7 +1207,7 @@ cmd_fresh() {
   git worktree add -q --detach "$tmp/repo" "$(cand commit)" || { rm -rf "$tmp"; die "git worktree add failed"; }
   trap 'git -C "$ROOT" worktree remove --force "$tmp/repo" >/dev/null 2>&1; rm -rf "$tmp"; git -C "$ROOT" worktree prune' EXIT
   mkdir -p "$tmp/home" "$tmp/tmp"
-  place_deps "$tmp/repo" "$deps"
+  place_deps "$tmp/repo" "$deps" || die "fresh refused: the dependencies can't be copied without writes reaching the main checkout (see above); nothing was run"
   for v in $ENV_ALLOW $keeps; do
     if [ -n "${!v+x}" ]; then envs+=("$v=${!v}"); fi
   done
@@ -1181,7 +1259,8 @@ cmd_record() {
   esac
   id=$(printf '%s' "$id" | tr '\t\n' '  ')
   require_current
-  ev_append "$(next_seq)" "$(now)" "$kind" "$id" "$(cand commit)" "$(cand tree)" - "$res" 0 "$(env_fp)" "" "" "record: $(printf '%s' "$*" | tr '\t\n' '  ')"
+  local seq; seq=$(next_seq); mkdir -p "$O/stamps"; touch "$O/stamps/$seq"
+  ev_append "$seq" "$(now)" "$kind" "$id" "$(cand commit)" "$(cand tree)" - "$res" 0 "$(env_fp)" "" "" "record: $(printf '%s' "$*" | tr '\t\n' '  ')"
   echo "recorded $kind '$id' $res for candidate $(cand commit | cut -c1-12)"
 }
 
@@ -1243,13 +1322,17 @@ cmd_repair() {
 # never count. A waiver, with its reason, disposes of an identity that isn't required.
 # Prints problems (one per line). Returns 0 when there are none.
 gate_problems() {
-  local why c t fp req rq saved now_inputs changed
+  local why c t fp req rq saved now_inputs out seq id changed
   why=$(candidate_current) || { echo "candidate: $why"; return 1; }
   c=$(cand commit); t=$(cand tree); fp=$(env_fp)
   req=$(mf_get requires); rq=$(mf_get required_checks)
   saved=$(cat "$O/ignored-inputs" 2>/dev/null | tr '\n' ' ')
   [ -f "$EV" ] || { echo "no evidence recorded: run orch.sh check -- <tests>"; return 0; }
-  awk -F'\t' -v c="$c" -v t="$t" -v fp="$fp" -v req=",$req," -v rq=",$rq," -v inputs="$saved" '
+  # Command and manual evidence is tied to the environment it ran in as well as the candidate: its
+  # fingerprint must match the current one, and dependency folders and ignored inputs must not
+  # have changed after it ran. Reviews are tied to the candidate only: they judge the code against
+  # the request, and the environment is covered by the command evidence.
+  out=$(awk -F'\t' -v c="$c" -v t="$t" -v fp="$fp" -v req=",$req," -v rq=",$rq," -v inputs="$saved" '
     function ident(k, l) { return (k == "review" || k == "recheck") ? "review" : k ":" l }
     function ok(id) { return ls[id] == "pass" || (ls[id] == "known-failures" && id ~ /^(check|fresh):/) }
     function cur(id) { return lc[id] == c && lt[id] == t }
@@ -1271,7 +1354,11 @@ gate_problems() {
       for (i = 1; i <= n; i++) {
         id = ids[i]
         if (cur(id) && ok(id)) {
-          if (id ~ /^check:/) { anycheck = 1; if (le[id] != fp) print "environment changed since " id " ran (fingerprint " le[id] " -> " fp "): run it again" }
+          if (id ~ /^check:/) anycheck = 1
+          if (id ~ /^(check|run|fresh|manual):/) {
+            if (le[id] != fp) print "environment changed since " id " ran (fingerprint " le[id] " -> " fp "): run it again"
+            else print "STAMP\t" lq[id] "\t" id
+          }
           if (id ~ /^fresh:/) freshok = 1
           if (id ~ /^(check|fresh):/ && lnet[id] ~ /^offline-verified:/) offok = 1
           continue
@@ -1279,7 +1366,8 @@ gate_problems() {
         if (waived[id] && !required(id)) continue
         hint = required(id) ? "" : ", or waive it with a reason if it no longer applies"
         if (!cur(id)) print id " was last recorded for an earlier candidate (" substr(lc[id], 1, 12) "): run it again for this one" hint
-        else if (ls[id] == "dirty-after") print id " (" lq[id] ") changed the tree while running, so it is void: run it again"
+        else if (ls[id] == "dirty-after") print id " (" lq[id] ") changed the checkout it ran in, so it is void: run it again"
+        else if (ls[id] == "env-changed") print id " (" lq[id] ") changed the environment fingerprint while running, so it is void: run it again"
         else print id " latest result (" lq[id] ") is " ls[id] ": fix it and run it again" hint
       }
       if (!anycheck) print "no passing check for this candidate: run orch.sh check -- <tests>"
@@ -1290,11 +1378,18 @@ gate_problems() {
       for (k = 1; k <= m; k++) if (r[k] != "" && !(("run:" r[k]) in lc)) print "required check " r[k] ": no result recorded (orch.sh run " r[k] " -- <command>)"
       if (inputs != "" && !freshok && !waived["fresh"] && !index(req, ",fresh,"))
         print "git-ignored files the candidate does not contain were present during the check (" inputs "): prove it works without them with orch.sh fresh -- <setup and tests>, or waive fresh with a reason if they are not inputs"
-    }' "$EV"
+    }' "$EV")
+  printf '%s\n' "$out" | grep -v '^STAMP	' | grep -v '^$'
   now_inputs=$(ignored_inputs | tr '\n' ' ')
   [ "$now_inputs" = "$saved" ] || echo "git-ignored inputs changed since the latest check (now: ${now_inputs:-none}): run check again"
-  changed=$(changed_since_check | tr '\n' ' ')
-  [ -z "$changed" ] || echo "files in dependency folders or ignored inputs changed after the latest check (e.g. $changed): run check again"
+  # Oldest first: once one item has no later changes, no newer item can have any.
+  while IFS=$'\t' read -r _ seq id; do
+    [ -n "$seq" ] || continue
+    if [ ! -f "$O/stamps/$seq" ]; then echo "$id ($seq) has no timestamp (an older helper recorded it): run it again"; continue; fi
+    changed=$(changed_since "$O/stamps/$seq" | tr '\n' ' ')
+    [ -n "$changed" ] || break
+    echo "files in dependency folders or ignored inputs changed after $id ran (e.g. $changed): run it again"
+  done < <(printf '%s\n' "$out" | grep '^STAMP	' | sort -t "$(printf '\t')" -k2,2n)
   audit_tests "$(base_rev)" "$c" > "$O/.gate-audit" 2>&1
   [ "$UNAPPROVED" -eq 0 ] || echo "test-change audit: $UNAPPROVED unapproved flag(s) (orch.sh tests)"
   return 0
@@ -1381,7 +1476,10 @@ cmd_wt_add() {
   mkdir -p "$(dirname "$dir")"
   git worktree add -q "$dir" -b "orch-wt/$task" HEAD || die "git worktree add failed"
   mkdir -p "$dir/$O"
-  place_deps "$dir" "$deps"
+  if ! place_deps "$dir" "$deps"; then
+    git worktree remove --force "$dir" >/dev/null 2>&1; git branch -D "orch-wt/$task" >/dev/null 2>&1
+    die "wt-add refused: the dependencies can't be copied without writes reaching the main checkout (see above); no worktree was created"
+  fi
   echo "$dir"
 }
 

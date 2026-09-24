@@ -116,6 +116,8 @@ Blocked or Partial.
    verdict.
    - Anything you change afterwards needs a new `check`; so does every other piece of
      evidence. Only the latest result of each check counts, and only for this candidate.
+     After a dependency change, rerun every check, not just the tests: each is tied to the
+     environment it ran in.
    - Run each registered CI check: `orch.sh run <id> -- <command>`, with the pinned versions
      (in a throwaway environment under /tmp if they aren't installed). A failing run blocks
      `done` until a later run of the same id passes. Mark a run that is meant to fail, such

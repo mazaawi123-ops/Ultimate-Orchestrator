@@ -489,7 +489,7 @@ class SecondReview(Base):
         r.orch("start", "dep", "--", *UNITTEST)
         self.assertEqual(r.orch("check", "--", *UNITTEST).returncode, 0)
         r.write({"node_modules/package/marker.txt": "bad"})
-        self.assertGate(r, False, "changed after the latest check")
+        self.assertGate(r, False, "changed after check:check ran")
         self.assertNotEqual(r.orch("check", "--", *UNITTEST).returncode, 0, "rerunning shows the real state")
         r.write({"node_modules/package/marker.txt": "good"})
         self.assertEqual(r.orch("check", "--", *UNITTEST).returncode, 0)
@@ -498,8 +498,195 @@ class SecondReview(Base):
 
 # ------------------------------------------------------------------ other guarantees
 
+class FinalReview(Base):
+    """The final review's three cases (F1-F3), each tested both ways."""
+
+    def checked(self, files=APP):
+        r = self.started(files)
+        res = r.orch("check", "--", *UNITTEST)
+        self.assertEqual(res.returncode, 0, res.stdout)
+        return r
+
+    def assertGate(self, r, passes, text=None):
+        res = r.orch("gate")
+        self.assertEqual(res.returncode == 0, passes, res.stdout)
+        if text:
+            self.assertIn(text, res.stdout)
+        return res
+
+    # F1: evidence names the checkout the command ran in, and is void if the command changed it.
+
+    MUTATE = ("from pathlib import Path\nimport subprocess,sys\n"
+              "p=Path('app.py'); p.write_text(p.read_text().replace('41','99'))\n"
+              "p=Path('test_app.py'); p.write_text(p.read_text().replace('41','99'))\n"
+              "raise SystemExit(subprocess.call([sys.executable,'-m','unittest','-q']))\n")
+
+    def test_f1_a_fresh_run_that_edits_tracked_files_is_void(self):
+        r = self.checked()
+        r.orch("require", "fresh")
+        res = r.orch("fresh", "--", PY, "-c", self.MUTATE)
+        self.assertNotEqual(res.returncode, 0, res.stdout)
+        self.assertIn("DIRTY AFTER", res.stdout)
+        self.assertEqual(r.evidence()[-1][7], "dirty-after")
+        self.assertGate(r, False, "fresh:fresh")
+        self.assertNotEqual(r.orch("finish", "done").returncode, 0)
+        self.assertEqual((r.root / "app.py").read_text(), APP["app.py"])
+        self.assertEqual(r.orch("fresh", "--", *UNITTEST).returncode, 0, "an ordinary fresh run still passes")
+        self.assertGate(r, True)
+
+    def test_f1_declared_generated_files_are_fine_and_undeclared_ones_are_not(self):
+        gen = dict(APP, **{".gitignore": "__pycache__/\ngenerated_settings.py\n",
+                           "gen.py": "open('generated_settings.py', 'w').write('VALUE = 41\\n')\nopen('build.txt', 'w').write('x')\n"})
+        r = self.checked(gen)
+        res = r.orch("fresh", "--", "sh", "-c", f"{PY} gen.py && {PY} -m unittest -q")
+        self.assertNotEqual(res.returncode, 0, "build.txt is neither tracked nor ignored")
+        self.assertIn("build.txt", res.stdout)
+        r.orch("ignore", "build.txt")
+        res = r.orch("fresh", "--", "sh", "-c", f"{PY} gen.py && {PY} -m unittest -q")
+        self.assertEqual(res.returncode, 0, res.stdout)
+        self.assertGate(r, True)
+
+    def test_f1_the_evidence_names_the_state_before_the_command(self):
+        r = self.checked()
+        cand = r.git("rev-parse", "HEAD")
+        res = r.orch("run", "sneaky", "--", "git", "commit", "-q", "--allow-empty", "-m", "moved during the run")
+        self.assertNotEqual(res.returncode, 0)
+        self.assertEqual(r.evidence()[-1][4], cand, "the row names the commit the command started from")
+        self.assertEqual(r.evidence()[-1][7], "dirty-after")
+        self.assertIn("HEAD moved", res.stdout)
+
+    def test_f1_hidden_edits_to_tracked_files_are_caught(self):
+        r = self.checked()
+        hide = "echo '# edited' >> app.py && git update-index --assume-unchanged app.py && " + " ".join(UNITTEST)
+        res = r.orch("run", "hidden", "--", "sh", "-c", hide)
+        self.assertEqual(r.evidence()[-1][7], "dirty-after", res.stdout)
+        self.assertIn("file flags changed", res.stdout)
+
+    def test_f1_a_fresh_run_that_writes_to_the_main_checkout_is_void(self):
+        r = self.checked()
+        res = r.orch("fresh", "--", "sh", "-c", f"echo x >> {r.root}/app.py; {PY} -m unittest -q")
+        self.assertEqual(r.evidence()[-1][7], "dirty-after", res.stdout)
+        self.assertIn("main checkout", res.stdout)
+
+    # F2: each piece of command evidence is tied to the environment it ran in.
+
+    DEPS = dict(APP, **{".gitignore": "__pycache__/\nnode_modules/\n"})
+    LINT = [PY, "-c", "from pathlib import Path; assert Path('node_modules/package/marker.txt').read_text() == 'good'"]
+
+    def with_lint(self):
+        r = Repo(self.tmp / "repo", self.DEPS)
+        r.write({"node_modules/.package-lock.json": '{"version":1}\n', "node_modules/package/marker.txt": "good"})
+        r.orch("start", "deps", "--", *UNITTEST)
+        self.assertEqual(r.orch("check", "--", *UNITTEST).returncode, 0)
+        r.orch("require", "check", "lint")
+        self.assertEqual(r.orch("run", "lint", "--", *self.LINT).returncode, 0)
+        self.assertGate(r, True)
+        return r
+
+    def test_f2_rerunning_the_tests_does_not_refresh_a_stale_lint(self):
+        r = self.with_lint()
+        r.write({"node_modules/.package-lock.json": '{"version":2}\n', "node_modules/package/marker.txt": "bad"})
+        self.assertEqual(r.orch("check", "--", *UNITTEST).returncode, 0)
+        self.assertGate(r, False, "environment changed since run:lint ran")
+        self.assertNotEqual(r.orch("finish", "done").returncode, 0)
+        self.assertNotEqual(r.orch("run", "lint", "--", *self.LINT).returncode, 0, "rerunning shows the real state")
+        r.write({"node_modules/package/marker.txt": "good"})
+        self.assertEqual(r.orch("run", "lint", "--", *self.LINT).returncode, 0)
+        self.assertGate(r, False, "changed after check:check ran")
+        self.assertEqual(r.orch("check", "--", *UNITTEST).returncode, 0)
+        self.assertGate(r, True)
+
+    def test_f2_a_changed_dependency_file_is_tracked_per_check(self):
+        r = self.with_lint()
+        r.write({"node_modules/package/marker.txt": "bad"})
+        self.assertEqual(r.orch("check", "--", *UNITTEST).returncode, 0)
+        self.assertGate(r, False, "changed after run:lint ran")
+        r.write({"node_modules/package/marker.txt": "good"})
+        self.assertEqual(r.orch("run", "lint", "--", *self.LINT).returncode, 0)
+        self.assertGate(r, False, "changed after check:check ran")
+        self.assertEqual(r.orch("check", "--", *UNITTEST).returncode, 0)
+        self.assertGate(r, True)
+
+    def test_f2_a_command_that_changes_the_environment_while_running_is_void(self):
+        r = self.with_lint()
+        res = r.orch("run", "lint", "--", "sh", "-c", "echo '{\"version\":3}' > node_modules/.package-lock.json")
+        self.assertIn("ENVIRONMENT CHANGED", res.stdout)
+        self.assertGate(r, False, "changed the environment fingerprint while running")
+        self.assertEqual(r.orch("check", "--", *UNITTEST).returncode, 0)
+        self.assertEqual(r.orch("run", "lint", "--", *self.LINT).returncode, 0)
+        self.assertGate(r, True)
+
+    def test_f2_manual_evidence_is_environment_bound_and_a_review_is_not(self):
+        r = self.with_lint()
+        r.orch("require", "review")
+        r.orch("record", "manual", "pass", "--id", "cli", "ran the CLI by hand")
+        r.orch("record", "review", "pass", "independent review of this candidate")
+        self.assertGate(r, True)
+        r.write({"node_modules/.package-lock.json": '{"version":2}\n'})
+        self.assertEqual(r.orch("check", "--", *UNITTEST).returncode, 0)
+        self.assertEqual(r.orch("run", "lint", "--", *self.LINT).returncode, 0)
+        res = self.assertGate(r, False, "environment changed since manual:cli ran")
+        self.assertNotIn("review", res.stdout)
+        r.orch("record", "manual", "pass", "--id", "cli", "ran the CLI by hand again")
+        self.assertGate(r, True)
+
+    # F3: complete link chains are followed; what can't be settled is refused.
+
+    CHAIN = dict(APP, **{".gitignore": "__pycache__/\nnode_modules/\nshared-deps/\ndependency-alias\n"})
+
+    def test_f3_a_chained_link_is_followed_to_its_end(self):
+        r = self.started(self.CHAIN, baseline=False)
+        r.write({"shared-deps/package/marker.txt": "original"})
+        (r.root / "dependency-alias").symlink_to(r.root / "shared-deps/package", target_is_directory=True)
+        (r.root / "node_modules").mkdir()
+        (r.root / "node_modules/package").symlink_to(r.root / "dependency-alias", target_is_directory=True)
+        res = r.orch("wt-add", "w1")
+        self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+        copied = r.root / ".orchestrator/worktrees/w1/node_modules/package"
+        self.assertEqual((copied / "marker.txt").read_text(), "original")
+        (copied / "marker.txt").write_text("worker changed it")
+        self.assertEqual((r.root / "shared-deps/package/marker.txt").read_text(), "original")
+
+    def test_f3_a_dangling_link_into_the_main_checkout_stays_in_the_copy(self):
+        r = self.started(self.CHAIN, baseline=False)
+        (r.root / "node_modules").mkdir()
+        (r.root / "node_modules/cache").symlink_to(r.root / "shared-deps/not-yet.txt")
+        self.assertEqual(r.orch("wt-add", "w1").returncode, 0)
+        copied = r.root / ".orchestrator/worktrees/w1/node_modules/cache"
+        try:
+            copied.write_text("worker")
+        except OSError:
+            pass
+        self.assertFalse((r.root / "shared-deps/not-yet.txt").exists())
+
+    def test_f3_a_link_cycle_is_refused_and_nothing_is_placed(self):
+        r = self.started(self.CHAIN, baseline=False)
+        (r.root / "node_modules").mkdir()
+        (r.root / "node_modules/a").symlink_to("b")
+        (r.root / "node_modules/b").symlink_to("a")
+        res = r.orch("wt-add", "w1")
+        self.assertNotEqual(res.returncode, 0)
+        self.assertIn("link cycle", res.stdout)
+        self.assertFalse((r.root / ".orchestrator/worktrees/w1").exists())
+        self.assertNotIn("orch-wt/w1", r.git("branch", "--list", "orch-wt/w1"))
+        self.assertEqual(r.orch("wt-add", "w1", "--deps", "none").returncode, 0, "without the copy it still works")
+        r.orch("check", "--", *UNITTEST)
+        res = r.orch("fresh", "--", *UNITTEST)
+        self.assertNotEqual(res.returncode, 0)
+        self.assertIn("nothing was run", res.stderr)
+        self.assertEqual(r.orch("fresh", "--deps", "none", "--", *UNITTEST).returncode, 0)
+
+    def test_f3_a_link_to_the_checkout_root_is_refused(self):
+        r = self.started(self.CHAIN, baseline=False)
+        (r.root / "node_modules").mkdir()
+        (r.root / "node_modules/root").symlink_to(r.root, target_is_directory=True)
+        res = r.orch("wt-add", "w1")
+        self.assertNotEqual(res.returncode, 0)
+        self.assertIn("main checkout's root", res.stdout)
+
+
 class BaselineFailures(Base):
-    FAILING = dict(APP, **{"test_old.py": "import unittest\n\n\nclass Old(unittest.TestCase):\n    def test_broken(self):\n        self.fail('pre-existing')\n"})
+    FAILING =dict(APP, **{"test_old.py": "import unittest\n\n\nclass Old(unittest.TestCase):\n    def test_broken(self):\n        self.fail('pre-existing')\n"})
 
     def test_pre_existing_failure_is_known_not_new(self):
         r = self.started(self.FAILING)
