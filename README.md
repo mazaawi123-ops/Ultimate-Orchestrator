@@ -96,7 +96,11 @@ proven optima.
 
 ## Install
 
-From this repo's folder:
+**In this repo:** nothing to do. `.claude/skills/code-orchestrator` and `.claude/agents/`
+link to the skill and agent files, so any Claude Code session opened on this repo, local or
+on the web, loads them.
+
+**For all your projects:** from this repo's folder, run
 
 ```
 bash install.sh
@@ -104,7 +108,8 @@ bash install.sh
 
 It copies the skill to `~/.claude/skills/code-orchestrator/` and the agents to
 `~/.claude/agents/`. Without the agents the skill still works, but every agent runs at the
-default effort.
+default effort. For Claude Code on the web, add `bash install.sh` to the environment's setup
+script so each new session has it, or copy `.claude/` into the repo you work on.
 
 **Headless runs (`claude -p`):** set `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0`. Otherwise
 Claude Code stops a background agent, such as a long review, after 10 idle minutes and drops
