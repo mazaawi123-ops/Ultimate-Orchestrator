@@ -44,9 +44,8 @@ def reviewer_replies():
 
 def final_reports():
     out = []
-    for f in sorted((ROOT / "evals/results/records").glob("[pr]*/*/*/final_report.md")):
-        if "/real/" in str(f):
-            continue
+    recs = ROOT / "evals/results/records"
+    for f in sorted(recs.glob("pilot/*/*/final_report.md")) + sorted(recs.glob("release*/*/final_report.md")):
         out.append(fenced(str(f.relative_to(ROOT))))
     return "\n".join(out)
 

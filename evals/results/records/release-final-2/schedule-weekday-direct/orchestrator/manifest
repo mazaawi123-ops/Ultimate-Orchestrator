@@ -1,0 +1,14 @@
+run_id=20260924T103838Z-weekday
+name=weekday
+branch=orch/weekday
+from=main
+base=82a43db1b938d8fdf60103bd41f329e06c8d3651
+created=2026-09-24T10:38:38Z
+repair_cycles=0
+requires=
+baseline_exit=0
+required_checks=pytz-tests,mypy,black,docs
+candidate=f0de7e099cd38bd2080b5d170ebb9b9e3ba32e60
+status=done
+finished=2026-09-24T10:42:15Z
+note=every().weekday added with tests and docs; all checks pass on f0de7e0
