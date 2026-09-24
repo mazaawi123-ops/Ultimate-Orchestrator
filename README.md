@@ -37,14 +37,14 @@ proven optima.
 ## What the helper guarantees
 
 `code-orchestrator/scripts/orch.sh` runs on bash 3.2+, on macOS and Linux. It's tested by
-`tests/helper/` (31 tests).
+`tests/helper/` (32 tests).
 
 | Guarantee | How |
 |---|---|
 | Tests, review and report concern the same code | `check` refuses uncommitted or untracked leftovers, freezes HEAD as the candidate, and records every command against it with exit code, time, environment fingerprint and log. A command that changes the tree voids its own evidence. `diff` only covers BASE..candidate. |
 | No "done" on bad evidence | `gate` and `finish done` refuse missing, stale, failing or mismatched evidence, a required review that wasn't recorded, and unverified manual checks. |
 | Old failures aren't blamed on the change | `start -- <tests>` records the baseline. Later failures are split into pre-existing and new. |
-| Weakened tests are noticed | The audit flags deleted lines and added `skip`/`only`/`xfail` markers in existing tests, runner and discovery configuration, fixtures and snapshots, and changes in skipped or executed counts. Deliberate changes are approved, with a reason, in `.orchestrator/approved-test-changes`. |
+| Weakened tests are noticed | The audit flags deleted lines and added `skip`/`only`/`xfail`/`skipTest` markers in existing tests, runner and discovery configuration, fixtures and snapshots, and changes in skipped or executed counts. Deliberate changes are approved, with a reason, in `.orchestrator/approved-test-changes`, by path or as `count:skipped` / `count:executed`. |
 | No network when promised | `--offline` uses `unshare -n` on Linux or `sandbox-exec` on macOS, and first proves with a loopback probe that the connection is blocked. It refuses (exit 5) where it can't enforce this. |
 | Honest environment checks | `fresh` runs a fresh checkout of the candidate with an allowlisted environment and a temporary HOME. It says plainly that it is **not** a filesystem sandbox. |
 | Workers don't share mutable dependencies | Worktrees get a copy of `node_modules` or the venv (copy-on-write where supported), not a writable link. |
@@ -61,8 +61,15 @@ proven optima.
   them (`evals/README.md`).
 - **Trigger description:** 20/20 on the development prompts; 18/20 on 20 held-out prompts,
   run once on the final wording (`evals/results/trigger/`).
-- **Routing pilot on held-out tasks:** the design and scripts are in `evals/pilot/`.
-  No results yet.
+- **Routing pilot on 2 held-out tasks** (`evals/results/pilot.md`): 12 runs, 3 routes, 2
+  repeats. Every run passed every hidden check. Direct cost $0.82 a run and took 2.7 min;
+  Reviewed cost $2.36 and 11.3 min; the previous always-delegate design cost $3.21 and
+  14.3 min (all estimated). The reviews found real but low-severity issues, all in the
+  reviewed runs' own drafts, and never changed task success. One old-design repair
+  introduced a defect. It's directional: two tasks can't settle the question.
+- **The pilot also exposed four reliability problems, now fixed:** count flags that couldn't
+  be approved; a review lost in headless mode; a reviewer installing into the shared
+  environment; and per-agent token accounting.
 - Earlier designs' measurements, with the published run records, are in
   `evals/results/measurements.md`. Their limits are stated there: dollar figures are Claude
   Code's local estimates, not bills; the "no skill" runs were prompted to delegate; most
@@ -79,6 +86,10 @@ bash install.sh
 It copies the skill to `~/.claude/skills/code-orchestrator/` and the agents to
 `~/.claude/agents/`. Without the agents the skill still works, but every agent runs at the
 default effort.
+
+**Headless runs (`claude -p`):** set `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0`. Otherwise
+Claude Code stops a background agent, such as a long review, after 10 idle minutes and drops
+its result. That's what happened to one pilot run.
 
 ## Repo layout
 

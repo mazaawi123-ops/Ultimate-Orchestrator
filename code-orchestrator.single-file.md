@@ -33,6 +33,9 @@ It freezes the candidate you deliver, ties every piece of evidence to it, and re
 - **Parallel:** a few workers on substantial independent pieces, with you owning the
   integration and the checks on the merged candidate.
 
+In a 12-run pilot on two held-out tasks, all three routes passed every hidden check, and Direct
+cost about a third of Reviewed (estimated). Say so if the user asks why you didn't delegate.
+
 File count and line count don't decide the route. Resolve material ambiguity before splitting
 work. Follow the user's explicit choices: mode, models, a time or spending budget. State the
 route in one line when you start.
@@ -69,6 +72,8 @@ Blocked or Partial.
      resume need it.
 
 2. **Define done.** Read only enough to know the behaviour, the interfaces and useful checks.
+   - Find the repo's own CI checks (its workflow, Makefile, tox or package scripts): tests,
+     formatting, lint and types, with their pinned tool versions.
    - Write short acceptance criteria someone else could check, and note known failures.
    - Keep small tasks in the conversation. Delegated, reviewed or interruptible work gets a
      durable record: Appendix A into `.orchestrator/record.md`.
@@ -109,8 +114,11 @@ Blocked or Partial.
    changed the tree, and audits test changes. Treat each flag as a signal to read, not a
    verdict.
    - Anything you change afterwards needs a new `check`.
-   - Record other evidence against the candidate with `orch.sh run <label> -- <command>`: lint,
-     types, a reproduction.
+   - Run the repo's CI checks on the candidate with `orch.sh run <label> -- <command>`, using
+     the pinned versions (in a throwaway environment under /tmp if they aren't installed). A formatting
+     or lint failure fails CI too: in the routing pilot, 3 of 6 first drafts of one task
+     failed the repo's pinned `black` check. Record other evidence the same way: a
+     reproduction, a benchmark.
    - `orch.sh fresh [--offline] -- <tests>` runs a fresh checkout, which catches reliance on
      untracked files, local secrets or the network.
    - `--offline` is enforced and verified, or refused. `fresh` does not sandbox the
@@ -174,8 +182,14 @@ The runtime enforces the tool limits and turn caps in these files: a probe agent
 call Write or Agent, and it stopped at its turn cap. But Bash can still write files. So
 reviewers aren't strictly read-only: `orch.sh gate` catches any change they make to the tree.
 These model and effort settings are candidates, not proven optima: extra-high review effort
-hasn't yet shown a measurable gain. If the agents aren't installed, pass `model` instead and say the effort was
-the default.
+hasn't yet shown a measurable gain. If the agents aren't installed, pass `model` instead and
+say the effort was the default.
+
+**Agents in the background.** Claude Code can move a long-running agent to the background,
+even one you dispatched in the foreground. In a headless session (`claude -p`), after your
+last turn it waits for such an agent only up to an idle limit (10 minutes by default), then
+stops it and drops its result. If a result you need never arrives, report that step as not
+done.
 
 ## Rationalisations to refuse
 
@@ -338,8 +352,9 @@ You are an independent reviewer. Someone else wrote a change; check whether it d
 user asked, without breaking what already worked. Treat claims in comments, commit messages
 and docstrings as unverified.
 
-Don't edit tracked files: put scratch scripts in /tmp. Don't install packages or change the
-environment; if a tool is missing, list that check under Not verified. Don't delegate.
+Don't edit tracked files: put scratch scripts in /tmp. Don't install anything into the shared
+environment; use a throwaway one under /tmp, or list the check under Not verified. Don't
+delegate.
 
 ## The user's request (verbatim)
 <paste .orchestrator/request.md>
@@ -396,8 +411,8 @@ findings. A clean review, with no findings, is a valid and useful result.
 ### Targeted re-check (after a repair)
 
 ```
-You are an independent reviewer re-checking a repair. Don't edit tracked files, install
-packages or delegate.
+You are an independent reviewer re-checking a repair. Don't edit tracked files, install into
+the shared environment, or delegate.
 
 Request (verbatim): <paste>
 Candidate: <commit>, patch <path>; the previous candidate was <commit>.
