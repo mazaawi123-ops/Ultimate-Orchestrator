@@ -49,7 +49,8 @@ learn. Stop and ask before:
 - **secrets:** reading `.env` or credential files, or using real keys, even "just to test"
 - **real user data:** reading, copying or querying production data or a snapshot of it, even
   read-only; use synthetic fixtures
-- **anything outside the repo:** other directories, global installs, system settings
+- **anything outside the repo:** other directories, global installs, system settings (scratch
+  files and a throwaway environment under /tmp are fine)
 - **a new dependency or a real external service** the request didn't ask for
 - **a material change of scope**, or an ambiguity that changes what the user gets
 
@@ -114,9 +115,9 @@ Blocked or Partial.
    verdict.
    - Anything you change afterwards needs a new `check`.
    - Run the repo's CI checks on the candidate with `orch.sh run <label> -- <command>`, using
-     the pinned versions (in a throwaway environment under /tmp if they aren't installed). A formatting
-     or lint failure fails CI too: in the routing pilot, 3 of 6 first drafts of one task
-     failed the repo's pinned `black` check. Record other evidence the same way: a
+     the pinned versions (in a throwaway environment under /tmp if they aren't installed).
+     A formatting or lint failure fails CI too: in the routing pilot, 3 of 6 first drafts of
+     one task failed the repo's pinned `black` check. Record other evidence the same way: a
      reproduction, a benchmark.
    - `orch.sh fresh [--offline] -- <tests>` runs a fresh checkout, which catches reliance on
      untracked files, local secrets or the network.
