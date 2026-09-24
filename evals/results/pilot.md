@@ -1,0 +1,106 @@
+# Routing pilot: results
+
+The design is in `../pilot/README.md`: 2 held-out tasks × 3 arms × 2 repeats = 12 real
+`claude -p` sessions. The main session was Opus at `--effort high` in every arm, with a $12
+cap per run. They ran on 2026-09-24 with Claude Code 2.1.281, the current skill at commit
+29fe7f4, and the previous skill at commit 9192405. Every run's prompt, report, patch, usage,
+grading, probes and agent replies are in `records/pilot/`.
+
+**This is directional.** Two tasks, two repeats and one main-session model can expose a
+wasteful route, but they can't show that one route is better in general.
+
+## Outcome and cost
+
+Task success means every hidden functional, regression and safety check passed. The checks
+were written and self-tested before the runs.
+
+| Arm | Runs | Task success | First-pass success | Est. cost total | Est. cost per success | Mean wall time |
+|---|---|---|---|---|---|---|
+| A `direct`: one builder | 4 | 4/4 | 4/4 | $3.30 | $0.82 | 2.7 min |
+| B `reviewed`: builder + reviewer | 4 | 4/4 | 4/4 | $9.42 | $2.36 | 11.3 min |
+| C `hierarchy`: previous skill | 4 | 4/4 | 4/4 | $12.84 | $3.21 | 14.3 min |
+
+| Task | A direct | B reviewed | C hierarchy |
+|---|---|---|---|
+| more-itertools `windowed(strict=)` | $0.66, $0.68; 3.0 min | $1.56, $2.03; 9.7 min | $2.57, $1.74; 11.8 min |
+| schedule `every().weekday` | $1.02, $0.94; 2.5 min | $2.77, $3.06; 12.9 min | $4.61, $3.92; 16.9 min |
+
+Costs are Claude Code's local estimates at list price, not bills.
+
+- **Every candidate passed every hidden check, final and first-pass alike.** "First pass"
+  means the code the first review saw. Review and repair didn't change task success in any
+  of the 12 runs.
+- **Direct cost about a third as much as Reviewed and a quarter as much as the old
+  hierarchy, and took a fifth to a quarter of the time,** for the same hidden-check result.
+
+## What the reviews found, adjudicated
+
+The findings were checked by hand and by probes written after the reviews
+(`../pilot/ci_probes.py`, results in each record's `probes.json`). The probes run the repos'
+own CI checks and the behaviours reviewers raised against every arm's final code, including
+code no one reviewed. They were written after seeing the reviews, so they're reported apart
+from the hidden checks.
+
+| Run | Review verdict | Adjudicated findings | Repair |
+|---|---|---|---|
+| B more-itertools 1 | PASS, no findings | — | none |
+| B more-itertools 2 | PASS | one observation: ~4% slower default path. My timing couldn't separate it from noise: every candidate measured 0.97–1.06× base | 1 cycle + re-check; default path now identical to base |
+| B schedule 1 | **lost** (see below) | — | none; its final code fails the repo's pinned `black` check |
+| B schedule 2 | PASS | **2 confirmed:** fails the repo's CI format check (`black==20.8b1`); a job lingers past its `until()` deadline over a weekend (low impact). 1 cosmetic: an error message | 1 cycle + re-check; both fixed, nothing broken |
+| C more-itertools 1 | PASS | **1 confirmed should-fix:** the delegated worker's strict path buffered `step` items (146 MB at step 2,000,000); 3 nits and one challenged ruling | fix round + re-check; fixed |
+| C more-itertools 2 | PASS | 1 true nit: a duplicated test | none |
+| C schedule 1 | PASS | nits only (a dead condition, no timezone test, a docs comment), a DST corner case, and whether a missed Friday run may fire on Saturday | fix round + re-check. It adopted "never on the weekend", and that change **introduced** the `until()` lingering defect. The re-check missed it |
+| C schedule 2 | PASS | **2 confirmed:** fails the CI format check; accepts `every().hour.weekday` against its own "fail loudly" ruling | fix round + re-check; both fixed |
+
+- **The confirmed defects were in the reviewed runs' own drafts.** The unreviewed Direct
+  candidates have none of them: they pass the pinned `black` check, have no `until()`
+  lingering and use O(n) memory. The memory defect came from delegated code, as in the
+  earlier real-repo runs.
+- **One repair made things worse.** An old-skill fix round, acting on nits, introduced a
+  defect that its re-check didn't catch.
+- **A cheap deterministic check covers the most common finding.** 3 of 6 first drafts of the
+  schedule task failed the repo's pinned formatting check. One shipped that way, because its
+  review was lost. The skill now tells the builder to run the repo's own CI checks on the
+  candidate.
+- **Interpretation, not defects:** the request said "never on Saturday or Sunday", but not
+  what happens to a Friday run that's missed until Saturday. Four candidates run it late on
+  Saturday, as the library does for every daily job. Two skip it. Only one candidate rejects
+  a unit placed before `.weekday`. These choices split across all arms.
+
+## Reliability problems the pilot found, all fixed afterwards
+
+1. **Two false "Partial" reports.** A new timezone test skips without `pytz`, like 41
+   existing ones, so the skipped count rose. The count flag had no way to be approved. Both
+   runs refused to hide the test and reported Partial on correct code. Fix: approvals
+   `count:skipped` / `count:executed` with a reason.
+2. **A lost review.** Claude Code moved a foreground reviewer to the background. The main
+   session ended its turn, and `claude -p` stopped the reviewer after its 10-minute idle
+   limit and dropped the result. The run ended "waiting" with no gate and no report. Fix: a
+   skill note, a README note, and `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0` in the runner.
+3. **An install into the shared environment.** A re-checker ran `pip install mypy` into the
+   system Python mid-pilot. That's a confound for later runs, but no grader or probe depends
+   on it. Fix: reviewers may use throwaway environments under /tmp only.
+4. **Per-agent output tokens.** The stream reports only a start-of-message count, so
+   `usage_by_agent` output counts were lower bounds. Fix: the field is now labelled
+   `output_at_start`, and cost per agent is stated as an estimate.
+
+## What this means for routing
+
+- On these two tasks, well specified or mildly ambiguous with a decent test suite, **Direct
+  delivered the same hidden-check result for a quarter to a third of the cost**. The
+  current default is Direct, and the pilot supports it.
+- **Review found real, low-severity issues:** CI formatting, a deadline edge case, and memory
+  in delegated code. None changed task success here. It's worth its cost where consequences
+  are serious or tests are weak, which is where the skill routes it.
+- **The old hierarchy was the most expensive and slowest,** and its repair round introduced
+  a defect.
+
+## Limits
+
+- 2 tasks, 2 repeats, one main-session model and one day. Library-sized changes only.
+- The hidden checks cover the request, not everything that matters. The probes were written
+  after seeing the reviews.
+- Adjudication was done by the same system that built the skill, not blind. A stronger study
+  would use independent, blinded raters.
+- The runs shared one machine, six at a time. Wall times include that contention.
+- The cost of lost or failed work stays in each arm's total.

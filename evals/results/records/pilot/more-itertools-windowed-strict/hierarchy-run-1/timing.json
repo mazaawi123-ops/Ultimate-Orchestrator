@@ -1,0 +1,77 @@
+{
+  "cost_usd_estimate": 2.5711,
+  "cost_note": "Claude Code local estimate at list price; not a billing record",
+  "num_turns": 2,
+  "subtype": "success",
+  "per_model": {
+    "opus": {
+      "input": 50,
+      "output": 32298,
+      "cache_read": 1283259,
+      "cache_write": 100491,
+      "cost_usd_estimate": 1.5717
+    },
+    "sonnet": {
+      "input": 102,
+      "output": 28780,
+      "cache_read": 2164024,
+      "cache_write": 111459,
+      "cost_usd_estimate": 0.9995
+    }
+  },
+  "usage_by_agent": {
+    "main|opus": {
+      "requests": 18,
+      "input": 36,
+      "output_at_start": 267,
+      "cache_read": 1061487,
+      "cache_write": 55473
+    },
+    "orch-worker-sonnet|sonnet": {
+      "requests": 36,
+      "input": 72,
+      "output_at_start": 317,
+      "cache_read": 1582851,
+      "cache_write": 62870
+    },
+    "orch-verifier|opus": {
+      "requests": 7,
+      "input": 14,
+      "output_at_start": 44,
+      "cache_read": 221772,
+      "cache_write": 45018
+    },
+    "orch-rechecker|sonnet": {
+      "requests": 15,
+      "input": 30,
+      "output_at_start": 100,
+      "cache_read": 581173,
+      "cache_write": 48589
+    }
+  },
+  "dispatches": [
+    {
+      "agent": "orch-worker-sonnet",
+      "model_param": null,
+      "description": "T1 windowed strict worker"
+    },
+    {
+      "agent": "orch-verifier",
+      "model_param": null,
+      "description": "Full verify windowed strict"
+    },
+    {
+      "agent": "orch-worker-sonnet",
+      "model_param": null,
+      "description": "Fix 1 windowed strict memory"
+    },
+    {
+      "agent": "orch-rechecker",
+      "model_param": null,
+      "description": "Scoped recheck fix 1"
+    }
+  ],
+  "skill_used": true,
+  "wall_seconds": 841,
+  "source": "previous skill (commit 9192405) + its agents, routing itself"
+}

@@ -30,37 +30,37 @@
     "main|opus": {
       "requests": 21,
       "input": 46,
-      "output": 1348,
       "cache_read": 1181374,
-      "cache_write": 55052
+      "cache_write": 55052,
+      "output_at_start": 1348
     },
     "orch-worker-haiku|haiku": {
       "requests": 43,
       "input": 346,
-      "output": 76,
       "cache_read": 1568029,
-      "cache_write": 47624
+      "cache_write": 47624,
+      "output_at_start": 76
     },
     "orch-verifier|opus": {
       "requests": 10,
       "input": 20,
-      "output": 133,
       "cache_read": 380269,
-      "cache_write": 53475
+      "cache_write": 53475,
+      "output_at_start": 133
     },
     "orch-worker-sonnet|sonnet": {
       "requests": 18,
       "input": 36,
-      "output": 168,
       "cache_read": 738712,
-      "cache_write": 50888
+      "cache_write": 50888,
+      "output_at_start": 168
     },
     "orch-rechecker|sonnet": {
       "requests": 12,
       "input": 24,
-      "output": 76,
       "cache_read": 504905,
-      "cache_write": 53014
+      "cache_write": 53014,
+      "output_at_start": 76
     }
   },
   "dispatches": [
@@ -87,5 +87,6 @@
   ],
   "skill_used": true,
   "wall_seconds": 625,
-  "source": "skill v4 (commit 0a162d0) with the agent files: Opus planner, Haiku/Sonnet workers, extra-high Opus verifier"
+  "source": "skill v4 (commit 0a162d0) with the agent files: Opus planner, Haiku/Sonnet workers, extra-high Opus verifier",
+  "usage_note": "per_model has complete token counts. usage_by_agent splits requests, input and cache tokens exactly; output_at_start is the stream's start-of-message output count, a lower bound."
 }

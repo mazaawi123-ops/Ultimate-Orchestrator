@@ -82,6 +82,13 @@ def main():
         for f in sorted((src / "outputs").glob("*")):
             if f.is_file() and f.suffix in (".md", ".patch", ".txt") and f.name != "git_state.txt":
                 put(dst / f.name, f.read_text(errors="replace"))
+        # The run's own record (current skill: .orchestrator/; previous skill: plan and notes).
+        for name in ("record.md", "evidence.tsv", "manifest", "summary.md", "notes.md", "plan.md", "request.md"):
+            f = src / "outputs/orchestrator" / name
+            if f.is_file():
+                put(dst / "orchestrator" / name, f.read_text(errors="replace"))
+        if (src / "probes.json").exists():
+            put(dst / "probes.json", (src / "probes.json").read_text())
         old_timing = json.load(open(src / "timing.json")) if (src / "timing.json").exists() else {}
         if (src / "grading.json").exists() and not (src / "grading.at-the-time.json").exists():
             shutil.copy(src / "grading.json", src / "grading.at-the-time.json")

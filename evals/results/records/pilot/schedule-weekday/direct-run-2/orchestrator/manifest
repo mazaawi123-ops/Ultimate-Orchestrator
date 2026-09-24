@@ -1,0 +1,13 @@
+run_id=20260924T013713Z-weekday
+name=weekday
+branch=orch/weekday
+from=main
+base=82a43db1b938d8fdf60103bd41f329e06c8d3651
+created=2026-09-24T01:37:14Z
+repair_cycles=0
+requires=
+baseline_exit=0
+candidate=ba8232a0ee555c671ab8eecd703222c6ed107458
+status=done
+finished=2026-09-24T01:39:14Z
+note=every().weekday added; 89/89 with pytz, 47 pass/42 skip without (pytz not installed)

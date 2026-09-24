@@ -1,0 +1,13 @@
+run_id=20260924T013043Z-weekday
+name=weekday
+branch=orch/weekday
+from=main
+base=82a43db1b938d8fdf60103bd41f329e06c8d3651
+created=2026-09-24T01:30:43Z
+repair_cycles=0
+requires=
+baseline_exit=0
+candidate=8cec78d5da4fff4cec663e5ea7afb625d86f116f
+status=partial
+finished=2026-09-24T01:33:01Z
+note=Feature complete; all criteria met. Gate fails only on unapprovable skip-count flag (41->42): new tz test skips without pytz like the 41 existing tz tests; passes with pytz (90/90, log 004). See .orchestrator/report.md

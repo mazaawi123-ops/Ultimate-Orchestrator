@@ -30,30 +30,30 @@
     "main|opus": {
       "requests": 24,
       "input": 56,
-      "output": 468,
       "cache_read": 1819618,
-      "cache_write": 81146
+      "cache_write": 81146,
+      "output_at_start": 468
     },
     "model:haiku|haiku": {
       "requests": 49,
       "input": 396,
-      "output": 85,
       "cache_read": 1549111,
-      "cache_write": 73450
+      "cache_write": 73450,
+      "output_at_start": 85
     },
     "model:opus|opus": {
       "requests": 6,
       "input": 12,
-      "output": 91,
       "cache_read": 182544,
-      "cache_write": 20741
+      "cache_write": 20741,
+      "output_at_start": 91
     },
     "model:sonnet|sonnet": {
       "requests": 27,
       "input": 54,
-      "output": 156,
       "cache_read": 995751,
-      "cache_write": 70254
+      "cache_write": 70254,
+      "output_at_start": 156
     }
   },
   "dispatches": [
@@ -85,5 +85,6 @@
   ],
   "skill_used": true,
   "wall_seconds": 648,
-  "source": "skill v2 (commit 756543e), Opus planner, subagents inherit Opus; prompt asks to plan, delegate, verify"
+  "source": "skill v2 (commit 756543e), Opus planner, subagents inherit Opus; prompt asks to plan, delegate, verify",
+  "usage_note": "per_model has complete token counts. usage_by_agent splits requests, input and cache tokens exactly; output_at_start is the stream's start-of-message output count, a lower bound."
 }

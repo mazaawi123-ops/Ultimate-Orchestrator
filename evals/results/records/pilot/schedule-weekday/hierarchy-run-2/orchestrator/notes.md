@@ -1,0 +1,8 @@
+- Single-module lib: schedule/__init__.py (Scheduler, Job, every(), helpers _move_to_next_weekday/_weekday_index). Tests: test_schedule.py (one big file, pytest).
+- Test: `python3 -m pytest -q` → baseline 40 passed, 41 skipped (skips = pytz not installed; expected, leave them).
+- mypy/pytz NOT installed; don't install. Keep type annotations consistent (tox runs mypy in CI).
+- Job builder API = @property methods returning self (e.g. `days`, `monday`); `monday` sets self.start_day and returns self.weeks; interval!=1 guards raise IntervalError.
+- Next-run logic: Job._schedule_next_run (~line 700). `next_run` is tz-aware in self.at_time_zone when at(..., tz) used, else naive local. Loop `while next_run <= now: next_run += period`, then `_correct_utc_offset(next_run, fixate_time=...)`, then converted to naive local.
+- Tests use `mock_datetime(y, m, d, H, M[, S])` context manager + `make_mock_job()`; module-level `every()`/`schedule.run_pending()` hit the default scheduler, cleared in setUp. See test_run_every_weekday_at_specific_time_today (~line 1427) for style.
+- Sept 2024 calendar: Mon 23, Tue 24, Wed 25, Thu 26, Fri 27, Sat 28, Sun 29, Mon 30; Tue Oct 1.
+- Style: black formatting, double quotes.

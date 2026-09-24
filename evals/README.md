@@ -40,8 +40,11 @@ and runs `claude -p` with a hard `--max-budget-usd` cap. `collect.py` then write
 the git state, and the run's `.orchestrator/` record.
 
 `timing.json` holds Claude Code's own cost estimate (`total_cost_usd`: token counts at list
-price, calculated locally). **It is an estimate, not a bill.** It also keeps request-level
-token counts per agent and model, so a run can be re-priced exactly.
+price, calculated locally). **It is an estimate, not a bill.** `per_model` has each model's
+complete token counts, so a run can be re-priced per model. `usage_by_agent` splits requests,
+input and cache tokens per agent exactly. The stream only reports a start-of-message output
+count, so its `output_at_start` is a lower bound, and cost per agent stays an estimate when
+two roles share a model.
 
 ## Graders
 

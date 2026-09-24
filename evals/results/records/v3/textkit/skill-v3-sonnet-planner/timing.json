@@ -30,30 +30,30 @@
     "main|sonnet": {
       "requests": 29,
       "input": 58,
-      "output": 184,
       "cache_read": 2277790,
-      "cache_write": 73618
+      "cache_write": 73618,
+      "output_at_start": 184
     },
     "model:haiku|haiku": {
       "requests": 40,
       "input": 324,
-      "output": 79,
       "cache_read": 1066675,
-      "cache_write": 35301
+      "cache_write": 35301,
+      "output_at_start": 79
     },
     "model:opus|opus": {
       "requests": 5,
       "input": 10,
-      "output": 39,
       "cache_read": 138471,
-      "cache_write": 17133
+      "cache_write": 17133,
+      "output_at_start": 39
     },
     "model:sonnet|sonnet": {
       "requests": 18,
       "input": 36,
-      "output": 134,
       "cache_read": 603201,
-      "cache_write": 36013
+      "cache_write": 36013,
+      "output_at_start": 134
     }
   },
   "dispatches": [
@@ -85,5 +85,6 @@
   ],
   "skill_used": true,
   "wall_seconds": 556,
-  "source": "skill v3 (commit ce2a613), Sonnet planner"
+  "source": "skill v3 (commit ce2a613), Sonnet planner",
+  "usage_note": "per_model has complete token counts. usage_by_agent splits requests, input and cache tokens exactly; output_at_start is the stream's start-of-message output count, a lower bound."
 }

@@ -23,30 +23,30 @@
     "main|opus": {
       "requests": 19,
       "input": 46,
-      "output": 428,
       "cache_read": 1215711,
-      "cache_write": 65434
+      "cache_write": 65434,
+      "output_at_start": 428
     },
     "orch-worker-sonnet|sonnet": {
       "requests": 48,
       "input": 96,
-      "output": 410,
       "cache_read": 2647106,
-      "cache_write": 118693
+      "cache_write": 118693,
+      "output_at_start": 410
     },
     "orch-verifier|opus": {
       "requests": 18,
       "input": 36,
-      "output": 122,
       "cache_read": 966371,
-      "cache_write": 82472
+      "cache_write": 82472,
+      "output_at_start": 122
     },
     "orch-rechecker|sonnet": {
       "requests": 20,
       "input": 40,
-      "output": 103,
       "cache_read": 1056212,
-      "cache_write": 45731
+      "cache_write": 45731,
+      "output_at_start": 103
     }
   },
   "dispatches": [
@@ -73,5 +73,6 @@
   ],
   "skill_used": true,
   "wall_seconds": 961,
-  "source": "skill v5 plus a local rule sending work to the Sonnet worker (not committed)"
+  "source": "skill v5 plus a local rule sending work to the Sonnet worker (not committed)",
+  "usage_note": "per_model has complete token counts. usage_by_agent splits requests, input and cache tokens exactly; output_at_start is the stream's start-of-message output count, a lower bound."
 }

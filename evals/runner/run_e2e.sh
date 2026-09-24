@@ -52,7 +52,9 @@ printf '%s' "$PROMPT$SUFFIX" > "$D/prompt.txt"
 printf '{"task":"%s","config":"%s","run":%s,"model":"%s","effort":"%s","max_budget_usd":%s,"skill":"%s","agents":"%s","route":"%s","claude_version":"%s"}\n' \
   "$NAME" "$CONFIG" "$RUN" "$MODEL" "$EFFORT" "$BUDGET" "${SKILL:+installed}" "${AGENTS:+installed}" "$ROUTE" "$(claude --version 2>/dev/null | head -1)" > "$D/config.json"
 START=$(date +%s)
-( cd "$D/repo" && env ${EXTRA_ENV[@]+"${EXTRA_ENV[@]}"} timeout 5400 claude -p "$(cat "$D/prompt.txt")" --model "$MODEL" --effort "$EFFORT" \
+# CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0: claude -p otherwise stops a background agent (such as a
+# long review) after 10 idle minutes and drops its result; one pilot run lost its review that way.
+( cd "$D/repo" && env CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0 ${EXTRA_ENV[@]+"${EXTRA_ENV[@]}"} timeout 5400 claude -p "$(cat "$D/prompt.txt")" --model "$MODEL" --effort "$EFFORT" \
     --max-budget-usd "$BUDGET" \
     --allowedTools "Bash,Read,Write,Edit,Glob,Grep,Agent,Task,TaskCreate,TaskUpdate,TaskList,TaskGet,TaskOutput,TodoWrite,Skill,NotebookEdit" \
     --output-format stream-json --verbose < /dev/null > "$D/stream.jsonl" 2> "$D/stderr.txt" )

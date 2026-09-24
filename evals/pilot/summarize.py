@@ -25,8 +25,8 @@ TASKS = {t["name"]: t for t in json.load(open(Path(__file__).resolve().parent / 
 
 def reported_status(run):
     text = (run / "outputs/final_report.md").read_text() if (run / "outputs/final_report.md").exists() else ""
-    m = re.search(r"\b(Done|Partial|Blocked)\b", text)
-    return m.group(1) if m else "?"
+    m = re.search(r"\b(Done|Partial|Blocked)\b", text, re.I)
+    return m.group(1).capitalize() if m else "none"
 
 
 def evidence(run):
@@ -90,6 +90,7 @@ def main():
             "dispatches": [d["agent"] for d in timing["dispatches"]],
             "reviews": [f"{e['kind']}:{e['status']}" for e in reviews],
             "repair_cycles": mf.get("repair_cycles", "-"),
+            "probes": json.load(open(run / "probes.json")) if (run / "probes.json").exists() else {},
         }
         fc = first_candidate(run, ev, mf) if with_candidates else None
         if fc:

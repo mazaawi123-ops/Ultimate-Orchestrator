@@ -4,8 +4,9 @@ usage: collect.py <run dir> <start epoch> <end epoch>
 
 Writes <run dir>/timing.json and fills <run dir>/outputs/. Costs are Claude Code's local
 estimates (total_cost_usd / costUSD: token counts at list price), not billing records.
-usage_by_agent keeps request-level token classes per agent, so costs can be re-priced
-exactly instead of being split in proportion to tokens.
+per_model holds the session's complete token counts per model. usage_by_agent splits requests,
+input and cache tokens per agent exactly. The stream reports only a start-of-message output
+count per request, so its output_at_start is a lower bound, not the agent's output.
 """
 import json
 import os
@@ -56,10 +57,10 @@ def summarize(lines):
         u = m.get("usage") or {}
         who = agents.get(l.get("parent_tool_use_id"), "subagent") if l.get("parent_tool_use_id") else "main"
         key = f"{who}|{m.get('model', '')}"
-        a = usage_by_agent.setdefault(key, {"requests": 0, "input": 0, "output": 0, "cache_read": 0, "cache_write": 0})
+        a = usage_by_agent.setdefault(key, {"requests": 0, "input": 0, "output_at_start": 0, "cache_read": 0, "cache_write": 0})
         a["requests"] += 1
         a["input"] += u.get("input_tokens", 0) or 0
-        a["output"] += u.get("output_tokens", 0) or 0
+        a["output_at_start"] += u.get("output_tokens", 0) or 0
         a["cache_read"] += u.get("cache_read_input_tokens", 0) or 0
         a["cache_write"] += u.get("cache_creation_input_tokens", 0) or 0
     skill_used = any(

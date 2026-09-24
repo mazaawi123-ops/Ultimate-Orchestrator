@@ -1,0 +1,9 @@
+{
+ "black_20_8b1": true,
+ "no_new_mypy_errors": true,
+ "missed_friday_runs_on_saturday": false,
+ "until_job_lingers_past_deadline": true,
+ "until_runs_after_deadline": false,
+ "unit_before_weekday_rejected": false,
+ "unit_after_weekday_rejected": true
+}

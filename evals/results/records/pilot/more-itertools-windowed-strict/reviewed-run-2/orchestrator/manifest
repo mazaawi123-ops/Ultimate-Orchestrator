@@ -1,0 +1,13 @@
+run_id=20260924T012743Z-windowed-strict
+name=windowed-strict
+branch=orch/windowed-strict
+from=main
+base=b5e3886a37209bb880f17d82fbf4ba00ece0e41e
+created=2026-09-24T01:27:43Z
+baseline_exit=0
+requires=review
+repair_cycles=1
+candidate=60bf41266a2964e36dff1f2906a7b49dce40e652
+status=done
+finished=2026-09-24T01:36:06Z
+note=strict kwarg added to windowed; reviewed PASS, 1 repair (perf), recheck PASS

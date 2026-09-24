@@ -1,0 +1,12 @@
+p1|reviewed|2|<repo>/code-orchestrator|<repo>/agents|Use the code-orchestrator skill in Reviewed mode (you build; one independent review).
+p2|hierarchy|2|<old-skill>/code-orchestrator|<old-skill>/agents|Use the code-orchestrator skill.
+p1|direct|1|<repo>/code-orchestrator|<repo>/agents|Use the code-orchestrator skill in Direct mode (no delegation, no independent review).
+p1|hierarchy|2|<old-skill>/code-orchestrator|<old-skill>/agents|Use the code-orchestrator skill.
+p2|hierarchy|1|<old-skill>/code-orchestrator|<old-skill>/agents|Use the code-orchestrator skill.
+p1|direct|2|<repo>/code-orchestrator|<repo>/agents|Use the code-orchestrator skill in Direct mode (no delegation, no independent review).
+p2|direct|1|<repo>/code-orchestrator|<repo>/agents|Use the code-orchestrator skill in Direct mode (no delegation, no independent review).
+p2|reviewed|2|<repo>/code-orchestrator|<repo>/agents|Use the code-orchestrator skill in Reviewed mode (you build; one independent review).
+p2|reviewed|1|<repo>/code-orchestrator|<repo>/agents|Use the code-orchestrator skill in Reviewed mode (you build; one independent review).
+p1|reviewed|1|<repo>/code-orchestrator|<repo>/agents|Use the code-orchestrator skill in Reviewed mode (you build; one independent review).
+p2|direct|2|<repo>/code-orchestrator|<repo>/agents|Use the code-orchestrator skill in Direct mode (no delegation, no independent review).
+p1|hierarchy|1|<old-skill>/code-orchestrator|<old-skill>/agents|Use the code-orchestrator skill.

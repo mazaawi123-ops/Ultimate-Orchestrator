@@ -1,0 +1,8 @@
+seq	time	kind	label	commit	tree	exit	status	secs	envfp	counts	log	command
+001	2026-09-24T01:33:21Z	baseline	baseline	82a43db1b938d8fdf60103bd41f329e06c8d3651	113c0a93af441e26f0d7736ff48c5f1e60e03762	0	pass	1	3709797b8ab9	40/0/41/40/pytest	.orchestrator/logs/001-baseline.log	python3 -m pytest -q 
+002	2026-09-24T01:35:23Z	check	check	2431f44c96a0420e5562b9697e1e2b7d4c0cf0a7	b7cf56a174d0c8c7954263cc6ae31a0c80b7a892	0	pass	0	3709797b8ab9	46/0/42/46/pytest	.orchestrator/logs/002-check.log	python3 -m pytest -q 
+003	2026-09-24T01:35:29Z	check	check	2431f44c96a0420e5562b9697e1e2b7d4c0cf0a7	b7cf56a174d0c8c7954263cc6ae31a0c80b7a892	0	pass	1	3709797b8ab9	46/0/42/46/pytest	.orchestrator/logs/003-check.log	python3 -m pytest -q 
+004	2026-09-24T01:35:29Z	run	tests-with-pytz	2431f44c96a0420e5562b9697e1e2b7d4c0cf0a7	b7cf56a174d0c8c7954263cc6ae31a0c80b7a892	0	pass	0	3709797b8ab9	88/0/0/88/pytest	.orchestrator/logs/004-tests-with-pytz.log	<workspace>/venv/bin/python -m pytest -q 
+005	2026-09-24T01:35:53Z	check	check	2431f44c96a0420e5562b9697e1e2b7d4c0cf0a7	b7cf56a174d0c8c7954263cc6ae31a0c80b7a892	0	pass	0	3709797b8ab9	88/0/0/88/pytest	.orchestrator/logs/005-check.log	<workspace>/venv/bin/python -m pytest -q 
+006	2026-09-24T01:35:54Z	run	user-command-no-pytz	2431f44c96a0420e5562b9697e1e2b7d4c0cf0a7	b7cf56a174d0c8c7954263cc6ae31a0c80b7a892	0	pass	1	3709797b8ab9	46/0/42/46/pytest	.orchestrator/logs/006-user-command-no-pytz.log	python3 -m pytest -q 
+007	2026-09-24T01:35:54Z	review-diff	diff	2431f44c96a0420e5562b9697e1e2b7d4c0cf0a7	b7cf56a174d0c8c7954263cc6ae31a0c80b7a892	0	pass	0	3709797b8ab9		.orchestrator/review/candidate-2431f44c96a0.patch	orch.sh diff

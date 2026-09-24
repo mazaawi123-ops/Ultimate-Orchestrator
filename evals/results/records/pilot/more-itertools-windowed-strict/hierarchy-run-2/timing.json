@@ -1,0 +1,60 @@
+{
+  "cost_usd_estimate": 1.7437,
+  "cost_note": "Claude Code local estimate at list price; not a billing record",
+  "num_turns": 2,
+  "subtype": "success",
+  "per_model": {
+    "opus": {
+      "input": 60,
+      "output": 30989,
+      "cache_read": 1463627,
+      "cache_write": 84626,
+      "cost_usd_estimate": 1.482
+    },
+    "haiku": {
+      "input": 306,
+      "output": 13115,
+      "cache_read": 1518339,
+      "cache_write": 35179,
+      "cost_usd_estimate": 0.2617
+    }
+  },
+  "usage_by_agent": {
+    "main|opus": {
+      "requests": 16,
+      "input": 32,
+      "output_at_start": 244,
+      "cache_read": 861449,
+      "cache_write": 48712
+    },
+    "orch-worker-haiku|haiku": {
+      "requests": 38,
+      "input": 306,
+      "output_at_start": 78,
+      "cache_read": 1518339,
+      "cache_write": 35179
+    },
+    "orch-verifier|opus": {
+      "requests": 14,
+      "input": 28,
+      "output_at_start": 170,
+      "cache_read": 602178,
+      "cache_write": 35914
+    }
+  },
+  "dispatches": [
+    {
+      "agent": "orch-worker-haiku",
+      "model_param": null,
+      "description": "T1 windowed strict"
+    },
+    {
+      "agent": "orch-verifier",
+      "model_param": null,
+      "description": "Verify windowed strict"
+    }
+  ],
+  "skill_used": true,
+  "wall_seconds": 571,
+  "source": "previous skill (commit 9192405) + its agents, routing itself"
+}

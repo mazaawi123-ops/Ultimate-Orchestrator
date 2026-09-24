@@ -16,16 +16,16 @@
     "main|sonnet": {
       "requests": 16,
       "input": 32,
-      "output": 104,
       "cache_read": 792305,
-      "cache_write": 24791
+      "cache_write": 24791,
+      "output_at_start": 104
     },
     "general-purpose|sonnet": {
       "requests": 3,
       "input": 6,
-      "output": 18,
       "cache_read": 60922,
-      "cache_write": 34088
+      "cache_write": 34088,
+      "output_at_start": 18
     }
   },
   "dispatches": [
@@ -37,5 +37,6 @@
   ],
   "skill_used": false,
   "wall_seconds": 101,
-  "source": "Sonnet, no skill; prompt asks to plan, delegate, verify"
+  "source": "Sonnet, no skill; prompt asks to plan, delegate, verify",
+  "usage_note": "per_model has complete token counts. usage_by_agent splits requests, input and cache tokens exactly; output_at_start is the stream's start-of-message output count, a lower bound."
 }

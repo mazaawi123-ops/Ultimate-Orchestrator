@@ -1,0 +1,13 @@
+run_id=20260924T013627Z-windowed-strict
+name=windowed-strict
+branch=orch/windowed-strict
+from=main
+base=b5e3886a37209bb880f17d82fbf4ba00ece0e41e
+created=2026-09-24T01:36:27Z
+repair_cycles=0
+baseline_exit=0
+requires=review
+candidate=c9247b249c8f0abc9b9cf4b4dee50c92b1922346
+status=done
+finished=2026-09-24T01:46:49Z
+note=windowed(strict=) added; review PASS

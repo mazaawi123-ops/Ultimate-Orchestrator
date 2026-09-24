@@ -3,7 +3,7 @@
 These runs measured the earlier designs (v1–v5), in which a planner always delegated to
 worker agents. The current skill routes differently: one builder by default, and review only
 when it earns its cost. Don't read these tables as the current skill's performance; the pilot
-in `evals/pilot/` is the comparison for that.
+(`pilot.md`) is the comparison for that.
 
 **How to read the numbers:**
 - **Dollar figures are local estimates, not bills.** They come from Claude Code's

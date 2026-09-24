@@ -16,16 +16,16 @@
     "main|opus": {
       "requests": 15,
       "input": 36,
-      "output": 138,
       "cache_read": 645480,
-      "cache_write": 31528
+      "cache_write": 31528,
+      "output_at_start": 138
     },
     "general-purpose|opus": {
       "requests": 18,
       "input": 36,
-      "output": 945,
       "cache_read": 588572,
-      "cache_write": 61593
+      "cache_write": 61593,
+      "output_at_start": 945
     }
   },
   "dispatches": [
@@ -47,5 +47,6 @@
   ],
   "skill_used": false,
   "wall_seconds": 294,
-  "source": "Opus, no skill; prompt asks to plan, delegate, verify, so it delegated too"
+  "source": "Opus, no skill; prompt asks to plan, delegate, verify, so it delegated too",
+  "usage_note": "per_model has complete token counts. usage_by_agent splits requests, input and cache tokens exactly; output_at_start is the stream's start-of-message output count, a lower bound."
 }

@@ -1,0 +1,4 @@
+In this repo (more-itertools), add a `strict` keyword argument to `windowed()`, defaulting to False. With `strict=True`, `windowed` must never yield a window that would need `fillvalue` padding: when it reaches such a window it raises ValueError instead, the way `zip(strict=True)` does, and the complete windows before it are still yielded. With `strict=False` nothing changes. Update the type stub and the docstring, and add tests. The test suite runs with `python3 -m unittest -q`.
+
+(Context for this run: no one is available to answer questions until you finish, so make sensible calls, record them, and carry on. Keep any plan, notes or report files you create; don't delete them at the end.)
+Use the code-orchestrator skill in Direct mode (no delegation, no independent review).

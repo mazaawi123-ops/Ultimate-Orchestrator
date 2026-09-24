@@ -1,0 +1,91 @@
+{
+  "cost_usd_estimate": 4.6082,
+  "cost_note": "Claude Code local estimate at list price; not a billing record",
+  "num_turns": 2,
+  "subtype": "success",
+  "per_model": {
+    "opus": {
+      "input": 102,
+      "output": 66140,
+      "cache_read": 3227774,
+      "cache_write": 162852,
+      "cost_usd_estimate": 2.9972
+    },
+    "haiku": {
+      "input": 386,
+      "output": 16263,
+      "cache_read": 2289159,
+      "cache_write": 66885,
+      "cost_usd_estimate": 0.3942
+    },
+    "sonnet": {
+      "input": 118,
+      "output": 31202,
+      "cache_read": 2858783,
+      "cache_write": 133076,
+      "cost_usd_estimate": 1.2167
+    }
+  },
+  "usage_by_agent": {
+    "main|opus": {
+      "requests": 24,
+      "input": 48,
+      "output_at_start": 461,
+      "cache_read": 1603499,
+      "cache_write": 71408
+    },
+    "orch-worker-haiku|haiku": {
+      "requests": 48,
+      "input": 386,
+      "output_at_start": 106,
+      "cache_read": 2289159,
+      "cache_write": 66885
+    },
+    "orch-verifier|opus": {
+      "requests": 27,
+      "input": 54,
+      "output_at_start": 1174,
+      "cache_read": 1624275,
+      "cache_write": 91444
+    },
+    "orch-worker-sonnet|sonnet": {
+      "requests": 32,
+      "input": 64,
+      "output_at_start": 268,
+      "cache_read": 1486944,
+      "cache_write": 62371
+    },
+    "orch-rechecker|sonnet": {
+      "requests": 27,
+      "input": 54,
+      "output_at_start": 192,
+      "cache_read": 1371839,
+      "cache_write": 70705
+    }
+  },
+  "dispatches": [
+    {
+      "agent": "orch-worker-haiku",
+      "model_param": null,
+      "description": "T1 weekday scheduling"
+    },
+    {
+      "agent": "orch-verifier",
+      "model_param": null,
+      "description": "Verify weekday feature"
+    },
+    {
+      "agent": "orch-worker-sonnet",
+      "model_param": null,
+      "description": "Fix round 1 weekday"
+    },
+    {
+      "agent": "orch-rechecker",
+      "model_param": null,
+      "description": "Scoped re-check fix 1"
+    }
+  ],
+  "skill_used": true,
+  "wall_seconds": 1088,
+  "source": "previous skill (commit 9192405) + its agents, routing itself"
+}

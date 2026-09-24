@@ -23,23 +23,23 @@
     "main|opus": {
       "requests": 22,
       "input": 46,
-      "output": 269,
       "cache_read": 1496024,
-      "cache_write": 71677
+      "cache_write": 71677,
+      "output_at_start": 269
     },
     "model:haiku|haiku": {
       "requests": 80,
       "input": 646,
-      "output": 155,
       "cache_read": 3071894,
-      "cache_write": 67504
+      "cache_write": 67504,
+      "output_at_start": 155
     },
     "model:opus|opus": {
       "requests": 10,
       "input": 20,
-      "output": 82,
       "cache_read": 396088,
-      "cache_write": 29454
+      "cache_write": 29454,
+      "output_at_start": 82
     }
   },
   "dispatches": [
@@ -61,5 +61,6 @@
   ],
   "skill_used": true,
   "wall_seconds": 636,
-  "source": "skill v2 (commit 756543e), Opus planner, subagents inherit Opus; prompt asks to plan, delegate, verify"
+  "source": "skill v2 (commit 756543e), Opus planner, subagents inherit Opus; prompt asks to plan, delegate, verify",
+  "usage_note": "per_model has complete token counts. usage_by_agent splits requests, input and cache tokens exactly; output_at_start is the stream's start-of-message output count, a lower bound."
 }

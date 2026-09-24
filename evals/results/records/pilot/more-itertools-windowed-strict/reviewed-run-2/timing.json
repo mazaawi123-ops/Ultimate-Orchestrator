@@ -1,0 +1,60 @@
+{
+  "cost_usd_estimate": 2.034,
+  "cost_note": "Claude Code local estimate at list price; not a billing record",
+  "num_turns": 10,
+  "subtype": "success",
+  "per_model": {
+    "opus": {
+      "input": 78,
+      "output": 33585,
+      "cache_read": 2012971,
+      "cache_write": 104387,
+      "cost_usd_estimate": 1.765
+    },
+    "sonnet": {
+      "input": 28,
+      "output": 7090,
+      "cache_read": 454564,
+      "cache_write": 42847,
+      "cost_usd_estimate": 0.269
+    }
+  },
+  "usage_by_agent": {
+    "main|opus": {
+      "requests": 26,
+      "input": 52,
+      "output_at_start": 437,
+      "cache_read": 1535910,
+      "cache_write": 56152
+    },
+    "orch-verifier|opus": {
+      "requests": 13,
+      "input": 26,
+      "output_at_start": 80,
+      "cache_read": 477061,
+      "cache_write": 48235
+    },
+    "orch-rechecker|sonnet": {
+      "requests": 13,
+      "input": 26,
+      "output_at_start": 94,
+      "cache_read": 413992,
+      "cache_write": 40572
+    }
+  },
+  "dispatches": [
+    {
+      "agent": "orch-verifier",
+      "model_param": null,
+      "description": "Independent review of windowed strict"
+    },
+    {
+      "agent": "orch-rechecker",
+      "model_param": null,
+      "description": "Re-check windowed repair"
+    }
+  ],
+  "skill_used": true,
+  "wall_seconds": 524,
+  "source": "current skill (commit 29fe7f4) + agents, told to use Reviewed mode"
+}

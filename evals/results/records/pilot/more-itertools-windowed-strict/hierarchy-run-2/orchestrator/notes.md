@@ -1,0 +1,8 @@
+- Repo: more-itertools. Code in more_itertools/more.py (+ type stubs more_itertools/more.pyi). Tests in tests/test_more.py (unittest, `import more_itertools as mi`).
+- Tests: `python3 -m unittest -q` (930 tests, all pass at BASE, ~16s). Docstring examples in more.py are run as doctests by tests/test_more.py load_tests — a new docstring example must actually pass.
+- Lint: `ruff format --check . && ruff check more_itertools tests && PYTHONPATH=. stubtest more_itertools.more more_itertools.recipes` — all clean at BASE. stubtest NEEDS PYTHONPATH=. (without it fails to import).
+- Style: 4-space, single quotes, ruff format (line length 79). Run `ruff format <file>` if format check fails.
+- `_marker` (a sentinel `object()`) is already imported into more.py from recipes; usable for padding sentinels (compare with `is`).
+- Precedent for strict: chunked(iterable, n, strict=False) at more.py:215 raises ValueError on a short last chunk.
+- windowed is at more.py:1027 (generator function); stub overloads at more.pyi:245-252; tests class WindowedTests at tests/test_more.py:892.
+- Python 3.11.

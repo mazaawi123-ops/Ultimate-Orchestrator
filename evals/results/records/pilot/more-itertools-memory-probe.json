@@ -1,0 +1,30 @@
+{
+ "direct/run-1 final": {
+  "peak_mb_plain": 0.0,
+  "peak_mb_strict": 0.0
+ },
+ "direct/run-2 final": {
+  "peak_mb_plain": 0.0,
+  "peak_mb_strict": 0.0
+ },
+ "hierarchy/run-1 final": {
+  "peak_mb_plain": 0.0,
+  "peak_mb_strict": 0.0
+ },
+ "hierarchy/run-2 final": {
+  "peak_mb_plain": 0.0,
+  "peak_mb_strict": 0.0
+ },
+ "reviewed/run-1 final": {
+  "peak_mb_plain": 0.0,
+  "peak_mb_strict": 0.0
+ },
+ "reviewed/run-2 final": {
+  "peak_mb_plain": 0.0,
+  "peak_mb_strict": 0.0
+ },
+ "hierarchy/run-1 first pass": {
+  "peak_mb_plain": 0.0,
+  "peak_mb_strict": 146.3
+ }
+}

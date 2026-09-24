@@ -30,37 +30,37 @@
     "main|opus": {
       "requests": 17,
       "input": 36,
-      "output": 290,
       "cache_read": 970519,
-      "cache_write": 56532
+      "cache_write": 56532,
+      "output_at_start": 290
     },
     "orch-worker-haiku|haiku": {
       "requests": 38,
       "input": 306,
-      "output": 82,
       "cache_read": 1510345,
-      "cache_write": 55707
+      "cache_write": 55707,
+      "output_at_start": 82
     },
     "orch-verifier|opus": {
       "requests": 9,
       "input": 18,
-      "output": 68,
       "cache_read": 391013,
-      "cache_write": 68974
+      "cache_write": 68974,
+      "output_at_start": 68
     },
     "orch-worker-sonnet|sonnet": {
       "requests": 16,
       "input": 32,
-      "output": 141,
       "cache_read": 751674,
-      "cache_write": 59744
+      "cache_write": 59744,
+      "output_at_start": 141
     },
     "orch-rechecker|sonnet": {
       "requests": 8,
       "input": 16,
-      "output": 45,
       "cache_read": 333011,
-      "cache_write": 55158
+      "cache_write": 55158,
+      "output_at_start": 45
     }
   },
   "dispatches": [
@@ -87,5 +87,6 @@
   ],
   "skill_used": true,
   "wall_seconds": 801,
-  "source": "skill v5 (commit 27b8315) with the agent files: fail-loudly re-run"
+  "source": "skill v5 (commit 27b8315) with the agent files: fail-loudly re-run",
+  "usage_note": "per_model has complete token counts. usage_by_agent splits requests, input and cache tokens exactly; output_at_start is the stream's start-of-message output count, a lower bound."
 }

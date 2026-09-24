@@ -1,0 +1,41 @@
+{
+  "cost_usd_estimate": 2.77,
+  "cost_note": "Claude Code local estimate at list price; not a billing record",
+  "num_turns": 31,
+  "subtype": "success",
+  "per_model": {
+    "opus": {
+      "input": 86,
+      "output": 65893,
+      "cache_read": 2663585,
+      "cache_write": 144704,
+      "cost_usd_estimate": 2.77
+    }
+  },
+  "usage_by_agent": {
+    "main|opus": {
+      "requests": 23,
+      "input": 46,
+      "output_at_start": 373,
+      "cache_read": 1522328,
+      "cache_write": 65193
+    },
+    "orch-verifier|opus": {
+      "requests": 20,
+      "input": 40,
+      "output_at_start": 136,
+      "cache_read": 1141257,
+      "cache_write": 79511
+    }
+  },
+  "dispatches": [
+    {
+      "agent": "orch-verifier",
+      "model_param": null,
+      "description": "Independent review of weekday feature"
+    }
+  ],
+  "skill_used": true,
+  "wall_seconds": 905,
+  "source": "current skill (commit 29fe7f4) + agents, told to use Reviewed mode"
+}
