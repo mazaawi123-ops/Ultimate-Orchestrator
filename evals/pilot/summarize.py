@@ -6,10 +6,13 @@ usage: summarize.py <out dir> [--candidates]
 Each measure is reported separately, so none can hide another:
   hidden_checks_passed     the functional, regression and safety checks fixed before the runs
   ..._retrospective        the same plus checks written after the runs were seen (reported apart)
-  workflow_completed       the run finished Done; for the current skill, through its own gate
+  workflow_completed       the run reported Done; for the current skill, its manifest says done
+                           and its own gate still passes when re-run on the delivered candidate
   ci_clean                 the repo's own CI checks pass (post-hoc probes)
-  delivered                all three: what a user would get and could merge
-  false_completion_claim   the run said Done while a hidden check or a CI check fails
+  artifacts_ok             every artifact the task asks for is there (graded "artifact" checks,
+                           e.g. tests added, a type stub, a docstring, a changelog entry)
+  delivered                all four: what a user would get and could merge
+  false_completion_claim   the run said Done while a hidden check, a CI check or an artifact fails
 Cost per delivered success keeps every attempt's cost in the numerator.
 With --candidates it also grades the code each run's first review saw.
 """
@@ -27,6 +30,7 @@ import grade_repos  # noqa: E402
 
 TASKS = {t["name"]: t for t in json.load(open(Path(__file__).resolve().parent / "tasks.json"))["tasks"]}
 CI_KEYS = ("ruff_format", "ruff_check", "stubtest", "black_20_8b1", "no_new_mypy_errors")
+PREVIOUS_SKILL_ARMS = {"hierarchy"}  # the previous skill (9192405) has no manifest or gate
 
 
 def reported_status(run):
@@ -65,6 +69,14 @@ def grade_commit(run, commit, grader, patch=None):
         shutil.rmtree(d, ignore_errors=True)
 
 
+def gate_now(run):
+    """Re-run the run's own gate on its repo: True, False, or None when the run has no helper."""
+    helper = run / "repo/.claude/skills/code-orchestrator/scripts/orch.sh"
+    if not helper.exists() or not (run / "repo/.orchestrator/manifest").exists():
+        return None
+    return subprocess.run(["bash", str(helper), "gate"], cwd=run / "repo", capture_output=True).returncode == 0
+
+
 def first_candidate(run, ev, mf):
     """The code the first review saw, as (commit, patch), or None when it's the delivered code.
     Current skill: the commit of the first review-diff row. Previous skill: BASE + diff-1.patch."""
@@ -87,8 +99,13 @@ def main():
         probes = json.load(open(run / "probes.json")) if (run / "probes.json").exists() else {}
         ev, mf = evidence(run), manifest(run)
         reported, finish = reported_status(run), mf.get("status", "-")
-        # The previous skill has no gate or manifest: its own "Done" is all there is.
-        completed = reported == "Done" and finish in ("done", "-")
+        # The current skill must show a done manifest and a gate that still passes; the previous
+        # skill has neither, so its own "Done" is all there is.
+        current_skill = config not in PREVIOUS_SKILL_ARMS
+        gate = gate_now(run) if current_skill else None
+        completed = reported == "Done" and (finish == "done" and gate is True if current_skill else finish in ("done", "-"))
+        artifacts = [x for x in grading["expectations"] if x["category"] == "artifact"]
+        artifacts_ok = all(x["passed"] for x in artifacts)
         ci = [probes[k] for k in CI_KEYS if k in probes]
         ci_clean = bool(ci) and all(ci)
         hidden = grading["hidden_checks_passed"]
@@ -97,10 +114,12 @@ def main():
             "task": task, "config": config, "run": run.name,
             "hidden_checks_passed": hidden, "hidden_checks_passed_retrospective": retro,
             "by_category": {k: f"{v['passed']}/{v['total']}" for k, v in grading["by_category"].items()},
-            "reported": reported, "finish": finish, "workflow_completed": completed, "ci_clean": ci_clean,
-            "delivered": hidden and completed and ci_clean, "delivered_retrospective": retro and completed and ci_clean,
-            "false_completion_claim": reported == "Done" and not (hidden and ci_clean),
-            "false_completion_claim_retrospective": reported == "Done" and not (retro and ci_clean),
+            "reported": reported, "finish": finish, "gate_now": gate, "workflow_completed": completed, "ci_clean": ci_clean,
+            "artifacts_ok": artifacts_ok, "artifacts_missing": [x["text"] for x in artifacts if not x["passed"]],
+            "delivered": hidden and completed and ci_clean and artifacts_ok,
+            "delivered_retrospective": retro and completed and ci_clean and artifacts_ok,
+            "false_completion_claim": reported == "Done" and not (hidden and ci_clean and artifacts_ok),
+            "false_completion_claim_retrospective": reported == "Done" and not (retro and ci_clean and artifacts_ok),
             "cost": timing["cost_usd_estimate"], "wall_min": round(timing["wall_seconds"] / 60, 1),
             "dispatches": [d["agent"] for d in timing["dispatches"]],
             "reviews": [f"{e['kind']}:{e['status']}" for e in ev if e["kind"] in ("review", "recheck")],
@@ -125,21 +144,21 @@ def main():
         return f"${sum(r['cost'] for r in rs) / n:.2f}" if n else "n/a"
 
     print()
-    print("| Arm | Runs | Hidden checks | + retrospective | Workflow completed | Repo CI clean | Delivered | Delivered (retro.) | False Done claims (retro.) | Est. cost total | Per delivered | Per delivered (retro.) | Mean wall |")
-    print("|---|---|---|---|---|---|---|---|---|---|---|---|---|")
+    print("| Arm | Runs | Hidden checks | + retrospective | Workflow completed | Repo CI clean | Artifacts | Delivered | Delivered (retro.) | False Done claims (retro.) | Est. cost total | Per delivered | Per delivered (retro.) | Mean wall |")
+    print("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
     for config in sorted({r["config"] for r in rows}):
         rs = [r for r in rows if r["config"] == config]
         print(f"| {config} | {len(rs)} | {frac(rs, 'hidden_checks_passed')} | {frac(rs, 'hidden_checks_passed_retrospective')} | "
-              f"{frac(rs, 'workflow_completed')} | {frac(rs, 'ci_clean')} | {frac(rs, 'delivered')} | {frac(rs, 'delivered_retrospective')} | "
+              f"{frac(rs, 'workflow_completed')} | {frac(rs, 'ci_clean')} | {frac(rs, 'artifacts_ok')} | {frac(rs, 'delivered')} | {frac(rs, 'delivered_retrospective')} | "
               f"{frac(rs, 'false_completion_claim')} ({frac(rs, 'false_completion_claim_retrospective')}) | "
               f"${sum(r['cost'] for r in rs):.2f} | {per(rs, 'delivered')} | {per(rs, 'delivered_retrospective')} | "
               f"{statistics.mean(r['wall_min'] for r in rs):.1f} |")
     print()
-    print("| Task | Arm | Run | Hidden | Retro. | Reported | Helper status | CI clean | Delivered | Est. cost | Wall min |")
-    print("|---|---|---|---|---|---|---|---|---|---|---|")
+    print("| Task | Arm | Run | Hidden | Retro. | Reported | Helper status | Gate now | CI clean | Artifacts | Delivered | Est. cost | Wall min |")
+    print("|---|---|---|---|---|---|---|---|---|---|---|---|---|")
     for r in rows:
         print(f"| {r['task']} | {r['config']} | {r['run']} | {r['hidden_checks_passed']} | {r['hidden_checks_passed_retrospective']} | "
-              f"{r['reported']} | {r['finish']} | {r['ci_clean']} | {r['delivered']} | ${r['cost']:.2f} | {r['wall_min']} |")
+              f"{r['reported']} | {r['finish']} | {'-' if r['gate_now'] is None else r['gate_now']} | {r['ci_clean']} | {r['artifacts_ok']} | {r['delivered']} | ${r['cost']:.2f} | {r['wall_min']} |")
     json.dump(rows, open(out / "summary.json", "w"), indent=1)
 
 

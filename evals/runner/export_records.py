@@ -8,6 +8,8 @@ The manifest lists runs: {"runs": [{"src": run dir, "record": path under <record
 
 For each run the record gets:
   prompt.txt, final_report.md, plan/notes/report files the run left, changes.patch
+  skill-files.sha256  the exact skill and agent files the run used (runs from run_e2e.sh)
+  file-access.json    for tasks with watch_files: whether a process read each file (access time)
   timing.json   recomputed from stream.jsonl by collect.summarize (estimates, not bills)
   grading.json  the current graders' result (the run's repo is re-graded in place)
   grading.at-the-time.json  the grading that was recorded when the run was measured, if any
@@ -76,7 +78,7 @@ def main():
         src, dst = Path(r["src"]), out / r["record"]
         shutil.rmtree(dst, ignore_errors=True)
         dst.mkdir(parents=True)
-        for name in ("prompt.txt",):
+        for name in ("prompt.txt", "skill-files.sha256", "file-access.json"):
             if (src / name).exists():
                 put(dst / name, (src / name).read_text())
         for f in sorted((src / "outputs").glob("*")):

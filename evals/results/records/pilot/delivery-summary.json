@@ -13,8 +13,11 @@
   },
   "reported": "Done",
   "finish": "done",
+  "gate_now": true,
   "workflow_completed": true,
   "ci_clean": true,
+  "artifacts_ok": true,
+  "artifacts_missing": [],
   "delivered": true,
   "delivered_retrospective": true,
   "false_completion_claim": false,
@@ -23,7 +26,13 @@
   "wall_min": 3.0,
   "dispatches": [],
   "reviews": [],
-  "repair_cycles": "0"
+  "repair_cycles": "0",
+  "probes": {
+   "ruff_format": true,
+   "ruff_check": true,
+   "stubtest": true,
+   "nonstrict_time_vs_base": 1.058
+  }
  },
  {
   "task": "more-itertools-windowed-strict",
@@ -39,8 +48,11 @@
   },
   "reported": "Done",
   "finish": "done",
+  "gate_now": true,
   "workflow_completed": true,
   "ci_clean": true,
+  "artifacts_ok": true,
+  "artifacts_missing": [],
   "delivered": true,
   "delivered_retrospective": true,
   "false_completion_claim": false,
@@ -49,7 +61,13 @@
   "wall_min": 3.0,
   "dispatches": [],
   "reviews": [],
-  "repair_cycles": "0"
+  "repair_cycles": "0",
+  "probes": {
+   "ruff_format": true,
+   "ruff_check": true,
+   "stubtest": true,
+   "nonstrict_time_vs_base": 1.01
+  }
  },
  {
   "task": "more-itertools-windowed-strict",
@@ -65,8 +83,11 @@
   },
   "reported": "Done",
   "finish": "-",
+  "gate_now": null,
   "workflow_completed": true,
   "ci_clean": true,
+  "artifacts_ok": true,
+  "artifacts_missing": [],
   "delivered": true,
   "delivered_retrospective": true,
   "false_completion_claim": false,
@@ -81,8 +102,12 @@
   ],
   "reviews": [],
   "repair_cycles": "-",
-  "first_candidate_hidden_checks_passed": true,
-  "first_candidate_failed": []
+  "probes": {
+   "ruff_format": true,
+   "ruff_check": true,
+   "stubtest": true,
+   "nonstrict_time_vs_base": 0.966
+  }
  },
  {
   "task": "more-itertools-windowed-strict",
@@ -98,8 +123,11 @@
   },
   "reported": "Done",
   "finish": "-",
+  "gate_now": null,
   "workflow_completed": true,
   "ci_clean": true,
+  "artifacts_ok": true,
+  "artifacts_missing": [],
   "delivered": true,
   "delivered_retrospective": true,
   "false_completion_claim": false,
@@ -112,8 +140,12 @@
   ],
   "reviews": [],
   "repair_cycles": "-",
-  "first_candidate_hidden_checks_passed": true,
-  "first_candidate_failed": []
+  "probes": {
+   "ruff_format": true,
+   "ruff_check": true,
+   "stubtest": true,
+   "nonstrict_time_vs_base": 1.059
+  }
  },
  {
   "task": "more-itertools-windowed-strict",
@@ -129,8 +161,11 @@
   },
   "reported": "Done",
   "finish": "done",
+  "gate_now": true,
   "workflow_completed": true,
   "ci_clean": true,
+  "artifacts_ok": true,
+  "artifacts_missing": [],
   "delivered": true,
   "delivered_retrospective": true,
   "false_completion_claim": false,
@@ -143,7 +178,13 @@
   "reviews": [
    "review:pass"
   ],
-  "repair_cycles": "0"
+  "repair_cycles": "0",
+  "probes": {
+   "ruff_format": true,
+   "ruff_check": true,
+   "stubtest": true,
+   "nonstrict_time_vs_base": 1.02
+  }
  },
  {
   "task": "more-itertools-windowed-strict",
@@ -159,8 +200,11 @@
   },
   "reported": "Done",
   "finish": "done",
+  "gate_now": true,
   "workflow_completed": true,
   "ci_clean": true,
+  "artifacts_ok": true,
+  "artifacts_missing": [],
   "delivered": true,
   "delivered_retrospective": true,
   "false_completion_claim": false,
@@ -176,8 +220,12 @@
    "recheck:pass"
   ],
   "repair_cycles": "1",
-  "first_candidate_hidden_checks_passed": true,
-  "first_candidate_failed": []
+  "probes": {
+   "ruff_format": true,
+   "ruff_check": true,
+   "stubtest": true,
+   "nonstrict_time_vs_base": 1.0
+  }
  },
  {
   "task": "schedule-weekday",
@@ -194,8 +242,11 @@
   },
   "reported": "Partial",
   "finish": "partial",
+  "gate_now": false,
   "workflow_completed": false,
   "ci_clean": true,
+  "artifacts_ok": true,
+  "artifacts_missing": [],
   "delivered": false,
   "delivered_retrospective": false,
   "false_completion_claim": false,
@@ -204,7 +255,16 @@
   "wall_min": 2.6,
   "dispatches": [],
   "reviews": [],
-  "repair_cycles": "0"
+  "repair_cycles": "0",
+  "probes": {
+   "black_20_8b1": true,
+   "no_new_mypy_errors": true,
+   "missed_friday_runs_on_saturday": true,
+   "until_job_lingers_past_deadline": false,
+   "until_runs_after_deadline": false,
+   "unit_before_weekday_rejected": false,
+   "unit_after_weekday_rejected": true
+  }
  },
  {
   "task": "schedule-weekday",
@@ -221,8 +281,11 @@
   },
   "reported": "Done",
   "finish": "done",
+  "gate_now": true,
   "workflow_completed": true,
   "ci_clean": true,
+  "artifacts_ok": true,
+  "artifacts_missing": [],
   "delivered": true,
   "delivered_retrospective": false,
   "false_completion_claim": false,
@@ -231,7 +294,16 @@
   "wall_min": 2.3,
   "dispatches": [],
   "reviews": [],
-  "repair_cycles": "0"
+  "repair_cycles": "0",
+  "probes": {
+   "black_20_8b1": true,
+   "no_new_mypy_errors": true,
+   "missed_friday_runs_on_saturday": true,
+   "until_job_lingers_past_deadline": false,
+   "until_runs_after_deadline": false,
+   "unit_before_weekday_rejected": false,
+   "unit_after_weekday_rejected": true
+  }
  },
  {
   "task": "schedule-weekday",
@@ -248,8 +320,11 @@
   },
   "reported": "Done",
   "finish": "-",
+  "gate_now": null,
   "workflow_completed": true,
   "ci_clean": true,
+  "artifacts_ok": true,
+  "artifacts_missing": [],
   "delivered": true,
   "delivered_retrospective": true,
   "false_completion_claim": false,
@@ -264,11 +339,15 @@
   ],
   "reviews": [],
   "repair_cycles": "-",
-  "first_candidate_hidden_checks_passed": true,
-  "first_candidate_failed": [
-   "A missed Friday run doesn't fire on Saturday or Sunday; it runs on Monday",
-   "Report surfaces an open question or decision (every(n), until, timezones)"
-  ]
+  "probes": {
+   "black_20_8b1": true,
+   "no_new_mypy_errors": true,
+   "missed_friday_runs_on_saturday": false,
+   "until_job_lingers_past_deadline": true,
+   "until_runs_after_deadline": false,
+   "unit_before_weekday_rejected": false,
+   "unit_after_weekday_rejected": true
+  }
  },
  {
   "task": "schedule-weekday",
@@ -285,8 +364,11 @@
   },
   "reported": "Done",
   "finish": "-",
+  "gate_now": null,
   "workflow_completed": true,
   "ci_clean": true,
+  "artifacts_ok": true,
+  "artifacts_missing": [],
   "delivered": true,
   "delivered_retrospective": false,
   "false_completion_claim": false,
@@ -301,11 +383,15 @@
   ],
   "reviews": [],
   "repair_cycles": "-",
-  "first_candidate_hidden_checks_passed": true,
-  "first_candidate_failed": [
-   "A missed Friday run doesn't fire on Saturday or Sunday; it runs on Monday",
-   "Report surfaces an open question or decision (every(n), until, timezones)"
-  ]
+  "probes": {
+   "black_20_8b1": true,
+   "no_new_mypy_errors": true,
+   "missed_friday_runs_on_saturday": true,
+   "until_job_lingers_past_deadline": false,
+   "until_runs_after_deadline": false,
+   "unit_before_weekday_rejected": true,
+   "unit_after_weekday_rejected": true
+  }
  },
  {
   "task": "schedule-weekday",
@@ -322,8 +408,11 @@
   },
   "reported": "none",
   "finish": "active",
+  "gate_now": false,
   "workflow_completed": false,
   "ci_clean": false,
+  "artifacts_ok": true,
+  "artifacts_missing": [],
   "delivered": false,
   "delivered_retrospective": false,
   "false_completion_claim": false,
@@ -334,7 +423,16 @@
    "orch-verifier"
   ],
   "reviews": [],
-  "repair_cycles": "0"
+  "repair_cycles": "0",
+  "probes": {
+   "black_20_8b1": false,
+   "no_new_mypy_errors": true,
+   "missed_friday_runs_on_saturday": true,
+   "until_job_lingers_past_deadline": false,
+   "until_runs_after_deadline": false,
+   "unit_before_weekday_rejected": false,
+   "unit_after_weekday_rejected": true
+  }
  },
  {
   "task": "schedule-weekday",
@@ -351,8 +449,11 @@
   },
   "reported": "Partial",
   "finish": "partial",
+  "gate_now": false,
   "workflow_completed": false,
   "ci_clean": true,
+  "artifacts_ok": true,
+  "artifacts_missing": [],
   "delivered": false,
   "delivered_retrospective": false,
   "false_completion_claim": false,
@@ -368,9 +469,14 @@
    "recheck:pass"
   ],
   "repair_cycles": "1",
-  "first_candidate_hidden_checks_passed": true,
-  "first_candidate_failed": [
-   "Report surfaces an open question or decision (every(n), until, timezones)"
-  ]
+  "probes": {
+   "black_20_8b1": true,
+   "no_new_mypy_errors": true,
+   "missed_friday_runs_on_saturday": false,
+   "until_job_lingers_past_deadline": false,
+   "until_runs_after_deadline": false,
+   "unit_before_weekday_rejected": false,
+   "unit_after_weekday_rejected": true
+  }
  }
 ]

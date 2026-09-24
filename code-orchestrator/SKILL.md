@@ -42,8 +42,11 @@ Continue through reversible work within the authorized goal, and adjust the plan
 learn. Stop and ask before:
 
 - **anything irreversible:** migrations or scripts against a real database, deleting files
-  that existed before the run, rewriting git history, pushing, publishing, deploying
+  git can't restore (untracked or ignored ones that existed before the run), rewriting git
+  history, pushing, publishing, deploying. Deleting tracked files as part of the requested
+  change is reversible: it's in the diff.
 - **secrets:** reading `.env` or credential files, or using real keys, even "just to test"
+  and even when the request names them: ask for a separate go-ahead
 - **real user data:** reading, copying or querying production data or a snapshot of it, even
   read-only; use synthetic fixtures
 - **anything outside the repo:** other directories, global installs, system settings (scratch

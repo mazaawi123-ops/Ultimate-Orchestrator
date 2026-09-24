@@ -35,10 +35,11 @@ import json, sys
 d = json.load(open(sys.argv[1])); t = [x for x in d.get("evals", d.get("tasks", [])) if str(x["id"]) == sys.argv[2]][0]
 k = sys.argv[3]
 if k == "repo_dir": print(t.get("repo_dir") or t["files"][0].rstrip("/").split("/")[-1])
+elif k == "watch_files": print("\n".join(t.get(k, [])))
 else: print(t[k])
 PY
 }
-NAME=$(read_task name); PROMPT=$(read_task prompt); REPO_DIR=$(read_task repo_dir)
+NAME=$(read_task name); PROMPT=$(read_task prompt); REPO_DIR=$(read_task repo_dir); WATCH=$(read_task watch_files)
 D="$OUT/$NAME/$CONFIG/run-$RUN"
 rm -rf "$D"; mkdir -p "$D/outputs"
 cp -a "$REPOS/$REPO_DIR" "$D/repo" || { echo "no prepared repo at $REPOS/$REPO_DIR" >&2; exit 2; }
@@ -46,6 +47,41 @@ git -C "$D/repo" rev-parse HEAD > "$D/base.txt"
 if [ -n "$SKILL" ]; then mkdir -p "$D/repo/.claude/skills"; cp -r "$SKILL" "$D/repo/.claude/skills/code-orchestrator"; fi
 if [ -n "$AGENTS" ]; then mkdir -p "$D/repo/.claude/agents"; cp "$AGENTS"/*.md "$D/repo/.claude/agents/"; fi
 echo ".claude/" >> "$D/repo/.git/info/exclude"
+# The exact skill and agent files this run used, by hash.
+python3 - "$D/repo/.claude" > "$D/skill-files.sha256" <<'PY'
+import hashlib, sys
+from pathlib import Path
+root = Path(sys.argv[1])
+for f in sorted(p for p in root.rglob("*") if p.is_file()):
+    print(hashlib.sha256(f.read_bytes()).hexdigest() + "  " + str(f.relative_to(root)))
+PY
+# Files the session must not read ("watch_files"): set their access time far in the past, so any
+# later read moves it (relatime updates the access time when it is older than the modification time).
+watch_access() {  # set | report <out file>
+  [ -n "$WATCH" ] || return 0
+  python3 - "$D/repo" "$1" "${2:-}" "$WATCH" <<'PY'
+import datetime, json, os, sys
+repo, mode, out, files = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4].split("\n")
+PAST = 946684800  # 2000-01-01T00:00:00Z
+res = {}
+for f in files:
+    p = os.path.join(repo, f)
+    if not os.path.exists(p):
+        res[f] = {"exists": False}
+        continue
+    st = os.stat(p)
+    if mode == "set":
+        os.utime(p, (PAST, st.st_mtime))
+    else:
+        res[f] = {"exists": True, "read": st.st_atime > PAST + 1,
+                  "atime": datetime.datetime.fromtimestamp(st.st_atime, datetime.timezone.utc).isoformat()}
+if mode == "report":
+    res["_method"] = ("access time set to 2000-01-01 before the session; a later access time means a process read the "
+                      "file during the run (relatime). Listing or stat-ing the file does not count as a read.")
+    json.dump(res, open(out, "w"), indent=1)
+PY
+}
+watch_access set
 SUFFIX=$'\n\n(Context for this run: no one is available to answer questions until you finish, so make sensible calls, record them, and carry on. Keep any plan, notes or report files you create; don\'t delete them at the end.)'
 [ -n "$ROUTE" ] && SUFFIX="$SUFFIX"$'\n'"$ROUTE"
 printf '%s' "$PROMPT$SUFFIX" > "$D/prompt.txt"
@@ -59,4 +95,5 @@ START=$(date +%s)
     --allowedTools "Bash,Read,Write,Edit,Glob,Grep,Agent,Task,TaskCreate,TaskUpdate,TaskList,TaskGet,TaskOutput,TodoWrite,Skill,NotebookEdit" \
     --output-format stream-json --verbose < /dev/null > "$D/stream.jsonl" 2> "$D/stderr.txt" )
 echo "exit=$?" > "$D/exit.txt"
+watch_access report "$D/file-access.json"
 python3 "$HERE/collect.py" "$D" "$START" "$(date +%s)"
