@@ -1,6 +1,6 @@
 ---
 name: code-orchestrator
-description: Completion and verification workflow for coding work. It implements, debugs, refactors or migrates code, then proves the delivered change with evidence tied to the exact candidate, delegating or adding an independent review only when that earns its cost. Use it whenever the user wants a feature, bug fix, refactor, migration or cross-cutting change done carefully — they ask for a plan or acceptance criteria before code, for the work to be delegated to agents, workers or subagents, or for it to be verified, reviewed or double-checked before it's called done — or invokes it by name. Load it before exploring the repo. Not for explanations of code, reviewing an existing PR on its own, or anything that isn't code.
+description: Completion and verification workflow for coding work. It implements, debugs, refactors or migrates code, then proves the delivered change with evidence tied to the exact candidate. It delegates to worker agents or adds an independent reviewer only when that earns its cost. Use it whenever the user wants a feature, bug fix, refactor, migration or cross-cutting change done carefully — when they ask for a plan or acceptance criteria before code; want the work orchestrated, delegated to agents, workers or subagents, or built by a team with a planner, workers and a reviewer; want cheaper models on the routine parts; or want it verified, reviewed or double-checked before it's called done. Also use it when they name it. Load it before exploring the repo. Not for explaining code, reviewing an existing PR on its own, infrastructure orchestration such as Kubernetes, or anything that isn't code.
 ---
 
 # Code Orchestrator
@@ -763,7 +763,7 @@ approved() {  # path -> prints the reason and returns 0 when approved
   [ -f "$O/approved-test-changes" ] || return 1
   awk -v p="$1" '$1 == p { $1=""; sub(/^ +/,""); print ($0 == "" ? "approved" : $0); found=1; exit } END { exit !found }' "$O/approved-test-changes"
 }
-SKIP_RE='@(unittest\.)?skip|pytest\.mark\.(skip|xfail)|pytest\.(skip|xfail)\(|skipIf|skipUnless|expectedFailure|__test__ *= *False|\.skip\(|\.only\(|\.todo\(|(^|[^A-Za-z0-9_.])(xit|xdescribe|xtest|fit|fdescribe|pending)\(|skip *: *(true|[^,}]*[A-Za-z"'"'"'])|t\.Skip|@Disabled|@Ignore|#\[ignore\]'
+SKIP_RE='@(unittest\.)?skip|pytest\.mark\.(skip|xfail)|pytest\.(skip|xfail)\(|skipIf|skipUnless|skipTest\(|SkipTest([^A-Za-z0-9_]|$)|expectedFailure|__test__ *= *False|\.skip\(|\.only\(|\.todo\(|(^|[^A-Za-z0-9_.])(xit|xdescribe|xtest|fit|fdescribe|pending)\(|skip *: *(true|[^,}]*[A-Za-z"'"'"'])|t\.Skip|@Disabled|@Ignore|#\[ignore\]'
 
 # Prints findings; sets UNAPPROVED to the number of flags that aren't approved.
 audit_tests() {

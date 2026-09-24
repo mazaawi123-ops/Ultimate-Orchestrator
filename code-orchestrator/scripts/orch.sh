@@ -344,7 +344,7 @@ approved() {  # path -> prints the reason and returns 0 when approved
   [ -f "$O/approved-test-changes" ] || return 1
   awk -v p="$1" '$1 == p { $1=""; sub(/^ +/,""); print ($0 == "" ? "approved" : $0); found=1; exit } END { exit !found }' "$O/approved-test-changes"
 }
-SKIP_RE='@(unittest\.)?skip|pytest\.mark\.(skip|xfail)|pytest\.(skip|xfail)\(|skipIf|skipUnless|expectedFailure|__test__ *= *False|\.skip\(|\.only\(|\.todo\(|(^|[^A-Za-z0-9_.])(xit|xdescribe|xtest|fit|fdescribe|pending)\(|skip *: *(true|[^,}]*[A-Za-z"'"'"'])|t\.Skip|@Disabled|@Ignore|#\[ignore\]'
+SKIP_RE='@(unittest\.)?skip|pytest\.mark\.(skip|xfail)|pytest\.(skip|xfail)\(|skipIf|skipUnless|skipTest\(|SkipTest([^A-Za-z0-9_]|$)|expectedFailure|__test__ *= *False|\.skip\(|\.only\(|\.todo\(|(^|[^A-Za-z0-9_.])(xit|xdescribe|xtest|fit|fdescribe|pending)\(|skip *: *(true|[^,}]*[A-Za-z"'"'"'])|t\.Skip|@Disabled|@Ignore|#\[ignore\]'
 
 # Prints findings; sets UNAPPROVED to the number of flags that aren't approved.
 audit_tests() {

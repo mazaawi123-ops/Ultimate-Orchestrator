@@ -250,6 +250,13 @@ class ReviewD_TestChanges(Base):
         self.assertIn("skip/only/xfail marker added", res.stdout)
         self.assertIn("skipped tests rose from 0 at BASE to 1", res.stdout)
 
+    def test_skip_inside_an_existing_test_is_flagged(self):
+        r = self.started()
+        r.commit("skip", {"test_app.py": APP["test_app.py"].replace("        self.assertEqual", "        self.skipTest('slow')\n        self.assertEqual")})
+        res = r.orch("check", "--", *UNITTEST)
+        self.assertNotEqual(res.returncode, 0)
+        self.assertIn("skip/only/xfail marker added", res.stdout)
+
     def test_approved_change_passes_with_its_reason(self):
         r = self.started()
         r.commit("skip", {"test_app.py": self.SKIPPED})
