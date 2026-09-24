@@ -37,17 +37,17 @@ proven optima.
 ## What the helper guarantees
 
 `code-orchestrator/scripts/orch.sh` runs on bash 3.2+, on macOS and Linux. It's tested by
-`tests/helper/` (32 tests).
+`tests/helper/` (50 tests, including both independent reviews' reproductions).
 
 | Guarantee | How |
 |---|---|
 | Tests, review and report concern the same code | `check` refuses uncommitted or untracked leftovers, freezes HEAD as the candidate, and records every command against it with exit code, time, environment fingerprint and log. A command that changes the tree voids its own evidence. `diff` only covers BASE..candidate. |
-| No "done" on bad evidence | `gate` and `finish done` refuse missing, stale, failing or mismatched evidence, a required review that wasn't recorded, and unverified manual checks. |
+| No "done" on bad evidence | One rule for every check (tests, CI commands, fresh runs, reviews, manual checks): only its latest result counts, and it must be for the current candidate and passing. A failed CI run, a later failing fresh run, or a manual check from an earlier candidate blocks `gate` and `finish done`. `require check <id>` names checks that must exist. Runs marked `--explore` never count; `waive` disposes of a check that no longer applies, with a reported reason, but never the tests or anything required. |
 | Old failures aren't blamed on the change | `start -- <tests>` records the baseline. Later failures are split into pre-existing and new. |
-| Weakened tests are noticed | The audit flags deleted lines and added `skip`/`only`/`xfail`/`skipTest` markers in existing tests, runner and discovery configuration, fixtures and snapshots, and changes in skipped or executed counts. Deliberate changes are approved, with a reason, in `.orchestrator/approved-test-changes`, by path or as `count:skipped` / `count:executed`. |
-| No network when promised | `--offline` uses `unshare -n` on Linux or `sandbox-exec` on macOS, and first proves with a loopback probe that the connection is blocked. It refuses (exit 5) where it can't enforce this. |
-| Honest environment checks | `fresh` runs a fresh checkout of the candidate with an allowlisted environment and a temporary HOME. It says plainly that it is **not** a filesystem sandbox. |
-| Workers don't share mutable dependencies | Worktrees get a copy of `node_modules` or the venv (copy-on-write where supported), not a writable link. |
+| Weakened tests are noticed | The audit flags deleted lines and added `skip`/`only`/`xfail`/`skipTest` markers in existing tests, runner and discovery configuration, fixtures and snapshots, and changes in skipped or executed counts. `orch.sh approve` binds an approval, with its reason, to one version of a file or one exact count movement. |
+| No network when promised | `--offline` uses `unshare -n` on Linux or `sandbox-exec` on macOS, and runs only if a loopback probe returns exactly "verified"; otherwise it exits 5 and runs nothing. Only such runs, recorded in a structured field and never inferred from a label, satisfy `require offline`. |
+| Honest about the environment | `fresh` runs a fresh checkout with an allowlisted environment and a temporary HOME; it is **not** a filesystem sandbox. When git-ignored files the candidate doesn't contain were present during the check, the gate wants a passing `fresh` run (with any setup) or a reasoned waiver. The fingerprint covers OS, tool versions and lock metadata, and the gate notices dependency or ignored-input files modified after the check. None of this proves which files tests read. |
+| Workers don't share mutable dependencies | Worktrees get a copy of `node_modules` or the venv (copy-on-write where supported). Links inside that lead back into the main checkout are re-pointed or copied, and venv launchers are re-pointed. Links to places outside the checkout stay shared and are reported. |
 | Bounded repair | `repair` allows 2 whole cycles per run. It's advisory: it records and warns. |
 | An auditable record | `.orchestrator/` keeps the manifest, evidence table and logs after the run; only finished worktrees are removed. |
 

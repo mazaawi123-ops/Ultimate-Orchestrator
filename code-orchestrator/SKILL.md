@@ -32,9 +32,6 @@ It freezes the candidate you deliver, ties every piece of evidence to it, and re
 - **Parallel:** a few workers on substantial independent pieces, with you owning the
   integration and the checks on the merged candidate.
 
-In a 12-run pilot on two held-out tasks, all three routes passed every hidden check, and Direct
-cost about a third of Reviewed (estimated). Say so if the user asks why you didn't delegate.
-
 File count and line count don't decide the route. Resolve material ambiguity before splitting
 work. Follow the user's explicit choices: mode, models, a time or spending budget. State the
 route in one line when you start.
@@ -73,15 +70,18 @@ Blocked or Partial.
 
 2. **Define done.** Read only enough to know the behaviour, the interfaces and useful checks.
    - Find the repo's own CI checks (its workflow, Makefile, tox or package scripts): tests,
-     formatting, lint and types, with their pinned tool versions.
+     formatting, lint and types, with their pinned tool versions. Register each one the
+     change could break: `orch.sh require check <id> ...`.
    - Write short acceptance criteria someone else could check, and note known failures.
    - Keep small tasks in the conversation. Delegated, reviewed or interruptible work gets a
      durable record: `references/run-record.md` into `.orchestrator/record.md`.
    - Preserve established contracts and conventions unless the request deliberately changes
      them.
    - Where the request introduces new input handling, prefer a clear error to silently
-     dropping, coercing or guessing at data. Planners have ruled comma-only CSV rows "blank",
-     and the rows vanished. That rule is not permission to make existing APIs stricter.
+     dropping, coercing or guessing at data. That is not permission to make existing APIs
+     stricter.
+   - Read absolute words in the request ("never", "always", "only") literally, including
+     edge cases the tests won't reach, unless the user accepts an exception.
    - Record material decisions (`Decision: <what> — <why> — <cost if wrong>`), not every
      conceivable input.
 
@@ -103,24 +103,25 @@ Blocked or Partial.
 5. **Build and check as you go.** For a bug, get a focused failing reproduction first when
    practical. Run targeted tests while editing. Commit the intended files by name, never
    `git add -A`. Never weaken, skip or delete a test to get green. When an existing test
-   must change because the requested behaviour changes, record it:
-   `path  reason` in `.orchestrator/approved-test-changes`. When the skipped or executed
-   count moves for a reason you can name (a new test that skips without an optional
-   dependency, like its neighbours), record `count:skipped  reason` or
-   `count:executed  reason`. The report lists every approval.
+   must change because the requested behaviour changes, commit it and approve that version:
+   `orch.sh approve <path> "<reason>"`. When the skipped or executed count moves for a reason
+   you can name (a new test that skips without an optional dependency, like its neighbours),
+   approve that exact movement after the check: `orch.sh approve count:skipped "<reason>"`.
+   An approval covers only what it names; the report lists every one.
 
 6. **Check the exact candidate.** `orch.sh check -- <test command>`. It refuses leftovers,
    freezes HEAD as the candidate, runs the suite against it, voids the result if the run
    changed the tree, and audits test changes. Treat each flag as a signal to read, not a
    verdict.
-   - Anything you change afterwards needs a new `check`.
-   - Run the repo's CI checks on the candidate with `orch.sh run <label> -- <command>`, using
-     the pinned versions (in a throwaway environment under /tmp if they aren't installed).
-     A formatting or lint failure fails CI too: in the routing pilot, 3 of 6 first drafts of
-     one task failed the repo's pinned `black` check. Record other evidence the same way: a
-     reproduction, a benchmark.
-   - `orch.sh fresh [--offline] -- <tests>` runs a fresh checkout, which catches reliance on
-     untracked files, local secrets or the network.
+   - Anything you change afterwards needs a new `check`; so does every other piece of
+     evidence. Only the latest result of each check counts, and only for this candidate.
+   - Run each registered CI check: `orch.sh run <id> -- <command>`, with the pinned versions
+     (in a throwaway environment under /tmp if they aren't installed). A failing run blocks
+     `done` until a later run of the same id passes. Mark a run that is meant to fail, such
+     as a reproduction before the fix, with `--explore`.
+   - If `check` notes git-ignored files the candidate doesn't contain, prove it works without
+     them: `orch.sh fresh -- <setup and tests>`. If they aren't inputs, `orch.sh waive fresh
+     "<reason>"`. `fresh [--offline]` also catches reliance on local secrets or the network.
    - `--offline` is enforced and verified, or refused. `fresh` does not sandbox the
      filesystem. Where you promise isolation the helper can't give, use the host's sandbox,
      or say plainly that it wasn't isolated.
@@ -133,6 +134,7 @@ Blocked or Partial.
    - It never gets a worker's self-assessment. It may challenge criteria that miss or
      contradict the request. A clean review is a valid result.
    - Record the outcome against the candidate: `orch.sh record review pass|fail "<summary>"`.
+     A manual check gets a stable id: `orch.sh record manual pass --id <id> "<what you saw>"`.
 
 8. **Repair, bounded.** Fix confirmed failures and regressions only, grouping related ones.
    - Open each whole cycle with `orch.sh repair "<reason>"`. The budget is 2 cycles for the
@@ -146,8 +148,10 @@ Blocked or Partial.
      spend budget.
 
 9. **Finish.** `orch.sh gate`, then `orch.sh finish done|partial|blocked "<note>"`. `done` is
-   refused unless the gate passes. The record in `.orchestrator/` is kept; only finished
-   worktrees are removed.
+   refused unless the gate passes. A check that no longer applies can be waived with a reason
+   (`orch.sh waive run:<id> "<reason>"`), but never the tests or anything required; waivers
+   go in the report. The record in `.orchestrator/` is kept; only finished worktrees are
+   removed.
 
 ## Report
 
@@ -157,6 +161,7 @@ Blocked or Partial.
 - Criteria: N/M met — evidence: candidate <commit>, <command> → <result> (<log>)
 - Known failures: <pre-existing, disclosed> or "none"
 - Test changes: <approved changes with reasons> or "none"
+- Waived: <checks waived, with reasons> or "none"
 - Review: <not reviewed | reviewer's blocking findings and what happened to each; optional ones left>
 - Not verified: <manual or environment-blocked checks, with steps for the user> or "none"
 - Decisions: <material decisions> or "none"

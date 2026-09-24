@@ -33,9 +33,6 @@ It freezes the candidate you deliver, ties every piece of evidence to it, and re
 - **Parallel:** a few workers on substantial independent pieces, with you owning the
   integration and the checks on the merged candidate.
 
-In a 12-run pilot on two held-out tasks, all three routes passed every hidden check, and Direct
-cost about a third of Reviewed (estimated). Say so if the user asks why you didn't delegate.
-
 File count and line count don't decide the route. Resolve material ambiguity before splitting
 work. Follow the user's explicit choices: mode, models, a time or spending budget. State the
 route in one line when you start.
@@ -74,15 +71,18 @@ Blocked or Partial.
 
 2. **Define done.** Read only enough to know the behaviour, the interfaces and useful checks.
    - Find the repo's own CI checks (its workflow, Makefile, tox or package scripts): tests,
-     formatting, lint and types, with their pinned tool versions.
+     formatting, lint and types, with their pinned tool versions. Register each one the
+     change could break: `orch.sh require check <id> ...`.
    - Write short acceptance criteria someone else could check, and note known failures.
    - Keep small tasks in the conversation. Delegated, reviewed or interruptible work gets a
      durable record: Appendix A into `.orchestrator/record.md`.
    - Preserve established contracts and conventions unless the request deliberately changes
      them.
    - Where the request introduces new input handling, prefer a clear error to silently
-     dropping, coercing or guessing at data. Planners have ruled comma-only CSV rows "blank",
-     and the rows vanished. That rule is not permission to make existing APIs stricter.
+     dropping, coercing or guessing at data. That is not permission to make existing APIs
+     stricter.
+   - Read absolute words in the request ("never", "always", "only") literally, including
+     edge cases the tests won't reach, unless the user accepts an exception.
    - Record material decisions (`Decision: <what> — <why> — <cost if wrong>`), not every
      conceivable input.
 
@@ -104,24 +104,25 @@ Blocked or Partial.
 5. **Build and check as you go.** For a bug, get a focused failing reproduction first when
    practical. Run targeted tests while editing. Commit the intended files by name, never
    `git add -A`. Never weaken, skip or delete a test to get green. When an existing test
-   must change because the requested behaviour changes, record it:
-   `path  reason` in `.orchestrator/approved-test-changes`. When the skipped or executed
-   count moves for a reason you can name (a new test that skips without an optional
-   dependency, like its neighbours), record `count:skipped  reason` or
-   `count:executed  reason`. The report lists every approval.
+   must change because the requested behaviour changes, commit it and approve that version:
+   `orch.sh approve <path> "<reason>"`. When the skipped or executed count moves for a reason
+   you can name (a new test that skips without an optional dependency, like its neighbours),
+   approve that exact movement after the check: `orch.sh approve count:skipped "<reason>"`.
+   An approval covers only what it names; the report lists every one.
 
 6. **Check the exact candidate.** `orch.sh check -- <test command>`. It refuses leftovers,
    freezes HEAD as the candidate, runs the suite against it, voids the result if the run
    changed the tree, and audits test changes. Treat each flag as a signal to read, not a
    verdict.
-   - Anything you change afterwards needs a new `check`.
-   - Run the repo's CI checks on the candidate with `orch.sh run <label> -- <command>`, using
-     the pinned versions (in a throwaway environment under /tmp if they aren't installed).
-     A formatting or lint failure fails CI too: in the routing pilot, 3 of 6 first drafts of
-     one task failed the repo's pinned `black` check. Record other evidence the same way: a
-     reproduction, a benchmark.
-   - `orch.sh fresh [--offline] -- <tests>` runs a fresh checkout, which catches reliance on
-     untracked files, local secrets or the network.
+   - Anything you change afterwards needs a new `check`; so does every other piece of
+     evidence. Only the latest result of each check counts, and only for this candidate.
+   - Run each registered CI check: `orch.sh run <id> -- <command>`, with the pinned versions
+     (in a throwaway environment under /tmp if they aren't installed). A failing run blocks
+     `done` until a later run of the same id passes. Mark a run that is meant to fail, such
+     as a reproduction before the fix, with `--explore`.
+   - If `check` notes git-ignored files the candidate doesn't contain, prove it works without
+     them: `orch.sh fresh -- <setup and tests>`. If they aren't inputs, `orch.sh waive fresh
+     "<reason>"`. `fresh [--offline]` also catches reliance on local secrets or the network.
    - `--offline` is enforced and verified, or refused. `fresh` does not sandbox the
      filesystem. Where you promise isolation the helper can't give, use the host's sandbox,
      or say plainly that it wasn't isolated.
@@ -134,6 +135,7 @@ Blocked or Partial.
    - It never gets a worker's self-assessment. It may challenge criteria that miss or
      contradict the request. A clean review is a valid result.
    - Record the outcome against the candidate: `orch.sh record review pass|fail "<summary>"`.
+     A manual check gets a stable id: `orch.sh record manual pass --id <id> "<what you saw>"`.
 
 8. **Repair, bounded.** Fix confirmed failures and regressions only, grouping related ones.
    - Open each whole cycle with `orch.sh repair "<reason>"`. The budget is 2 cycles for the
@@ -147,8 +149,10 @@ Blocked or Partial.
      spend budget.
 
 9. **Finish.** `orch.sh gate`, then `orch.sh finish done|partial|blocked "<note>"`. `done` is
-   refused unless the gate passes. The record in `.orchestrator/` is kept; only finished
-   worktrees are removed.
+   refused unless the gate passes. A check that no longer applies can be waived with a reason
+   (`orch.sh waive run:<id> "<reason>"`), but never the tests or anything required; waivers
+   go in the report. The record in `.orchestrator/` is kept; only finished worktrees are
+   removed.
 
 ## Report
 
@@ -158,6 +162,7 @@ Blocked or Partial.
 - Criteria: N/M met — evidence: candidate <commit>, <command> → <result> (<log>)
 - Known failures: <pre-existing, disclosed> or "none"
 - Test changes: <approved changes with reasons> or "none"
+- Waived: <checks waived, with reasons> or "none"
 - Review: <not reviewed | reviewer's blocking findings and what happened to each; optional ones left>
 - Not verified: <manual or environment-blocked checks, with steps for the user> or "none"
 - Decisions: <material decisions> or "none"
@@ -457,50 +462,70 @@ Run lifecycle
       exit code, counts and failing tests, so later failures can be told apart.
   status              Manifest, candidate, recent evidence and repair cycles (for resuming).
   require <review|fresh|offline> ...
-                      Add completion requirements that `gate` enforces.
+  require check <id> ...
+                      Completion requirements that `gate` enforces. `check <id>` names a
+                      command that must pass on the final candidate: `run <id> -- <command>`.
   ignore <pattern>    Git-ignore a generated path locally (.git/info/exclude), and log it.
   finish <done|partial|blocked> [note]
                       Close the run. `done` runs the gate first and refuses if it fails.
                       Keeps the record; removes finished worker worktrees.
 
 Candidate and evidence
+  One rule decides what counts: a check is identified by its kind and label, only its latest
+  result counts, and that result must be for the current candidate and passing.
   check [--label L] [--offline] -- <test command>
-                      One call after building: freeze the candidate (refuses uncommitted or
-                      untracked leftovers), run the tests against it, re-check the tree
-                      afterwards, and audit test changes. Exit 0 only with no new failures,
-                      no leftovers and no unapproved test changes.
+                      Freeze the candidate (refuses uncommitted or untracked leftovers), run
+                      the tests against it, re-check the tree afterwards, audit test changes,
+                      and note git-ignored files the tests could have read. Exit 0 only with
+                      no new failures, no leftovers and no unapproved test changes.
   candidate           Freeze the candidate only (clean tree required).
-  run <label> [--offline] -- <command>
-                      Run any command against the frozen candidate as evidence (lint, a
-                      focused reproduction, a type check).
-  fresh [--offline] [--keep-home] [--keep VAR] [--deps copy|none] [VAR=value ...] -- <command>
+  run <label> [--explore] [--offline] -- <command>
+                      Evidence against the candidate: a CI check, lint, a type check. A
+                      failing run blocks `done` until a later run of the same label passes.
+                      --explore marks a run that never counts, such as a reproduction
+                      expected to fail before the fix.
+  fresh [--label L] [--offline] [--keep-home] [--keep VAR] [--deps copy|none] [VAR=value ...] -- <command>
                       Run in a fresh checkout of the candidate: no ignored or untracked files,
-                      an allowlisted environment and a temporary HOME. NOT a filesystem
-                      sandbox: absolute paths outside the checkout stay readable.
+                      an allowlisted environment and a temporary HOME. Give it the setup too
+                      (e.g. -- sh -c 'make generate && pytest'). NOT a filesystem sandbox:
+                      absolute paths outside the checkout stay readable.
   tests               Audit changes to tests that existed at BASE: deleted lines, added
                       skip/only/xfail markers, runner configuration, fixtures and snapshots,
-                      and skipped or executed counts against the baseline. Approve deliberate
-                      changes in .orchestrator/approved-test-changes ("path  reason" lines).
+                      and skipped or executed counts against the baseline.
+  approve <path|count:skipped|count:executed> <reason>
+                      Approve a deliberate test change, bound to this version of the file or
+                      to this exact count movement. A later change needs a new approval.
   diff                Write the review patch BASE..candidate; refuses if the tree doesn't
                       match the candidate.
-  record <kind> <pass|fail|pending> [note]
-                      Log evidence that isn't a command, against the candidate: review,
-                      recheck, manual.
+  record <review|recheck|manual> <pass|fail|pending> [--id <id>] [note]
+                      Evidence that isn't a command, against the candidate. A manual check
+                      recorded for an earlier candidate must be repeated for the new one.
+  waive <run:L|manual:ID|fresh[:L]|review> <reason>
+                      Dispose of a check that no longer applies to this candidate. The test
+                      check and anything `require`d can't be waived. Waivers are reported.
   repair <reason>     Open a repair cycle. Exit 1 once the budget is spent (default 2, or
                       ORCH_MAX_REPAIR_CYCLES). Advisory: it records and warns; it can't stop
                       a model that ignores it.
   gate                Check the completion requirements for the current candidate.
 
---offline enforces no network access (Linux: unshare -n; macOS: sandbox-exec), verified
-with a loopback probe before the command runs. It exits 5 if this host can't enforce it.
+--offline runs the command without network (Linux: unshare -n; macOS: sandbox-exec) after a
+loopback probe proves the block. It exits 5, running nothing, if this host can't enforce it or
+the probe doesn't return exactly "verified". Only such runs satisfy `require offline`.
+
+The environment fingerprint covers the OS, git, node and python versions and dependency-lock
+metadata. `gate` also notices files in dependency folders or git-ignored inputs added or
+modified after the latest check (by modification time, caches excluded). None of this proves
+which files the tests actually read: a passing `fresh` run is the proof of a clean candidate.
 
 Parallel workers
   stamp / stray       Before and after parallel dispatch: detect writes to the main tree,
                       git-ignored files included.
   wt-add <task> [--deps copy|none|link]
                       Worktree .orchestrator/worktrees/<task> on branch orch-wt/<task>.
-                      Dependency folders are copied (copy-on-write where supported), not
-                      shared. `link` shares them writably: use it only for a stated reason.
+                      Dependency folders are copied (copy-on-write where supported); links in
+                      them that lead back into the main checkout are re-pointed or copied, and
+                      a venv's launchers are re-pointed. Links to places outside the checkout
+                      stay shared and are reported. `link` shares the folders writably.
   wt-finish <task>    Copy the worker's report out, remove the worktree, delete the merged branch.
   caps                What this host can enforce, and what it can't.
 EOF
@@ -595,13 +620,17 @@ next_seq() {
 }
 
 ev_append() {
-  # seq time kind label commit tree exit status secs envfp counts log command
+  # seq time kind label commit tree exit status secs envfp counts log command net role
+  # net: "offline-verified:<method>" only when the loopback probe proved network blocking, else "-".
+  # role: "explore" for exploratory runs, which never count towards completion, else "-".
   if [ ! -f "$EV" ]; then
     mkdir -p "$O"
-    printf 'seq\ttime\tkind\tlabel\tcommit\ttree\texit\tstatus\tsecs\tenvfp\tcounts\tlog\tcommand\n' > "$EV"
+    printf 'seq\ttime\tkind\tlabel\tcommit\ttree\texit\tstatus\tsecs\tenvfp\tcounts\tlog\tcommand\tnet\trole\n' > "$EV"
   fi
+  local row=("$@")
+  while [ ${#row[@]} -lt 15 ]; do row+=("-"); done
   local IFS=$'\t'
-  printf '%s\n' "$*" >> "$EV"
+  printf '%s\n' "${row[*]}" >> "$EV"
 }
 
 # Test-runner summaries: prints "passed failed skipped ran runner", with ? where unknown.
@@ -652,6 +681,31 @@ failures_of() {
   ' "$1" | sort -u
 }
 
+# ---------------------------------------------------------------- inputs outside the candidate
+
+# Git-ignored files and folders that tests could read but the candidate doesn't contain.
+# Dependency folders and well-known caches are left out; everything else counts, including
+# generated files, local settings and in-place build outputs.
+CACHE_RE='(^|/)(__pycache__|\.pytest_cache|\.mypy_cache|\.ruff_cache|\.tox|\.nox|\.eggs|htmlcov|\.nyc_output|\.cache|\.parcel-cache|\.turbo|\.gradle|\.idea|\.vscode|target)(/|$)|(^|/)[^/]*\.egg-info(/|$)|\.py[co]$|(^|/)\.coverage[^/]*$|(^|/)\.DS_Store$|\.log$|\.sw[a-p]$'
+ignored_inputs() {
+  git ls-files --others --ignored --exclude-standard --directory 2>/dev/null |
+    grep -vE "^($O|node_modules|\.venv|venv)(/|$)" | grep -vE "$CACHE_RE" | LC_ALL=C sort
+}
+
+# Files in dependency folders or ignored inputs added or modified after the latest check
+# (by modification time; caches excluded). Prints up to three.
+changed_since_check() {
+  [ -f "$O/check-stamp" ] || return 0
+  local roots=() d p
+  for d in $DEP_DIRS; do [ -e "$d" ] && roots+=("$d"); done
+  if [ -f "$O/ignored-inputs" ]; then
+    while IFS= read -r p; do p=${p%/}; [ -n "$p" ] && [ -e "$p" ] && roots+=("$p"); done < "$O/ignored-inputs"
+  fi
+  [ ${#roots[@]} -gt 0 ] || return 0
+  find "${roots[@]}" \( -name __pycache__ -o -path '*node_modules/.cache' -o -path '*node_modules/.vite' \) -prune \
+    -o -type f -newer "$O/check-stamp" -print 2>/dev/null | head -3
+}
+
 # ---------------------------------------------------------------- offline enforcement
 
 offline_method() {
@@ -677,10 +731,12 @@ wrap_offline() {  # method, then the command
   esac
 }
 
-# Proves the wrapper blocks a loopback connection that works without it. Prints
-# "verified", "unverified: <why>" or "FAILED: <why>".
+# Proves the wrapper blocks a loopback connection that works without it. Prints exactly
+# "verified", or "unverified: <why>" or "FAILED: <why>". ORCH_TEST_PROBE_RESULT can force a
+# non-verified outcome for the helper's own tests; it can never force "verified".
 probe_offline() {
   local m=$1 dir port i pid
+  case "${ORCH_TEST_PROBE_RESULT:-}" in "unverified: "*|"FAILED: "*) echo "$ORCH_TEST_PROBE_RESULT"; return ;; esac
   dir=$(mktemp -d "${TMPDIR:-/tmp}/orch-probe.XXXXXX") || { echo "unverified: mktemp failed"; return; }
   if command -v python3 >/dev/null 2>&1; then
     python3 -c 'import socket,sys,time
@@ -709,16 +765,17 @@ while time.time()<end:
   kill "$pid" 2>/dev/null; rm -rf "$dir"; echo "verified"
 }
 
-# Sets OFFLINE_M, or exits 5 when network isolation can't be enforced and proven.
+# Sets OFFLINE_M and OFFLINE_NOTE, or exits 5 unless network isolation is enforced and the
+# probe result is exactly "verified". An unavailable, inconclusive or failed probe never passes.
 offline_or_die() {
   OFFLINE_M=$(offline_method)
   [ -n "$OFFLINE_M" ] || { echo "orch.sh: --offline can't be enforced on this host (no usable 'unshare -n' or 'sandbox-exec'). Run in a sandbox that blocks network (a container with --network none, or the host's sandboxed shell), or drop --offline and report the run as NOT network-isolated." >&2; exit 5; }
   local v; v=$(probe_offline "$OFFLINE_M")
-  case "$v" in
-    verified) OFFLINE_NOTE="network isolated ($OFFLINE_M, verified by loopback probe)" ;;
-    FAILED*) echo "orch.sh: offline enforcement $v" >&2; exit 5 ;;
-    *) OFFLINE_NOTE="network isolation applied ($OFFLINE_M) but $v" ;;
-  esac
+  if [ "$v" != verified ]; then
+    echo "orch.sh: --offline refused: isolation via '$OFFLINE_M' couldn't be proven ($v). Nothing was run. Use a sandbox that blocks network, or drop --offline and report the run as NOT network-isolated." >&2
+    exit 5
+  fi
+  OFFLINE_NOTE="network isolated ($OFFLINE_M, verified by loopback probe)"
 }
 
 # ---------------------------------------------------------------- command evidence
@@ -745,8 +802,9 @@ run_capture() {
     fi
   fi
   if [ -n "$(leftovers)" ]; then STATUS=dirty-after; fi
+  local net=-; [ "$om" = "-" ] || net="offline-verified:$om"
   ev_append "$seq" "$(now)" "$kind" "$label" "$(git rev-parse HEAD)" "$(git rev-parse 'HEAD^{tree}')" \
-    "$RC" "$STATUS" "$((t1 - t0))" "$(env_fp)" "$(echo "$counts" | tr ' ' '/')" "$log" "$(show_cmd "$@")"
+    "$RC" "$STATUS" "$((t1 - t0))" "$(env_fp)" "$(echo "$counts" | tr ' ' '/')" "$log" "$(show_cmd "$@")" "$net" "${ROLE:--}"
   echo "== $kind '$label': exit $RC, $STATUS, $((t1 - t0))s, counts passed/failed/skipped/ran/runner = $(echo "$counts" | tr ' ' '/')"
   tail -12 "$log" | sed 's/^/  | /'
   echo "  log: $log"
@@ -779,10 +837,13 @@ is_fixture() {
   esac
   return 1
 }
-approved() {  # path -> prints the reason and returns 0 when approved
+approved() {  # key -> prints the reason and returns 0 when approved
   [ -f "$O/approved-test-changes" ] || return 1
   awk -v p="$1" '$1 == p { $1=""; sub(/^ +/,""); print ($0 == "" ? "approved" : $0); found=1; exit } END { exit !found }' "$O/approved-test-changes"
 }
+# Approval keys bind an approval to one version of a file, or to one exact count movement,
+# so a later, different change isn't covered by an earlier reason.
+blob_key() { local b; b=$(git rev-parse -q --verify "$1:$2" 2>/dev/null) && echo "$2@$(echo "$b" | cut -c1-12)" || echo "$2@deleted"; }
 SKIP_RE='@(unittest\.)?skip|pytest\.mark\.(skip|xfail)|pytest\.(skip|xfail)\(|skipIf|skipUnless|skipTest\(|SkipTest([^A-Za-z0-9_]|$)|expectedFailure|__test__ *= *False|\.skip\(|\.only\(|\.todo\(|(^|[^A-Za-z0-9_.])(xit|xdescribe|xtest|fit|fdescribe|pending)\(|skip *: *(true|[^,}]*[A-Za-z"'"'"'])|t\.Skip|@Disabled|@Ignore|#\[ignore\]'
 
 # Prints findings; sets UNAPPROVED to the number of flags that aren't approved.
@@ -810,9 +871,12 @@ audit_tests() {
     fi
     [ -z "$why" ] && continue
     n=$((n + 1))
-    if r=$(approved "$path"); then echo "  approved  $path: $why ($r)"
+    if r=$(approved "$(blob_key "$to" "$path")"); then echo "  approved  $path: $why ($r)"
     else u=$((u + 1)); echo "  FLAG      $path: $why"
       git diff --no-renames "$base" "$to" -- "$path" | grep -E '^[-+]' | grep -vE '^(\+\+\+|---)' | head -8 | sed 's/^/              /'
+      if approved "$path" >/dev/null || grep -q "^$path@" "$O/approved-test-changes" 2>/dev/null; then
+        echo "              (an earlier approval doesn't cover this version: 'orch.sh approve $path <reason>')"
+      fi
     fi
   done < <(git diff --no-renames --name-status "$base" "$to")
   # Counts against the baseline, from the latest check on this candidate.
@@ -826,18 +890,18 @@ audit_tests() {
       echo "  counts: the runner's summary couldn't be read, so skipped/executed changes weren't measured"
     else
       if [ "$cs" -gt "$bs" ]; then n=$((n + 1))
-        if r=$(approved count:skipped); then echo "  approved  skipped tests rose from $bs at BASE to $cs ($r)"
+        if r=$(approved "count:skipped=$bs->$cs"); then echo "  approved  skipped tests rose from $bs at BASE to $cs ($r)"
         else u=$((u + 1)); echo "  FLAG      skipped tests rose from $bs at BASE to $cs"; fi
       fi
       if [ "$cr" -lt "$br" ]; then n=$((n + 1))
-        if r=$(approved count:executed); then echo "  approved  executed tests fell from $br at BASE to $cr ($r)"
+        if r=$(approved "count:executed=$br->$cr"); then echo "  approved  executed tests fell from $br at BASE to $cr ($r)"
         else u=$((u + 1)); echo "  FLAG      executed tests fell from $br at BASE to $cr"; fi
       fi
     fi
   elif [ -z "$bc" ]; then echo "  counts: no baseline recorded (start with '-- <test command>'), so skipped/executed changes weren't measured"
   fi
   [ $n -eq 0 ] && echo "  OK: no changes to existing tests, runner configuration or fixtures"
-  [ $u -gt 0 ] && echo "  $u unapproved flag(s). A flag is a signal to review, not proof: approve deliberate changes in $O/approved-test-changes ('<path>  <reason>', or 'count:skipped  <reason>' / 'count:executed  <reason>' for the counts), revert the rest."
+  [ $u -gt 0 ] && echo "  $u unapproved flag(s). A flag is a signal to review, not proof: approve a deliberate change with 'orch.sh approve <path|count:skipped|count:executed> <reason>' (bound to this exact version or count), and revert the rest."
   UNAPPROVED=$u
 }
 
@@ -849,6 +913,36 @@ cow_copy() {
     *) cp -R --reflink=auto "$1" "$2" 2>/dev/null || { rm -rf "$2"; cp -R "$1" "$2"; } ;;
   esac
 }
+# A copied dependency folder can still contain links back into the main checkout, and a copied
+# venv's launchers name the original venv. Re-point those into the copy, or copy what they point
+# to, and report links to places outside the checkout (writes through them are shared).
+isolate_copy() {  # copied dependency dir, destination checkout root
+  local dd=$1 droot rootp l tgt abs res rel fixed=0 outside=0 example="" f
+  droot=$(cd "$2" && pwd -P) || return 0; rootp=$(cd "$ROOT" && pwd -P) || return 0
+  while IFS= read -r l; do
+    tgt=$(readlink "$l") || continue
+    case "$tgt" in /*) abs=$tgt ;; *) abs="$(dirname "$l")/$tgt" ;; esac
+    res=$(cd "$(dirname "$abs")" 2>/dev/null && printf '%s/%s' "$(pwd -P)" "$(basename "$abs")") || continue
+    case "$res" in
+      "$droot"|"$droot"/*) ;;
+      "$rootp"|"$rootp"/*)
+        rel=${res#"$rootp"}; rel=${rel#/}
+        if [ -n "$rel" ] && [ -e "$droot/$rel" ]; then ln -sfn "$droot/$rel" "$l"
+        else rm -f "$l"; cp -R "$res" "$l"; fi
+        fixed=$((fixed + 1)) ;;
+      *) case "$l" in */bin/python*|*/bin/node*) ;; *) outside=$((outside + 1)); [ -n "$example" ] || example="${l#"$2"/} -> $res" ;; esac ;;
+    esac
+  done < <(find "$dd" -type l 2>/dev/null)
+  [ $fixed -gt 0 ] && echo "  re-pointed or copied $fixed link(s) in ${dd##*/} that led back into the main checkout"
+  [ $outside -gt 0 ] && echo "  NOTE: $outside link(s) in ${dd##*/} point outside the checkout (e.g. $example): writes through them are shared"
+  for f in "$dd"/bin/*; do
+    [ -f "$f" ] && [ ! -L "$f" ] || continue
+    case "${f##*/}" in activate*) ;; *) [ "$(head -c 2 "$f" 2>/dev/null)" = "#!" ] || continue ;; esac
+    grep -qF "$ROOT/${dd##*/}" "$f" 2>/dev/null || continue
+    sed "s$(printf '\001')$ROOT/${dd##*/}$(printf '\001')$droot/${dd##*/}$(printf '\001')g" "$f" > "$f.orch-tmp" && cat "$f.orch-tmp" > "$f"; rm -f "$f.orch-tmp"
+  done
+}
+
 place_deps() {  # dest mode
   local dest=$1 mode=$2 d ex
   ex=$(git rev-parse --git-path info/exclude); case "$ex" in /*) ;; *) ex="$ROOT/$ex" ;; esac
@@ -858,7 +952,8 @@ place_deps() {  # dest mode
     case "$mode" in
       none) continue ;;
       link) ln -s "$ROOT/$d" "$dest/$d"; echo "  WARNING: $d is a writable link to the main tree's; writes there change it for everyone" ;;
-      *) cow_copy "$ROOT/$d" "$dest/$d"; echo "  copied $d (writes there don't reach the main tree)"
+      *) cow_copy "$ROOT/$d" "$dest/$d"; echo "  copied $d"
+         isolate_copy "$dest/$d" "$dest"
          if [ "$d" != node_modules ] && grep -rlsF "$ROOT" "$dest/$d"/lib/python*/site-packages/*.pth "$dest/$d"/lib/python*/site-packages/__editable__* >/dev/null 2>&1; then
            echo "  WARNING: $d has an editable install pointing at the main checkout: imports load the main tree's source. Run with PYTHONPATH set to the worktree's source, or reinstall there."
          fi ;;
@@ -939,10 +1034,20 @@ cmd_status_inner() {
 cmd_status() { need_run; cmd_status_inner; }
 
 cmd_require() {
-  need_run; local r cur
+  need_run; local r cur rq
+  if [ "${1:-}" = check ]; then
+    shift; [ $# -gt 0 ] || die "usage: orch.sh require check <id> [<id> ...]"
+    rq=$(mf_get required_checks)
+    for r in "$@"; do
+      case "$r" in *[!A-Za-z0-9._-]*|"") die "check ids use letters, digits, '.', '_' and '-': $r" ;; esac
+      case ",$rq," in *",$r,"*) ;; *) rq="${rq:+$rq,}$r" ;; esac
+    done
+    mf_set required_checks "$rq"; echo "required checks: $rq (each needs a passing 'orch.sh run <id> -- <command>' on the final candidate)"
+    return 0
+  fi
   cur=$(mf_get requires)
   for r in "$@"; do
-    case "$r" in review|fresh|offline) case ",$cur," in *",$r,"*) ;; *) cur="${cur:+$cur,}$r" ;; esac ;; *) die "unknown requirement '$r' (review, fresh, offline)" ;; esac
+    case "$r" in review|fresh|offline) case ",$cur," in *",$r,"*) ;; *) cur="${cur:+$cur,}$r" ;; esac ;; *) die "unknown requirement '$r' (review, fresh, offline, or: check <id>...)" ;; esac
   done
   mf_set requires "$cur"; echo "requires: ${cur:-nothing beyond a passing check}"
 }
@@ -969,6 +1074,12 @@ cmd_check() {
   echo "candidate: $(cand commit)"
   run_capture check "$label" 1 "$om" "$ROOT" -- "$@"
   local status=$STATUS
+  ignored_inputs > "$O/ignored-inputs"; touch "$O/check-stamp"
+  if [ -s "$O/ignored-inputs" ]; then
+    echo "  note: git-ignored files the candidate doesn't contain were present, so the tests could have read them:"
+    head -8 "$O/ignored-inputs" | sed 's/^/    /'
+    echo "  the gate will want a fresh-checkout run: orch.sh fresh -- <setup and tests>"
+  fi
   audit_tests "$(base_rev)" "$(cand commit)"
   case "$status" in pass|known-failures) [ "$UNAPPROVED" -eq 0 ] && exit 0 ;; esac
   exit 1
@@ -976,13 +1087,18 @@ cmd_check() {
 
 cmd_run() {
   need_run
-  [ $# -ge 1 ] || die "usage: orch.sh run <label> [--offline] -- <command>"
+  [ $# -ge 1 ] || die "usage: orch.sh run <label> [--explore] [--offline] -- <command>"
   local label=$1 om="-"; shift
-  [ "${1:-}" = "--offline" ] && { offline_or_die; om=$OFFLINE_M; echo "$OFFLINE_NOTE"; shift; }
-  [ "${1:-}" = "--" ] || die "usage: orch.sh run <label> [--offline] -- <command>"
+  case "$label" in -*|*[!A-Za-z0-9._-]*) die "labels use letters, digits, '.', '_' and '-': $label" ;; esac
+  ROLE=-
+  while [ $# -gt 0 ] && [ "$1" != "--" ]; do
+    case "$1" in --offline) offline_or_die; om=$OFFLINE_M; echo "$OFFLINE_NOTE" ;; --explore) ROLE=explore ;; *) die "unknown option $1" ;; esac; shift
+  done
+  [ "${1:-}" = "--" ] || die "usage: orch.sh run <label> [--explore] [--offline] -- <command>"
   shift; [ $# -gt 0 ] || die "no command after --"
   require_current
   run_capture run "$label" 0 "$om" "$ROOT" -- "$@"
+  [ "$ROLE" = explore ] && echo "  exploratory: recorded, but it doesn't count towards completion either way"
   [ "$STATUS" = pass ] && exit 0; exit 1
 }
 
@@ -997,7 +1113,7 @@ cmd_fresh() {
       --keep-home) keephome=1 ;;
       --keep) keeps="$keeps $2"; shift ;;
       --deps) deps=$2; shift ;;
-      --label) label=$2; shift ;;
+      --label) label=$2; shift; case "$label" in *[!A-Za-z0-9._-]*|"") die "labels use letters, digits, '.', '_' and '-'" ;; esac ;;
       *=*) assigns+=("$1") ;;
       *) die "unknown option '$1'" ;;
     esac; shift
@@ -1019,7 +1135,7 @@ cmd_fresh() {
   secretish=$(git ls-tree -r --name-only "$(cand commit)" | grep -E '(^|/)(\.env(\..*)?|id_rsa|id_ed25519|.*\.pem|credentials[^/]*\.json)$' | head -5)
   [ -n "$secretish" ] && { echo "  note: tracked files that look like secrets are part of the candidate, so the run can read them:"; printf '%s\n' "$secretish" | sed 's/^/    /'; }
   note="fresh checkout of $(cand commit | cut -c1-12); environment: allowlist of ${#envs[@]} variables$( [ $keephome = 1 ] && echo ', real HOME' || echo ', temporary HOME'); filesystem: NOT sandboxed"
-  if [ "$om" = "-" ]; then note="$note; network: NOT isolated"; else note="$note; $OFFLINE_NOTE"; label="$label-offline"; case "$OFFLINE_NOTE" in *verified*) ;; *) label="$label-unverified" ;; esac; fi
+  if [ "$om" = "-" ]; then note="$note; network: NOT isolated"; else note="$note; $OFFLINE_NOTE"; fi
   echo "$note"
   run_capture fresh "$label" 1 "$om" "$tmp/repo" -- env -i "${envs[@]}" ${assigns[@]+"${assigns[@]}"} "$@"
   case "$STATUS" in pass|known-failures) exit 0 ;; esac
@@ -1049,13 +1165,58 @@ cmd_diff() {
 
 cmd_record() {
   need_run
-  [ $# -ge 2 ] || die "usage: orch.sh record <review|recheck|manual> <pass|fail|pending> [note]"
-  local kind=$1 res=$2; shift 2
+  local u="usage: orch.sh record <review|recheck|manual> <pass|fail|pending> [--id <id>] [note]"
+  [ $# -ge 2 ] || die "$u"
+  local kind=$1 res=$2 id=""; shift 2
   case "$kind" in review|recheck|manual) ;; *) die "kind must be review, recheck or manual" ;; esac
   case "$res" in pass|fail|pending) ;; *) die "result must be pass, fail or pending" ;; esac
+  if [ "${1:-}" = "--id" ]; then [ $# -ge 2 ] || die "$u"; id=$2; shift 2; fi
+  case "$kind" in
+    review|recheck) id=review ;;
+    manual) id=${id:-$*}; [ -n "$id" ] || die "a manual check needs an id: record manual <result> --id <id> [note]" ;;
+  esac
+  id=$(printf '%s' "$id" | tr '\t\n' '  ')
   require_current
-  ev_append "$(next_seq)" "$(now)" "$kind" "${*:-$kind}" "$(cand commit)" "$(cand tree)" - "$res" 0 "$(env_fp)" "" "" "record"
-  echo "recorded $kind $res for candidate $(cand commit | cut -c1-12)"
+  ev_append "$(next_seq)" "$(now)" "$kind" "$id" "$(cand commit)" "$(cand tree)" - "$res" 0 "$(env_fp)" "" "" "record: $(printf '%s' "$*" | tr '\t\n' '  ')"
+  echo "recorded $kind '$id' $res for candidate $(cand commit | cut -c1-12)"
+}
+
+cmd_approve() {
+  need_run
+  [ $# -ge 2 ] || die "usage: orch.sh approve <path|count:skipped|count:executed> <reason>"
+  local what=$1 key bc cc reason; shift
+  reason=$(printf '%s' "$*" | tr '\t\n' '  ')
+  case "$what" in
+    count:skipped|count:executed)
+      require_current
+      bc=$(cat "$O/baseline/counts" 2>/dev/null)
+      cc=$(awk -F'\t' -v c="$(cand commit)" '$3=="check" && $5==c { x=$11 } END { print x }' "$EV" 2>/dev/null | tr '/' ' ')
+      [ -n "$bc" ] && [ -n "$cc" ] || die "approving a count needs a baseline and a check of this candidate first"
+      set -- $bc; local bs=$3 br=$4; set -- $cc; local cs=$3 cr=$4
+      if [ "$what" = count:skipped ]; then key="count:skipped=$bs->$cs"; else key="count:executed=$br->$cr"; fi ;;
+    *) git cat-file -e "HEAD:$what" 2>/dev/null || git cat-file -e "$(base_rev):$what" 2>/dev/null || die "$what is neither in HEAD nor at BASE"
+       key=$(blob_key HEAD "$what") ;;
+  esac
+  printf '%s  %s\n' "$key" "$reason" >> "$O/approved-test-changes"
+  echo "approved $key: $reason"
+}
+
+# A waiver disposes of a check that no longer applies to this candidate, with a reason the
+# report must carry. The test check, a required review and any required check can't be waived.
+cmd_waive() {
+  need_run
+  [ $# -ge 2 ] || die "usage: orch.sh waive <run:<label>|manual:<id>|fresh[:<label>]> <reason>"
+  local id=$1; shift
+  case "$id" in
+    run:?*) case ",$(mf_get required_checks)," in *",${id#run:},"*) die "${id#run:} is a required check; it can't be waived. Finish partial if it can't pass." ;; esac ;;
+    manual:?*) ;;
+    fresh|fresh:?*) case ",$(mf_get requires)," in *,fresh,*|*,offline,*) die "a fresh or offline run is required for this run; it can't be waived" ;; esac ;;
+    review) case ",$(mf_get requires)," in *,review,*) die "a review is required for this run; it can't be waived" ;; esac ;;
+    *) die "only run:, manual:, fresh and an unrequired review can be waived; the test check can't" ;;
+  esac
+  require_current
+  ev_append "$(next_seq)" "$(now)" waive "$id" "$(cand commit)" "$(cand tree)" - waived 0 "$(env_fp)" "" "" "waive: $(printf '%s' "$*" | tr '\t\n' '  ')"
+  echo "waived $id for candidate $(cand commit | cut -c1-12): $*"
 }
 
 cmd_repair() {
@@ -1072,29 +1233,64 @@ cmd_repair() {
   echo "repair cycle $n of $max opened: $*"
 }
 
+# One rule for every piece of evidence. A check's identity is its kind and label ("check:unit",
+# "run:format", "fresh:fresh", "manual:<id>"; reviews and re-checks share "review"). Only its latest
+# result counts, and that result must be for the current candidate and passing. Exploratory runs
+# never count. A waiver, with its reason, disposes of an identity that isn't required.
 # Prints problems (one per line). Returns 0 when there are none.
 gate_problems() {
-  local why c t fp req last
+  local why c t fp req rq saved now_inputs changed
   why=$(candidate_current) || { echo "candidate: $why"; return 1; }
   c=$(cand commit); t=$(cand tree); fp=$(env_fp)
-  awk -F'\t' -v c="$c" -v t="$t" '$5==c && $6==t && $8=="dirty-after" { print "evidence " $1 " (" $4 ") changed the tree while running: void" }' "$EV"
-  last=$(awk -F'\t' -v c="$c" -v t="$t" '$3=="check" && $5==c && $6==t { x=$1 "\t" $8 "\t" $10 } END { print x }' "$EV")
-  if [ -z "$last" ]; then echo "no 'check' evidence for this candidate"
-  else
-    case "$(echo "$last" | cut -f2)" in pass|known-failures) ;; *) echo "latest check ($(echo "$last" | cut -f1)) is $(echo "$last" | cut -f2)" ;; esac
-    [ "$(echo "$last" | cut -f3)" = "$fp" ] || echo "environment changed since the latest check (fingerprint $(echo "$last" | cut -f3) -> $fp): run check again"
-  fi
-  req=$(mf_get requires)
-  case ",$req," in *,review,*)
-    awk -F'\t' -v c="$c" -v t="$t" '($3=="review"||$3=="recheck") && $5==c && $6==t { x=$8 } END { if (x!="pass") print "review required: no passing review or recheck recorded for this candidate" }' "$EV" ;;
-  esac
-  case ",$req," in *,fresh,*)
-    awk -F'\t' -v c="$c" -v t="$t" '$3=="fresh" && $5==c && $6==t && ($8=="pass"||$8=="known-failures") { ok=1 } END { if (!ok) print "fresh-checkout run required: none passing for this candidate" }' "$EV" ;;
-  esac
-  case ",$req," in *,offline,*)
-    awk -F'\t' -v c="$c" -v t="$t" '$3=="fresh" && $4 ~ /-offline$/ && $5==c && $6==t && ($8=="pass"||$8=="known-failures") { ok=1 } END { if (!ok) print "verified offline run required: none passing for this candidate" }' "$EV" ;;
-  esac
-  awk -F'\t' '$3=="manual" { m[$4]=$8 } END { for (k in m) if (m[k]!="pass") print "manual check not verified: " k }' "$EV"
+  req=$(mf_get requires); rq=$(mf_get required_checks)
+  saved=$(cat "$O/ignored-inputs" 2>/dev/null | tr '\n' ' ')
+  [ -f "$EV" ] || { echo "no evidence recorded: run orch.sh check -- <tests>"; return 0; }
+  awk -F'\t' -v c="$c" -v t="$t" -v fp="$fp" -v req=",$req," -v rq=",$rq," -v inputs="$saved" '
+    function ident(k, l) { return (k == "review" || k == "recheck") ? "review" : k ":" l }
+    function ok(id) { return ls[id] == "pass" || (ls[id] == "known-failures" && id ~ /^(check|fresh):/) }
+    function cur(id) { return lc[id] == c && lt[id] == t }
+    function required(id,   x) {
+      if (id ~ /^check:/) return 1
+      if (id == "review") return index(req, ",review,") > 0
+      if (id ~ /^run:/) { x = substr(id, 5); return index(rq, "," x ",") > 0 }
+      if (id ~ /^fresh/) return index(req, ",fresh,") > 0 || index(req, ",offline,") > 0
+      return 0
+    }
+    NR == 1 { next }
+    $3 == "baseline" || $3 == "review-diff" || $3 == "repair" { next }
+    $3 == "waive" { if ($5 == c && $6 == t) waived[$4] = 1; next }
+    $15 == "explore" { next }
+    { id = ident($3, $4)
+      if (!(id in lc)) ids[++n] = id
+      lc[id] = $5; lt[id] = $6; ls[id] = $8; lq[id] = $1; le[id] = $10; lnet[id] = $14 }
+    END {
+      for (i = 1; i <= n; i++) {
+        id = ids[i]
+        if (cur(id) && ok(id)) {
+          if (id ~ /^check:/) { anycheck = 1; if (le[id] != fp) print "environment changed since " id " ran (fingerprint " le[id] " -> " fp "): run it again" }
+          if (id ~ /^fresh:/) freshok = 1
+          if (id ~ /^(check|fresh):/ && lnet[id] ~ /^offline-verified:/) offok = 1
+          continue
+        }
+        if (waived[id] && !required(id)) continue
+        hint = required(id) ? "" : ", or waive it with a reason if it no longer applies"
+        if (!cur(id)) print id " was last recorded for an earlier candidate (" substr(lc[id], 1, 12) "): run it again for this one" hint
+        else if (ls[id] == "dirty-after") print id " (" lq[id] ") changed the tree while running, so it is void: run it again"
+        else print id " latest result (" lq[id] ") is " ls[id] ": fix it and run it again" hint
+      }
+      if (!anycheck) print "no passing check for this candidate: run orch.sh check -- <tests>"
+      if (index(req, ",review,") && !("review" in lc)) print "review required: none recorded for this candidate"
+      if (index(req, ",fresh,") && !freshok) print "fresh-checkout run required: none passing for this candidate"
+      if (index(req, ",offline,") && !offok) print "offline run required: no passing check --offline or fresh --offline with verified isolation for this candidate"
+      m = split(rq, r, ",")
+      for (k = 1; k <= m; k++) if (r[k] != "" && !(("run:" r[k]) in lc)) print "required check " r[k] ": no result recorded (orch.sh run " r[k] " -- <command>)"
+      if (inputs != "" && !freshok && !waived["fresh"] && !index(req, ",fresh,"))
+        print "git-ignored files the candidate does not contain were present during the check (" inputs "): prove it works without them with orch.sh fresh -- <setup and tests>, or waive fresh with a reason if they are not inputs"
+    }' "$EV"
+  now_inputs=$(ignored_inputs | tr '\n' ' ')
+  [ "$now_inputs" = "$saved" ] || echo "git-ignored inputs changed since the latest check (now: ${now_inputs:-none}): run check again"
+  changed=$(changed_since_check | tr '\n' ' ')
+  [ -z "$changed" ] || echo "files in dependency folders or ignored inputs changed after the latest check (e.g. $changed): run check again"
   audit_tests "$(base_rev)" "$c" > "$O/.gate-audit" 2>&1
   [ "$UNAPPROVED" -eq 0 ] || echo "test-change audit: $UNAPPROVED unapproved flag(s) (orch.sh tests)"
   return 0
@@ -1106,8 +1302,9 @@ cmd_gate() {
   p=$(gate_problems)
   if [ -z "$p" ]; then
     echo "GATE: PASS for candidate $(cand commit)"
-    awk -F'\t' -v c="$(cand commit)" '$5==c && $3!="review-diff" { printf "  %-9s %-18s exit=%s %s %s\n", $3, $4, $7, $8, $12 }' "$EV"
+    awk -F'\t' -v c="$(cand commit)" '$5==c && $3!="review-diff" { printf "  %-9s %-18s exit=%s %s%s %s\n", $3, $4, $7, $8, ($15=="explore" ? " (exploratory)" : ""), ($3=="waive" ? $13 : $12) }' "$EV"
     grep -q . "$O/baseline/failures.txt" 2>/dev/null && awk -F'\t' -v c="$(cand commit)" '$3=="check" && $5==c && $8=="known-failures" { f=1 } END { exit !f }' "$EV" && echo "  disclose: pre-existing failures remain (see $O/baseline/failures.txt)"
+    awk -F'\t' -v c="$(cand commit)" '$3=="waive" && $5==c { f=1 } END { exit !f }' "$EV" && echo "  disclose: waived checks and their reasons, above"
     exit 0
   fi
   echo "GATE: FAIL"; printf '%s\n' "$p" | sed 's/^/  - /'
@@ -1134,7 +1331,8 @@ cmd_finish() {
     echo "- base: $(base_rev)"; echo "- candidate: $(cand commit)"; echo "- branch: $(mf_get branch)"
     echo "- repair cycles: $(mf_get repair_cycles)"; echo "- note: $*"
     echo; echo "## Evidence for the candidate"
-    awk -F'\t' -v c="$(cand commit)" 'NR==1 || $5==c { print "    " $1 "  " $3 "  " $4 "  exit=" $7 "  " $8 "  " $12 }' "$EV" 2>/dev/null
+    awk -F'\t' -v c="$(cand commit)" 'NR==1 || $5==c { print "    " $1 "  " $3 "  " $4 "  exit=" $7 "  " $8 ($15=="explore" ? " (exploratory)" : "") "  " ($3=="waive" ? $13 : $12) }' "$EV" 2>/dev/null
+    [ -s "$O/approved-test-changes" ] && { echo; echo "## Approved test changes"; sed 's/^/    /' "$O/approved-test-changes"; }
   } > "$O/summary.md"
   echo "run finished: $st. Record kept: $O/manifest, $O/evidence.tsv, $O/logs/, $O/summary.md"
 }
@@ -1200,7 +1398,7 @@ cmd_caps() {
   local m v
   echo "host: $(uname -sm); $(bash --version | head -1 | sed 's/ (.*//'); $(git --version)"
   m=$(offline_method)
-  if [ -n "$m" ]; then v=$(probe_offline "$m"); echo "offline (--offline): $m, $v"
+  if [ -n "$m" ]; then v=$(probe_offline "$m"); echo "offline (--offline): $m, probe: $v$( [ "$v" = verified ] && echo ' (usable)' || echo ' (refused: --offline exits 5)')"
   else echo "offline (--offline): NOT available here; runs can't be network-isolated by this helper"; fi
   case "$(uname -s)" in
     Darwin) echo "dependency copies: copy-on-write via cp -c where the filesystem supports it (APFS)" ;;
@@ -1225,6 +1423,8 @@ case "$sub" in
   tests|old-tests) cmd_tests ;;
   diff) cmd_diff ;;
   record) cmd_record "$@" ;;
+  approve) cmd_approve "$@" ;;
+  waive) cmd_waive "$@" ;;
   repair) cmd_repair "$@" ;;
   gate) cmd_gate ;;
   stamp) cmd_stamp ;;
