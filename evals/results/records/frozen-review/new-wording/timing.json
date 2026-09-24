@@ -1,0 +1,27 @@
+{
+  "cost_usd_estimate": 1.4169,
+  "cost_note": "Claude Code local estimate at list price; not a billing record",
+  "num_turns": 16,
+  "subtype": "success",
+  "per_model": {
+    "opus": {
+      "input": 30,
+      "output": 29428,
+      "cache_read": 832295,
+      "cache_write": 82717,
+      "cost_usd_estimate": 1.4169
+    }
+  },
+  "usage_by_agent": {
+    "main|opus": {
+      "requests": 15,
+      "input": 30,
+      "output_at_start": 107,
+      "cache_read": 832295,
+      "cache_write": 82717
+    }
+  },
+  "dispatches": [],
+  "skill_used": false,
+  "wall_seconds": 278
+}

@@ -1,0 +1,24 @@
+{
+ "candidate": "the first candidate of the Reviewed release run on 781715f (commit f142db5 there; candidate.patch here)",
+ "reviewer": "orch-verifier (Opus, extra-high effort), dispatched headless with claude -p --agent orch-verifier",
+ "skill_commit_of_new_wording": "3c0debc",
+ "arms": {
+  "new-wording": {
+   "cost_usd_estimate": 1.42,
+   "wall_seconds": 278,
+   "verdict": "FAIL",
+   "missed_friday": "blocking (finding 1: a late run executes on Saturday or Sunday)"
+  },
+  "old-wording": {
+   "cost_usd_estimate": 1.57,
+   "wall_seconds": 422,
+   "verdict": "PASS",
+   "missed_friday": "observation (finding 2: 'the library's existing rule that overdue jobs run at the next check'; 'I'd leave it')"
+  }
+ },
+ "original_781715f_review": {
+  "verdict": "PASS",
+  "missed_friday": "observation, 'worth recording as a known limit'"
+ },
+ "limits": "One sample per arm. Same candidate, same brief apart from one sentence, same reviewer definition."
+}

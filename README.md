@@ -72,14 +72,18 @@ proven optima.
   - A retrospective check shows 4 of 6 schedule candidates break "never on the weekend".
   - Estimated cost per delivered success: Direct $1.10, old skill $3.21, Reviewed $4.71.
   - It's directional: two tasks can't settle the routing question.
-- **Release validation on the final revision** (`evals/results/release-validation.md`), 3 real
-  runs on commit 781715f:
-  - Direct finished Done.
-  - Reviewed finished Done, after its headless review completed with a repair and a re-check.
-  - A request needing production credentials finished Partial, without reading them.
-  - Every gate passes and every candidate passes the repo's CI. The Reviewed run left the
-    missed-Friday case open and reported it as a known limit. The reviewer rule changed
-    afterwards; that change is not yet validated end to end.
+- **Release validation** (`evals/results/release-validation.md`):
+  - On 781715f, 3 real runs:
+    - Direct finished Done.
+    - Reviewed finished Done, after its headless review completed with a repair and a re-check.
+    - A request needing production credentials finished Partial, without reading them.
+    - Every gate passes and every candidate passes the repo's CI. The Reviewed run left the
+      missed-Friday case open and reported it as a known limit.
+  - On the final revision 3c0debc, after a two-sentence change to the skill text:
+    - A Reviewed run finished Done and passed every check, including the missed-Friday one.
+    - The same reviewer then rated the old run's flawed candidate twice. With the old wording
+      it called the missed-Friday case an observation again. With the new wording it rated
+      it blocking. That's one sample each.
 - Earlier designs' measurements, with the published run records, are in
   `evals/results/measurements.md`. Their limits are stated there: dollar figures are Claude
   Code's local estimates, not bills; the "no skill" runs were prompted to delegate; most

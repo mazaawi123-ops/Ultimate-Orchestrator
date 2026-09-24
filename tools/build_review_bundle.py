@@ -27,10 +27,12 @@ def fenced(path, text=None):
 
 
 def reviewer_replies():
-    """Every reviewer and re-checker reply from the pilot, verbatim."""
+    """Every reviewer and re-checker reply from the pilot and the release validation, verbatim."""
     out = []
-    for f in sorted((ROOT / "evals/results/records/pilot").glob("*/*/agents.md")):
-        run = f"{f.parent.parent.name} / {f.parent.name}"
+    recs = ROOT / "evals/results/records"
+    files = sorted(recs.glob("pilot/*/*/agents.md")) + sorted(recs.glob("release*/*/agents.md"))
+    for f in files:
+        run = str(f.parent.relative_to(recs))
         for part in re.split(r"\n## \d+\. ", f.read_text())[1:]:
             head = part.split("\n", 1)[0]
             if not head.startswith(("orch-verifier", "orch-rechecker")):
@@ -87,10 +89,14 @@ def main():
             ("docs/review/reproduction-before-after.json", None),
             ("evals/results/grader-selftest.log", None),
             ("evals/results/records/summary.tsv", None),
+            ("evals/results/records/release-final/summary.tsv", None),
+            ("evals/results/records/frozen-review/results.json", None),
+            ("evals/results/records/frozen-review/new-wording/reply.md", None),
+            ("evals/results/records/frozen-review/old-wording/reply.md", None),
         ]),
     ]
     toc = ["Part 1. The report", "Part 2. The skill, complete", "Part 3. Evidence",
-           "Part 4. Pilot reviewer replies, verbatim", "Part 5. Pilot final reports, verbatim",
+           "Part 4. Reviewer replies, verbatim (pilot and release validation)", "Part 5. Pilot final reports, verbatim",
            "Part 6. Trigger test results", "Part 7. Verification code", "Part 8. Historical measurements",
            "Part 9. Both independent reviews, the vNext proposal and the earlier report"]
     out = [f"# code-orchestrator: complete review bundle (commit {head})\n",
@@ -117,10 +123,11 @@ def main():
         OUT.write_text("\n".join(out))
         print(f"wrote {OUT} ({OUT.stat().st_size // 1024} KB, core)")
         return
-    out.append("\n---\n\n## Part 4. Pilot reviewer replies, verbatim\n")
-    out.append("Every `orch-verifier` and `orch-rechecker` reply from the 12 pilot runs, as the main "
-               "session received it. The run `schedule-weekday / reviewed-run-1` has no reply: its "
-               "review was stopped by `claude -p`'s idle limit (report, section 5).\n")
+    out.append("\n---\n\n## Part 4. Reviewer replies, verbatim (pilot and release validation)\n")
+    out.append("Every `orch-verifier` and `orch-rechecker` reply from the 12 pilot runs and the release "
+               "validation runs, as the main session received it. The pilot run `pilot/schedule-weekday/"
+               "reviewed-run-1` has no reply: its review was stopped by `claude -p`'s idle limit. The "
+               "frozen-patch check's two replies are in Part 3.\n")
     out.append(reviewer_replies())
     out.append("\n---\n\n## Part 5. Final reports, verbatim (pilot and release validation)\n")
     out.append(final_reports())
@@ -130,7 +137,7 @@ def main():
     out.append(trigger_table())
     out.append("\n---\n\n## Part 7. Verification code\n")
     for path in ["tests/helper/test_orch.py", "tests/helper/review_reproductions.py", "tests/helper/second_review_reproductions.py",
-                 "evals/release/tasks.json", "evals/release/check_release.py", "evals/README.md",
+                 "evals/release/tasks.json", "evals/release/check_release.py", "evals/release/frozen_review.sh", "evals/README.md",
                  "evals/graders/grade_repos.py", "evals/graders/grade_fixtures.py", "evals/graders/selftest.py",
                  "evals/pilot/README.md", "evals/pilot/tasks.json", "evals/pilot/run_pilot.sh", "evals/pilot/ci_probes.py",
                  "evals/pilot/summarize.py", "evals/runner/run_e2e.sh", "evals/runner/collect.py",

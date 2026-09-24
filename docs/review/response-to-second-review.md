@@ -1,15 +1,16 @@
 # Response to the second independent review
 
 **Reviewed revision:** 77e8ff3. **This response covers:** c640ceb (helper), 781715f
-(evaluation, the release-validated revision) and later commits on `claude/busy-cannon-bs6gm7`. The review itself is in
+(evaluation and the first release validation), 3c0debc (the final skill revision, also
+release-validated) and later commits on `claude/busy-cannon-bs6gm7`. The review itself is in
 `second-review.md`.
 
 **Summary:** all seven reproduced helper failures are fixed. Each one is now a regression
 test in both directions: the bad evidence blocks completion, and a valid rerun or an explicit
 disposition lets the run finish. The benchmark now reports hidden checks, workflow
 completion, repo CI, delivery and false completion claims separately, and the missed-Friday
-case is scored as a retrospective check. A small release validation ran on the final
-revision. The architecture is unchanged, as the review recommended.
+case is scored as a retrospective check. A small release validation ran on 781715f and
+again on the final revision, 3c0debc. The architecture is unchanged, as the review recommended.
 
 The same AI system that built the skill made these changes and ran these checks. They
 still need independent confirmation.
@@ -78,7 +79,7 @@ default paths) reproduces **7/7 on 77e8ff3** and **0/7 now**. Results are in
   with an unchanged description. That is run-to-run variance, reported rather than tuned
   away.
 
-## Release validation on the final revision
+## Release validation
 
 Three real sessions on commit 781715f (`evals/results/release-validation.md`, records in
 `evals/results/records/release/`):
@@ -97,8 +98,19 @@ Three real sessions on commit 781715f (`evals/results/release-validation.md`, re
   - an honest Partial when production access was needed.
 - **The Reviewed run's gap:** its reviewer rated the missed-Friday case an observation, and
   the builder reported Done with it disclosed.
-- **Follow-up, not yet validated end to end:** afterwards, the reviewer brief made a failed
-  absolute requirement blocking, and SKILL.md says library precedent isn't acceptance.
+- **Follow-up, checked on the final revision 3c0debc:**
+  - **The change:** after that run, the reviewer brief made a failed absolute requirement
+    blocking, and SKILL.md says library precedent isn't acceptance.
+  - **A Reviewed run on 3c0debc** finished Done and passed every check, including the
+    retrospective one. Its builder skipped weekend runs from the start, so the new rule had
+    nothing to block.
+  - **The rule itself:** the same reviewer got the 781715f run's flawed candidate twice, with
+    briefs differing only in the new sentence.
+    - With the old wording, it rated the missed-Friday case an observation again, citing
+      library precedent.
+    - With the new wording, it rated it blocking.
+    - That's one sample each (`evals/results/release-validation.md`, section "Final
+      revision").
 
 ## Remaining limits
 
