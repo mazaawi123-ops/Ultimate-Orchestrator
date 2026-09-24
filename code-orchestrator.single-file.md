@@ -1091,6 +1091,21 @@ as triggered when Claude's first action is loading the skill.
   description here. It installs the skill as a `.claude/commands/` file, which this Claude
   Code version doesn't offer as a skill. So its scores weren't used.
 
+### Two follow-up rules, tested
+
+- **Fail loudly on bad input.** When a ruling decides what happens to odd input, the planner
+  now fails loudly unless told otherwise. In the re-run of the inventory task (Opus planner,
+  `agents/` settings), it ruled "comma-only rows are bad rows, not blank". That scored 14/14,
+  the first Opus-planned run to catch that bug, for $3.09, the same as before.
+- **"Unspecified inputs" in the worker reply.** 3 Haiku runs of the same `import_csv` brief:
+  - **Before:** 0 of 9 workers listed any decision.
+  - **After:** 3 of 3 listed what their code does with inputs the brief didn't cover. One
+    wrote "first non-blank line is skipped without format checking", a real problem for the
+    planner to send back.
+  - **Caveat:** one listed claim was false, so the list tells the planner where to look but
+    isn't proof.
+  - **Quality and cost:** unchanged within noise (10.7/13, $0.15 per run).
+
 
 ---
 
