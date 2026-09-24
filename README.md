@@ -42,6 +42,10 @@ each (details in `code-orchestrator/references/example-run.md`):
   check. The default `agents/` settings put the verifier on extra-high effort. That found three
   times as many should-fix issues, for about +$0.70 per task. Plain Sonnet costs about 2.3x less, but ships the edge-case bugs the
   verifier catches.
+- **Real repos:** on humanize, click and qs, final quality was equal for the skill and Opus alone,
+  and the skill cost 1.6x more ($11.36 against $7.06). The verifier caught real bugs, but ones
+  the delegated code had introduced. So for well-specified changes in well-tested repos, the
+  skill now offers Direct mode.
 - **Bugs caught:** in the benchmark, the loop's verifier caught a quadratic `wrap()` that hung
   on long words, and comma-only CSV rows being silently dropped.
 - **Trap tests:** 4 red-team rounds against planners, workers and verifiers. Every gap found

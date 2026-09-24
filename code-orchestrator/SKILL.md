@@ -37,8 +37,11 @@ Every extra worker costs its own run plus 2–3 of your turns, so batch small ta
 brief. In testing, a two-task change cost $2.8–3.1 with these settings, $2.1–2.5 with the
 verifier on high effort, or $1.8–1.9 with a Sonnet planner. Opus working alone cost $1.3–2.4 and Sonnet alone $0.5–1.2, and both missed edge
 cases the loop caught. Use the
-loop when a verified result is worth about twice the cost of doing it directly. If the user
-asks, say that plainly.
+loop when a verified result is worth about twice the cost of doing it directly. On three real,
+well-tested open-source repos, Opus working alone reached the same final quality for about 60%
+of the cost. There, the loop's verifier mostly caught bugs the delegated code had introduced.
+So for a well-specified change in a well-tested repo, offer Direct mode and let the user choose.
+If the user asks, say all this plainly.
 
 ## Stop and ask the user
 

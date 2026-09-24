@@ -37,8 +37,11 @@ Every extra worker costs its own run plus 2–3 of your turns, so batch small ta
 brief. In testing, a two-task change cost $2.8–3.1 with these settings, $2.1–2.5 with the
 verifier on high effort, or $1.8–1.9 with a Sonnet planner. Opus working alone cost $1.3–2.4 and Sonnet alone $0.5–1.2, and both missed edge
 cases the loop caught. Use the
-loop when a verified result is worth about twice the cost of doing it directly. If the user
-asks, say that plainly.
+loop when a verified result is worth about twice the cost of doing it directly. On three real,
+well-tested open-source repos, Opus working alone reached the same final quality for about 60%
+of the cost. There, the loop's verifier mostly caught bugs the delegated code had introduced.
+So for a well-specified change in a well-tested repo, offer Direct mode and let the user choose.
+If the user asks, say all this plainly.
 
 ## Stop and ask the user
 
@@ -775,6 +778,38 @@ The logs confirm every dispatch used its agent and resolved to the right model.
   ruled "blank" in both.
 - **In short:** extra high buys a more thorough review for about +$0.70 per task. Use high
   when cost matters more.
+
+### Real open-source repos (billed)
+
+Three well-known repos, one realistic multi-file task each, all with hidden checks. A correct
+reference implementation passes every check. Planner on Opus, `--effort high`. The skill runs
+used the `agents/` settings.
+
+| Repo | Task | Skill, Haiku worker | Skill, Sonnet worker | Opus alone |
+|---|---|---|---|---|
+| python-humanize/humanize (744 tests) | `parse_size()` + `natural_list(conjunction=)` | 9/9, $4.32 | 9/9, $4.43 | 9/9, $2.32 |
+| pallets/click (2,241 tests) | `click.Duration` param type | 9/9, $3.23 | 9/9, $2.90 | 9/9, $1.70 |
+| ljharb/qs (1,141 tests, strict lint) | `parseNumbers` option | 12/12, $3.81 | 12/12, $4.10 | 12/12, $3.04 |
+| **Total** | | **$11.36** | **$11.43** | **$7.06** |
+
+- **Final quality was equal everywhere.** On mature, well-tested code, Opus alone got these
+  tasks right.
+- **Every skill run had one fix round.** The extra-high verifier found real bugs each time:
+  - qs: a converted `0` silently dropped by the existing `merge` helper
+  - humanize: an unhandled error on very long numbers, and an eager import in a lazily-loaded
+    package
+
+  The delegated code introduced these, and Opus working alone didn't.
+- **Worker model didn't matter.** Switching workers from Haiku to Sonnet changed nothing, so
+  the skill keeps Haiku for well-specified work.
+- **Cost per skill run:**
+  - planner: $1.2–1.7
+  - verifier (extra high): $0.6–1.25
+  - fix round: $0.66–1.63
+  - workers: $0.4
+- **Lesson:** for a well-specified change in a well-tested repo, Direct mode is the cheaper
+  choice for the same result. The loop pays off where the request leaves edge cases open, as in
+  the fixture tasks, or where the user wants the verification evidence.
 
 ### Worked example: the inventory task *(context size)*
 
