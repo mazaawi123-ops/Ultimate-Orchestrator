@@ -23,23 +23,23 @@
     "main|sonnet": {
       "requests": 28,
       "input": 56,
+      "output_at_start": 184,
       "cache_read": 1842564,
-      "cache_write": 87972,
-      "output_at_start": 184
+      "cache_write": 87972
     },
     "model:sonnet|sonnet": {
       "requests": 39,
       "input": 78,
+      "output_at_start": 347,
       "cache_read": 1444581,
-      "cache_write": 66824,
-      "output_at_start": 347
+      "cache_write": 66824
     },
     "model:opus|opus": {
       "requests": 3,
       "input": 6,
+      "output_at_start": 22,
       "cache_read": 74080,
-      "cache_write": 16252,
-      "output_at_start": 22
+      "cache_write": 16252
     }
   },
   "dispatches": [

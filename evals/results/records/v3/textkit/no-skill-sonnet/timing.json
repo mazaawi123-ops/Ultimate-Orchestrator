@@ -16,16 +16,16 @@
     "main|sonnet": {
       "requests": 17,
       "input": 34,
+      "output_at_start": 119,
       "cache_read": 928250,
-      "cache_write": 34582,
-      "output_at_start": 119
+      "cache_write": 34582
     },
     "general-purpose|sonnet": {
       "requests": 13,
       "input": 26,
+      "output_at_start": 72,
       "cache_read": 386292,
-      "cache_write": 26357,
-      "output_at_start": 72
+      "cache_write": 26357
     }
   },
   "dispatches": [

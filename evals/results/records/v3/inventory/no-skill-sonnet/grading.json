@@ -113,7 +113,7 @@
       "total": 4
     }
   },
-  "task_success": false,
+  "hidden_checks_passed": false,
   "summary": {
     "passed": 10,
     "failed": 5,

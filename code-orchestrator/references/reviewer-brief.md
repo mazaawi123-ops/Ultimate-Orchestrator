@@ -66,7 +66,10 @@ Each finding needs:
 
 Classify each as **blocking** (the change is wrong or unsafe to deliver), **optional
 improvement**, or **observation**. Match the severity to the impact; don't pad or merge
-findings. A clean review, with no findings, is a valid and useful result.
+findings. A case where an absolute word in the request ("never", "always", "only") doesn't
+hold is blocking, even at an edge such as a late or missed run and even if similar code
+behaves that way, unless the request or a recorded user decision accepts the exception.
+A clean review, with no findings, is a valid and useful result.
 
 ## Report
 ### Verdict: PASS | FAIL (FAIL only for a blocking finding or a failed criterion)

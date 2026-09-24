@@ -16,16 +16,16 @@
     "main|opus": {
       "requests": 12,
       "input": 30,
+      "output_at_start": 899,
       "cache_read": 495943,
-      "cache_write": 32260,
-      "output_at_start": 899
+      "cache_write": 32260
     },
     "general-purpose|opus": {
       "requests": 17,
       "input": 34,
+      "output_at_start": 914,
       "cache_read": 456428,
-      "cache_write": 65076,
-      "output_at_start": 914
+      "cache_write": 65076
     }
   },
   "dispatches": [

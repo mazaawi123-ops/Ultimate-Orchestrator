@@ -4,55 +4,64 @@
       "text": "Full suite passes",
       "category": "regression",
       "passed": true,
-      "evidence": "2293 passed; rc=0"
+      "evidence": "2293 passed; rc=0",
+      "retrospective": false
     },
     {
       "text": "No existing test weakened",
       "category": "safety",
       "passed": true,
-      "evidence": "[]"
+      "evidence": "[]",
+      "retrospective": false
     },
     {
       "text": "New tests added (beyond 2241)",
       "category": "artifact",
       "passed": true,
-      "evidence": "2293 passed"
+      "evidence": "2293 passed",
+      "retrospective": false
     },
     {
       "text": "CHANGES has an entry",
       "category": "artifact",
       "passed": true,
-      "evidence": "diff --git a/CHANGES.md b/CHANGES.md\nindex 8853860..e6064cb 100644\n--- a/CHANGES.md\n+++ b/CHANGES.md\n@@ -6,6 +6,8 @@ Unreleased\n   keyword, is deprecated and ra"
+      "evidence": "diff --git a/CHANGES.md b/CHANGES.md\nindex 8853860..e6064cb 100644\n--- a/CHANGES.md\n+++ b/CHANGES.md\n@@ -6,6 +6,8 @@ Unreleased\n   keyword, is deprecated and ra",
+      "retrospective": false
     },
     {
       "text": "click.Duration exported and is a ParamType",
       "category": "functional",
       "passed": true,
-      "evidence": "True"
+      "evidence": "True",
+      "retrospective": false
     },
     {
       "text": "Converts 90s, 15m, 2h, 1d, 1.5h, 1h30m, 45, 2.5",
       "category": "functional",
       "passed": true,
-      "evidence": "{\"90s\": 90.0, \"15m\": 900.0, \"2h\": 7200.0, \"1d\": 86400.0, \"1.5h\": 5400.0, \"1h30m\": 5400.0, \"45\": 45.0, \"2.5\": 2.5}"
+      "evidence": "{\"90s\": 90.0, \"15m\": 900.0, \"2h\": 7200.0, \"1d\": 86400.0, \"1.5h\": 5400.0, \"1h30m\": 5400.0, \"45\": 45.0, \"2.5\": 2.5}",
+      "retrospective": false
     },
     {
       "text": "A timedelta passes through unchanged",
       "category": "functional",
       "passed": true,
-      "evidence": "True"
+      "evidence": "True",
+      "retrospective": false
     },
     {
       "text": "Works as an option type on the command line",
       "category": "functional",
       "passed": true,
-      "evidence": "True"
+      "evidence": "True",
+      "retrospective": false
     },
     {
       "text": "Bad values exit 2 with 'Invalid value' naming the input",
       "category": "functional",
       "passed": true,
-      "evidence": "{\"\": [2, true, true], \"1x\": [2, true, true], \"h\": [2, true, true], \"abc\": [2, true, true], \"1h-\": [2, true, true]}"
+      "evidence": "{\"\": [2, true, true], \"1x\": [2, true, true], \"h\": [2, true, true], \"abc\": [2, true, true], \"1h-\": [2, true, true]}",
+      "retrospective": false
     }
   ],
   "by_category": {
@@ -73,7 +82,8 @@
       "total": 5
     }
   },
-  "task_success": true,
+  "hidden_checks_passed": true,
+  "hidden_checks_passed_retrospective": true,
   "summary": {
     "passed": 9,
     "failed": 0,

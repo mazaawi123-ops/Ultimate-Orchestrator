@@ -81,7 +81,8 @@ Blocked or Partial.
      dropping, coercing or guessing at data. That is not permission to make existing APIs
      stricter.
    - Read absolute words in the request ("never", "always", "only") literally, including
-     edge cases the tests won't reach, unless the user accepts an exception.
+     edge cases the tests won't reach, unless the user accepts an exception. Library
+     precedent isn't acceptance: if you leave such a case open, the run is Partial.
    - Record material decisions (`Decision: <what> — <why> — <cost if wrong>`), not every
      conceivable input.
 

@@ -23,23 +23,23 @@
     "main|opus": {
       "requests": 22,
       "input": 46,
+      "output_at_start": 269,
       "cache_read": 1496024,
-      "cache_write": 71677,
-      "output_at_start": 269
+      "cache_write": 71677
     },
     "model:haiku|haiku": {
       "requests": 80,
       "input": 646,
+      "output_at_start": 155,
       "cache_read": 3071894,
-      "cache_write": 67504,
-      "output_at_start": 155
+      "cache_write": 67504
     },
     "model:opus|opus": {
       "requests": 10,
       "input": 20,
+      "output_at_start": 82,
       "cache_read": 396088,
-      "cache_write": 29454,
-      "output_at_start": 82
+      "cache_write": 29454
     }
   },
   "dispatches": [

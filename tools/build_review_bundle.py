@@ -39,7 +39,9 @@ def reviewer_replies():
 
 def final_reports():
     out = []
-    for f in sorted((ROOT / "evals/results/records/pilot").glob("*/*/final_report.md")):
+    for f in sorted((ROOT / "evals/results/records").glob("[pr]*/*/*/final_report.md")):
+        if "/real/" in str(f):
+            continue
         out.append(fenced(str(f.relative_to(ROOT))))
     return "\n".join(out)
 
@@ -58,7 +60,8 @@ def trigger_table():
 def main():
     head = subprocess.run(["git", "-C", str(ROOT), "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip()
     sections = [
-        ("Part 1. The report", [("docs/review/vnext-report.md", None)]),
+        ("Part 1. The report", [("docs/review/response-to-second-review.md", None),
+                                ("evals/results/release-validation.md", None)]),
         ("Part 2. The skill, complete", [
             ("code-orchestrator/SKILL.md", None),
             ("code-orchestrator/references/run-record.md", None),
@@ -75,6 +78,9 @@ def main():
         ("Part 3. Evidence", [
             ("evals/results/pilot.md", None),
             ("evals/results/records/pilot/summary.tsv", None),
+            ("evals/results/records/pilot/delivery-summary.json", None),
+            ("docs/review/second-review-before.json", None),
+            ("docs/review/second-review-after.json", None),
             ("docs/review/reproduction-before-after.json", None),
             ("evals/results/grader-selftest.log", None),
             ("evals/results/records/summary.tsv", None),
@@ -83,7 +89,7 @@ def main():
     toc = ["Part 1. The report", "Part 2. The skill, complete", "Part 3. Evidence",
            "Part 4. Pilot reviewer replies, verbatim", "Part 5. Pilot final reports, verbatim",
            "Part 6. Trigger test results", "Part 7. Verification code", "Part 8. Historical measurements",
-           "Part 9. The first independent review and the vNext proposal"]
+           "Part 9. Both independent reviews, the vNext proposal and the earlier report"]
     out = [f"# code-orchestrator: complete review bundle (commit {head})\n",
            "Everything an independent reviewer needs, in one file: the report, the whole skill, the "
            "evidence and the code that produced it. Paths in the report refer to files reproduced "
@@ -94,10 +100,11 @@ def main():
     for title, files in sections:
         out.append(f"\n---\n\n## {title}\n")
         for path, text in files:
-            if path == "docs/review/vnext-report.md":
-                text = (ROOT / path).read_text().split("\n", 1)[1]  # drop its title; the Part heading replaces it
+            if path in ("docs/review/response-to-second-review.md", "evals/results/release-validation.md"):
+                text = (ROOT / path).read_text()
                 text = re.sub(r"^### ", "#### ", text, flags=re.M)
-                out.append(re.sub(r"^## ", "### ", text, flags=re.M))
+                text = re.sub(r"^## ", "### ", text, flags=re.M)
+                out.append(re.sub(r"^# ", "### ", text, count=1, flags=re.M))
             else:
                 out.append(fenced(path, text))
     out.append("\n---\n\n## Part 4. Pilot reviewer replies, verbatim\n")
@@ -105,14 +112,15 @@ def main():
                "session received it. The run `schedule-weekday / reviewed-run-1` has no reply: its "
                "review was stopped by `claude -p`'s idle limit (report, section 5).\n")
     out.append(reviewer_replies())
-    out.append("\n---\n\n## Part 5. Pilot final reports, verbatim\n")
+    out.append("\n---\n\n## Part 5. Final reports, verbatim (pilot and release validation)\n")
     out.append(final_reports())
     out.append("\n---\n\n## Part 6. Trigger test results\n")
     out.append("First tool call loads the skill = triggered; 3 runs per prompt, Sonnet session, "
                "`--max-turns 2`. A prompt passes when the majority matches its expectation.\n\n")
     out.append(trigger_table())
     out.append("\n---\n\n## Part 7. Verification code\n")
-    for path in ["tests/helper/test_orch.py", "tests/helper/review_reproductions.py", "evals/README.md",
+    for path in ["tests/helper/test_orch.py", "tests/helper/review_reproductions.py", "tests/helper/second_review_reproductions.py",
+                 "evals/release/tasks.json", "evals/release/check_release.py", "evals/README.md",
                  "evals/graders/grade_repos.py", "evals/graders/grade_fixtures.py", "evals/graders/selftest.py",
                  "evals/pilot/README.md", "evals/pilot/tasks.json", "evals/pilot/run_pilot.sh", "evals/pilot/ci_probes.py",
                  "evals/pilot/summarize.py", "evals/runner/run_e2e.sh", "evals/runner/collect.py",
@@ -121,7 +129,9 @@ def main():
         out.append(fenced(path))
     out.append("\n---\n\n## Part 8. Historical measurements\n")
     out.append(fenced("evals/results/measurements.md"))
-    out.append("\n---\n\n## Part 9. The first independent review and the vNext proposal\n")
+    out.append("\n---\n\n## Part 9. Both independent reviews, the vNext proposal and the earlier report\n")
+    out.append(fenced("docs/review/second-review.md"))
+    out.append(fenced("docs/review/vnext-report.md"))
     out.append(fenced("docs/review/independent-review.md"))
     out.append(fenced("docs/review/vnext-proposal.md"))
     OUT.write_text("\n".join(out))

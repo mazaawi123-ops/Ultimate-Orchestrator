@@ -82,7 +82,8 @@ Blocked or Partial.
      dropping, coercing or guessing at data. That is not permission to make existing APIs
      stricter.
    - Read absolute words in the request ("never", "always", "only") literally, including
-     edge cases the tests won't reach, unless the user accepts an exception.
+     edge cases the tests won't reach, unless the user accepts an exception. Library
+     precedent isn't acceptance: if you leave such a case open, the run is Partial.
    - Record material decisions (`Decision: <what> — <why> — <cost if wrong>`), not every
      conceivable input.
 
@@ -402,7 +403,10 @@ Each finding needs:
 
 Classify each as **blocking** (the change is wrong or unsafe to deliver), **optional
 improvement**, or **observation**. Match the severity to the impact; don't pad or merge
-findings. A clean review, with no findings, is a valid and useful result.
+findings. A case where an absolute word in the request ("never", "always", "only") doesn't
+hold is blocking, even at an edge such as a late or missed run and even if similar code
+behaves that way, unless the request or a recorded user decision accepts the exception.
+A clean review, with no findings, is a valid and useful result.
 
 ## Report
 ### Verdict: PASS | FAIL (FAIL only for a blocking finding or a failed criterion)

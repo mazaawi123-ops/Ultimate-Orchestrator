@@ -30,37 +30,37 @@
     "main|opus": {
       "requests": 20,
       "input": 44,
+      "output_at_start": 285,
       "cache_read": 1250944,
-      "cache_write": 63719,
-      "output_at_start": 285
+      "cache_write": 63719
     },
     "orch-worker-haiku|haiku": {
       "requests": 44,
       "input": 354,
+      "output_at_start": 93,
       "cache_read": 2280491,
-      "cache_write": 51990,
-      "output_at_start": 93
+      "cache_write": 51990
     },
     "orch-verifier|opus": {
       "requests": 16,
       "input": 32,
+      "output_at_start": 1067,
       "cache_read": 819383,
-      "cache_write": 51693,
-      "output_at_start": 1067
+      "cache_write": 51693
     },
     "orch-worker-sonnet|sonnet": {
       "requests": 22,
       "input": 44,
+      "output_at_start": 176,
       "cache_read": 933098,
-      "cache_write": 28469,
-      "output_at_start": 176
+      "cache_write": 28469
     },
     "orch-rechecker|sonnet": {
       "requests": 7,
       "input": 14,
+      "output_at_start": 24,
       "cache_read": 237841,
-      "cache_write": 50194,
-      "output_at_start": 24
+      "cache_write": 50194
     }
   },
   "dispatches": [

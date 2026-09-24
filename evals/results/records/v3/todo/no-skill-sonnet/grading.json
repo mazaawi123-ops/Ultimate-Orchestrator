@@ -4,7 +4,7 @@
       "text": "Full pytest suite passes",
       "category": "regression",
       "passed": true,
-      "evidence": ".............                                                            [100%]\n13 passed in 0.03s"
+      "evidence": ".............                                                            [100%]\n13 passed in 0.04s"
     },
     {
       "text": "New tests added (suite grew beyond the original 3)",
@@ -107,7 +107,7 @@
       "total": 4
     }
   },
-  "task_success": true,
+  "hidden_checks_passed": true,
   "summary": {
     "passed": 11,
     "failed": 3,

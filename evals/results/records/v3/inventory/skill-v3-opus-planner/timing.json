@@ -30,30 +30,30 @@
     "main|opus": {
       "requests": 17,
       "input": 36,
+      "output_at_start": 261,
       "cache_read": 922947,
-      "cache_write": 50730,
-      "output_at_start": 261
+      "cache_write": 50730
     },
     "model:haiku|haiku": {
       "requests": 28,
       "input": 226,
+      "output_at_start": 53,
       "cache_read": 980295,
-      "cache_write": 27252,
-      "output_at_start": 53
+      "cache_write": 27252
     },
     "model:opus|opus": {
       "requests": 4,
       "input": 8,
+      "output_at_start": 32,
       "cache_read": 105185,
-      "cache_write": 42237,
-      "output_at_start": 32
+      "cache_write": 42237
     },
     "model:sonnet|sonnet": {
       "requests": 19,
       "input": 38,
+      "output_at_start": 101,
       "cache_read": 739708,
-      "cache_write": 45216,
-      "output_at_start": 101
+      "cache_write": 45216
     }
   },
   "dispatches": [

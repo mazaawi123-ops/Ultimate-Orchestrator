@@ -99,6 +99,8 @@ def main():
         timing["usage_by_agent"] = merge_keys(timing["usage_by_agent"], clean)
         timing["wall_seconds"] = old_timing.get("wall_seconds")
         timing["source"] = r["label"]
+        timing["usage_note"] = ("per_model has complete token counts. usage_by_agent splits requests, input and cache tokens "
+                                "exactly; output_at_start is the stream's start-of-message output count, a lower bound.")
         put(dst / "timing.json", json.dumps(timing, indent=2))
         if r.get("base") and not (src / "base.txt").exists():
             (src / "base.txt").write_text(r["base"] + "\n")

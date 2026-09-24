@@ -23,30 +23,30 @@
     "main|opus": {
       "requests": 19,
       "input": 46,
+      "output_at_start": 428,
       "cache_read": 1215711,
-      "cache_write": 65434,
-      "output_at_start": 428
+      "cache_write": 65434
     },
     "orch-worker-sonnet|sonnet": {
       "requests": 48,
       "input": 96,
+      "output_at_start": 410,
       "cache_read": 2647106,
-      "cache_write": 118693,
-      "output_at_start": 410
+      "cache_write": 118693
     },
     "orch-verifier|opus": {
       "requests": 18,
       "input": 36,
+      "output_at_start": 122,
       "cache_read": 966371,
-      "cache_write": 82472,
-      "output_at_start": 122
+      "cache_write": 82472
     },
     "orch-rechecker|sonnet": {
       "requests": 20,
       "input": 40,
+      "output_at_start": 103,
       "cache_read": 1056212,
-      "cache_write": 45731,
-      "output_at_start": 103
+      "cache_write": 45731
     }
   },
   "dispatches": [
