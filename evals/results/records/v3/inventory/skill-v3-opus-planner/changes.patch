@@ -1,0 +1,432 @@
+diff --git a/inventory/stock.py b/inventory/stock.py
+index 71c6e42..36287a1 100644
+--- a/inventory/stock.py
++++ b/inventory/stock.py
+@@ -1,7 +1,18 @@
++import csv
++import re
++
++
+ class InsufficientStock(Exception):
+     pass
+ 
+ 
++class CsvImportError(ValueError):
++    def __init__(self, line, reason):
++        super().__init__(f"line {line}: {reason}")
++        self.line = line
++        self.reason = reason
++
++
+ class Inventory:
+     """In-memory stock levels keyed by SKU."""
+ 
+@@ -17,7 +28,8 @@ class Inventory:
+         if qty <= 0:
+             raise ValueError("qty must be positive")
+         current = self._levels.get(sku, 0)
+-        # BUG: allows shipping more than we have, driving stock negative
++        if qty > current:
++            raise InsufficientStock(f"cannot ship {qty} of {sku!r}: only {current} in stock")
+         self._levels[sku] = current - qty
+ 
+     def level(self, sku):
+@@ -25,3 +37,58 @@ class Inventory:
+ 
+     def low_stock(self, threshold=5):
+         return sorted(s for s, q in self._levels.items() if q < threshold)
++
++    def import_csv(self, path):
++        pairs = []
++        with open(path, newline="", encoding="utf-8-sig") as f:
++            reader = csv.reader(f, strict=True)
++            header_found = False
++            sku_i = None
++            qty_i = None
++
++            while True:
++                start = reader.line_num + 1
++                try:
++                    fields = next(reader)
++                except StopIteration:
++                    break
++                except csv.Error as e:
++                    raise CsvImportError(start, str(e))
++
++                # Skip blank rows
++                if all(not field.strip() for field in fields):
++                    continue
++
++                # Process header
++                if not header_found:
++                    normalized = [h.strip().lower() for h in fields]
++                    if len(normalized) != 2 or set(normalized) != {"sku", "qty"}:
++                        raise CsvImportError(start, f"expected header sku,qty, got {fields!r}")
++                    sku_i = normalized.index("sku")
++                    qty_i = normalized.index("qty")
++                    header_found = True
++                    continue
++
++                # Validate row
++                if len(fields) != 2:
++                    raise CsvImportError(start, f"expected 2 fields, got {len(fields)}")
++
++                sku = fields[sku_i].strip()
++                if not sku:
++                    raise CsvImportError(start, "missing sku")
++
++                raw = fields[qty_i].strip()
++                if not re.fullmatch(r"[+-]?[0-9]+", raw):
++                    raise CsvImportError(start, f"qty must be a whole number, got {raw!r}")
++                qty = int(raw)
++
++                if qty <= 0:
++                    raise CsvImportError(start, f"qty must be positive, got {qty}")
++
++                pairs.append((sku, qty))
++
++        # All validation passed, now receive each pair
++        for sku, qty in pairs:
++            self.receive(sku, qty)
++
++        return len(pairs)
+diff --git a/tests/test_import_csv.py b/tests/test_import_csv.py
+new file mode 100644
+index 0000000..6986952
+--- /dev/null
++++ b/tests/test_import_csv.py
+@@ -0,0 +1,282 @@
++import pytest
++from inventory.stock import Inventory, CsvImportError
++
++
++def test_import_csv_basic(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_bytes(b"sku,qty\nA,5\n\nB,2\n")
++    result = inv.import_csv(str(csv_file))
++    assert result == 2
++    assert inv.level("A") == 5
++    assert inv.level("B") == 2
++
++
++def test_import_csv_crlf(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_bytes(b"sku,qty\r\nA,5\r\n\r\nB,2\r\n")
++    result = inv.import_csv(str(csv_file))
++    assert result == 2
++    assert inv.level("A") == 5
++    assert inv.level("B") == 2
++
++
++def test_import_csv_bom(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_bytes(b"\xef\xbb\xbfsku,qty\nA,5\n")
++    result = inv.import_csv(str(csv_file))
++    assert result == 1
++    assert inv.level("A") == 5
++
++
++def test_import_csv_reordered_case_spaces(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_bytes(b"Qty , SKU\n7, A\n")
++    result = inv.import_csv(str(csv_file))
++    assert result == 1
++    assert inv.level("A") == 7
++
++
++def test_import_csv_skip_blank_lines(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_bytes(b"sku,qty\n , \nA,2\n,\n   \n")
++    result = inv.import_csv(str(csv_file))
++    assert result == 1
++    assert inv.level("A") == 2
++
++
++def test_import_csv_blank_before_header(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_bytes(b"\n\nsku,qty\nA,1\n")
++    result = inv.import_csv(str(csv_file))
++    assert result == 1
++    assert inv.level("A") == 1
++
++
++def test_import_csv_duplicate_sku(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_bytes(b"sku,qty\nA,2\nA,3\n")
++    result = inv.import_csv(str(csv_file))
++    assert result == 2
++    assert inv.level("A") == 5
++
++
++def test_import_csv_with_spaces_in_qty(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_bytes(b"sku,qty\nA, 7 \n")
++    inv.import_csv(str(csv_file))
++    assert inv.level("A") == 7
++
++
++def test_import_csv_empty_file(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_bytes(b"")
++    result = inv.import_csv(str(csv_file))
++    assert result == 0
++
++
++def test_import_csv_header_only(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_bytes(b"sku,qty\n")
++    result = inv.import_csv(str(csv_file))
++    assert result == 0
++
++
++def test_import_csv_error_bad_qty(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_bytes(b"sku,qty\nA,5\n\nB,x\n")
++    with pytest.raises(CsvImportError) as exc_info:
++        inv.import_csv(str(csv_file))
++    assert str(exc_info.value) == "line 4: qty must be a whole number, got 'x'"
++    assert exc_info.value.line == 4
++    assert isinstance(exc_info.value, ValueError)
++    assert inv.level("A") == 0
++
++
++def test_import_csv_error_bad_qty_crlf(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_bytes(b"sku,qty\r\nA,5\r\nB,abc\r\n")
++    with pytest.raises(CsvImportError) as exc_info:
++        inv.import_csv(str(csv_file))
++    assert str(exc_info.value) == "line 3: qty must be a whole number, got 'abc'"
++    assert exc_info.value.line == 3
++
++
++def test_import_csv_error_missing_field(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_bytes(b"sku,qty\nA\n")
++    with pytest.raises(CsvImportError) as exc_info:
++        inv.import_csv(str(csv_file))
++    assert str(exc_info.value) == "line 2: expected 2 fields, got 1"
++
++
++def test_import_csv_error_extra_field(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_bytes(b"sku,qty\nA,1,2\n")
++    with pytest.raises(CsvImportError) as exc_info:
++        inv.import_csv(str(csv_file))
++    assert str(exc_info.value) == "line 2: expected 2 fields, got 3"
++
++
++def test_import_csv_error_missing_sku(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_bytes(b"sku,qty\n,5\n")
++    with pytest.raises(CsvImportError) as exc_info:
++        inv.import_csv(str(csv_file))
++    assert str(exc_info.value) == "line 2: missing sku"
++
++
++def test_import_csv_error_zero_qty(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_bytes(b"sku,qty\nA,0\n")
++    with pytest.raises(CsvImportError) as exc_info:
++        inv.import_csv(str(csv_file))
++    assert str(exc_info.value) == "line 2: qty must be positive, got 0"
++
++
++def test_import_csv_error_negative_qty(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_bytes(b"sku,qty\nA,-3\n")
++    with pytest.raises(CsvImportError) as exc_info:
++        inv.import_csv(str(csv_file))
++    assert str(exc_info.value) == "line 2: qty must be positive, got -3"
++
++
++def test_import_csv_error_float_qty(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_bytes(b"sku,qty\nA,1.5\n")
++    with pytest.raises(CsvImportError) as exc_info:
++        inv.import_csv(str(csv_file))
++    assert str(exc_info.value) == "line 2: qty must be a whole number, got '1.5'"
++
++
++def test_import_csv_error_empty_qty(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_bytes(b"sku,qty\nA,\n")
++    with pytest.raises(CsvImportError) as exc_info:
++        inv.import_csv(str(csv_file))
++    assert str(exc_info.value) == "line 2: qty must be a whole number, got ''"
++
++
++def test_import_csv_error_bad_header(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_bytes(b"sku,quantity\nA,1\n")
++    with pytest.raises(CsvImportError) as exc_info:
++        inv.import_csv(str(csv_file))
++    assert str(exc_info.value) == "line 1: expected header sku,qty, got ['sku', 'quantity']"
++
++
++def test_import_csv_error_no_header(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_bytes(b"A,5\n")
++    with pytest.raises(CsvImportError) as exc_info:
++        inv.import_csv(str(csv_file))
++    assert str(exc_info.value) == "line 1: expected header sku,qty, got ['A', '5']"
++
++
++def test_import_csv_error_multiline_field(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_bytes(b'sku,qty\nA,1\n"X\nY",bad\n')
++    with pytest.raises(CsvImportError) as exc_info:
++        inv.import_csv(str(csv_file))
++    assert str(exc_info.value) == "line 3: qty must be a whole number, got 'bad'"
++    assert exc_info.value.line == 3
++
++
++def test_import_csv_error_validation_stops_import(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_bytes(b"sku,qty\nA,5\nB,0\n")
++    with pytest.raises(CsvImportError) as exc_info:
++        inv.import_csv(str(csv_file))
++    assert exc_info.value.line == 3
++    assert inv.level("A") == 0
++
++
++def test_import_csv_missing_file(tmp_path):
++    inv = Inventory()
++    with pytest.raises(FileNotFoundError):
++        inv.import_csv(str(tmp_path / "nonexistent.csv"))
++
++
++def test_import_csv_error_unterminated_quote(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_bytes(b'sku,qty\nA,1\nC,"3')
++    with pytest.raises(CsvImportError) as exc_info:
++        inv.import_csv(str(csv_file))
++    assert exc_info.value.line == 3
++    assert str(exc_info.value).startswith("line 3: ")
++    assert inv.low_stock() == []
++
++
++def test_import_csv_error_malformed_quoting(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_bytes(b'sku,qty\n"A"x,1\n')
++    with pytest.raises(CsvImportError) as exc_info:
++        inv.import_csv(str(csv_file))
++    assert exc_info.value.line == 2
++    assert str(exc_info.value).startswith("line 2: ")
++    assert inv.low_stock() == []
++
++
++def test_import_csv_error_qty_underscore(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_bytes(b"sku,qty\nA,1_000\n")
++    with pytest.raises(CsvImportError) as exc_info:
++        inv.import_csv(str(csv_file))
++    assert str(exc_info.value) == "line 2: qty must be a whole number, got '1_000'"
++    assert exc_info.value.line == 2
++    assert inv.low_stock() == []
++
++
++def test_import_csv_error_qty_non_ascii_digit(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_bytes("sku,qty\nA,٣\n".encode("utf-8"))
++    with pytest.raises(CsvImportError) as exc_info:
++        inv.import_csv(str(csv_file))
++    assert str(exc_info.value) == "line 2: qty must be a whole number, got '٣'"
++    assert exc_info.value.line == 2
++    assert inv.low_stock() == []
++
++
++def test_import_csv_qty_plus_sign_accepted(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_bytes(b"sku,qty\nA,+3\n")
++    result = inv.import_csv(str(csv_file))
++    assert result == 1
++    assert inv.level("A") == 3
++
++
++def test_import_csv_quoted_comma_in_sku(tmp_path):
++    inv = Inventory()
++    csv_file = tmp_path / "test.csv"
++    csv_file.write_bytes(b'sku,qty\n"A,B",2\n')
++    result = inv.import_csv(str(csv_file))
++    assert result == 1
++    assert inv.level("A,B") == 2
+diff --git a/tests/test_stock.py b/tests/test_stock.py
+index 47461a6..3d91fde 100644
+--- a/tests/test_stock.py
++++ b/tests/test_stock.py
+@@ -1,5 +1,5 @@
+ import pytest
+-from inventory.stock import Inventory
++from inventory.stock import Inventory, InsufficientStock
+ 
+ 
+ def test_receive_and_level():
+@@ -26,3 +26,40 @@ def test_rejects_nonpositive():
+     inv = Inventory()
+     with pytest.raises(ValueError):
+         inv.receive("A", 0)
++
++
++def test_ship_insufficient_stock_more_than_level():
++    inv = Inventory()
++    inv.receive("A", 3)
++    with pytest.raises(InsufficientStock):
++        inv.ship("A", 5)
++    assert inv.level("A") == 3
++
++
++def test_ship_exact_level():
++    inv = Inventory()
++    inv.receive("A", 3)
++    inv.ship("A", 3)
++    assert inv.level("A") == 0
++
++
++def test_ship_unknown_sku():
++    inv = Inventory()
++    with pytest.raises(InsufficientStock):
++        inv.ship("Z", 1)
++    assert inv.low_stock() == []
++
++
++def test_ship_insufficient_stock_message():
++    inv = Inventory()
++    inv.receive("A", 3)
++    with pytest.raises(InsufficientStock) as exc_info:
++        inv.ship("A", 5)
++    assert str(exc_info.value) == "cannot ship 5 of 'A': only 3 in stock"
++
++
++def test_ship_zero_qty():
++    inv = Inventory()
++    inv.receive("A", 3)
++    with pytest.raises(ValueError):
++        inv.ship("A", 0)

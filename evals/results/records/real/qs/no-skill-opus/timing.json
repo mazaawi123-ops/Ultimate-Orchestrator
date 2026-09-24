@@ -1,0 +1,46 @@
+{
+  "cost_usd_estimate": 3.0378,
+  "cost_note": "Claude Code local estimate at list price; not a billing record",
+  "num_turns": 4,
+  "subtype": "success",
+  "per_model": {
+    "opus": {
+      "input": 132,
+      "output": 61661,
+      "cache_read": 3286661,
+      "cache_write": 204845,
+      "cost_usd_estimate": 3.0378
+    }
+  },
+  "usage_by_agent": {
+    "main|opus": {
+      "requests": 16,
+      "input": 38,
+      "output": 233,
+      "cache_read": 800425,
+      "cache_write": 40827
+    },
+    "general-purpose|opus": {
+      "requests": 46,
+      "input": 94,
+      "output": 1267,
+      "cache_read": 2486236,
+      "cache_write": 164018
+    }
+  },
+  "dispatches": [
+    {
+      "agent": "general-purpose",
+      "model_param": null,
+      "description": "Build parseNumbers option"
+    },
+    {
+      "agent": "general-purpose",
+      "model_param": null,
+      "description": "Verify parseNumbers change"
+    }
+  ],
+  "skill_used": false,
+  "wall_seconds": 649,
+  "source": "Opus, no skill; prompt asks to plan, delegate, verify"
+}

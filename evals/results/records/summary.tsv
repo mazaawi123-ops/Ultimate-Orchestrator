@@ -1,0 +1,29 @@
+record	label	cost_usd_estimate	wall_seconds	task_success	functional	regression	safety	artifact	reporting	dispatches	note
+v2/todo/skill-v2	skill v2 (commit 756543e), Opus planner, subagents inherit Opus; prompt asks to plan, delegate, verify	2.48	636	True	6/6	2/2	1/1	1/1	4/4	model:haiku model:haiku model:opus	
+v2/inventory/skill-v2	skill v2 (commit 756543e), Opus planner, subagents inherit Opus; prompt asks to plan, delegate, verify	2.12	503	False	7/8	1/1	1/1	1/1	4/4	model:haiku model:haiku model:opus	
+v2/textkit/skill-v2	skill v2 (commit 756543e), Opus planner, subagents inherit Opus; prompt asks to plan, delegate, verify	2.91	648	True	7/7	2/2	1/1	1/1	4/4	model:haiku model:haiku model:opus model:sonnet model:sonnet	
+v2/todo/no-skill-opus	Opus, no skill; prompt asks to plan, delegate, verify, so it delegated too	1.26	163	True	6/6	2/2	1/1	1/1	2/4	general-purpose general-purpose general-purpose	
+v2/inventory/no-skill-opus	Opus, no skill; prompt asks to plan, delegate, verify, so it delegated too	2.38	455	False	7/8	1/1	1/1	1/1	2/4	general-purpose general-purpose general-purpose	
+v2/textkit/no-skill-opus	Opus, no skill; prompt asks to plan, delegate, verify, so it delegated too	1.60	294	True	7/7	2/2	1/1	1/1	0/4	general-purpose general-purpose general-purpose	
+v3/todo/skill-v3-opus-planner	skill v3 (commit ce2a613), Opus planner	2.06	497	True	6/6	2/2	1/1	1/1	4/4	model:haiku model:opus model:sonnet model:sonnet	
+v3/inventory/skill-v3-opus-planner	skill v3 (commit ce2a613), Opus planner	2.13	531	False	7/8	1/1	1/1	1/1	4/4	model:haiku model:opus model:sonnet model:sonnet	
+v3/textkit/skill-v3-opus-planner	skill v3 (commit ce2a613), Opus planner	2.46	526	True	7/7	2/2	1/1	1/1	4/4	model:haiku model:haiku model:opus model:sonnet model:sonnet	
+v3/todo/skill-v3-sonnet-planner	skill v3 (commit ce2a613), Sonnet planner	1.78	395	True	6/6	2/2	1/1	1/1	4/4	model:sonnet model:opus model:sonnet model:sonnet	
+v3/inventory/skill-v3-sonnet-planner	skill v3 (commit ce2a613), Sonnet planner	1.79	475	True	8/8	1/1	1/1	1/1	4/4	model:haiku model:opus model:sonnet model:sonnet	
+v3/textkit/skill-v3-sonnet-planner	skill v3 (commit ce2a613), Sonnet planner	1.89	556	True	7/7	2/2	1/1	1/1	4/4	model:haiku model:haiku model:opus model:sonnet model:sonnet	
+v3/todo/no-skill-sonnet	Sonnet, no skill; prompt asks to plan, delegate, verify	1.15	293	True	6/6	2/2	1/1	1/1	1/4	general-purpose general-purpose general-purpose	
+v3/inventory/no-skill-sonnet	Sonnet, no skill; prompt asks to plan, delegate, verify	0.48	101	False	7/8	1/1	1/1	1/1	0/4	general-purpose	
+v3/textkit/no-skill-sonnet	Sonnet, no skill; prompt asks to plan, delegate, verify	0.69	160	True	7/7	2/2	1/1	1/1	2/4	general-purpose general-purpose	
+v4/todo/skill-v4-agents	skill v4 (commit 0a162d0) with the agent files: Opus planner, Haiku/Sonnet workers, extra-high Opus verifier	2.79	625	True	6/6	2/2	1/1	1/1	4/4	orch-worker-haiku orch-verifier orch-worker-sonnet orch-rechecker	
+v4/inventory/skill-v4-agents	skill v4 (commit 0a162d0) with the agent files: Opus planner, Haiku/Sonnet workers, extra-high Opus verifier	3.09	826	False	7/8	1/1	1/1	1/1	4/4	orch-worker-haiku orch-verifier orch-worker-sonnet orch-rechecker	
+v4/textkit/skill-v4-agents	skill v4 (commit 0a162d0) with the agent files: Opus planner, Haiku/Sonnet workers, extra-high Opus verifier	2.87	686	True	7/7	2/2	1/1	1/1	4/4	orch-worker-haiku orch-worker-haiku orch-worker-haiku orch-verifier orch-worker-sonnet orch-rechecker	
+v5/inventory/skill-v5-agents	skill v5 (commit 27b8315) with the agent files: fail-loudly re-run	3.09	801	True	8/8	1/1	1/1	1/1	4/4	orch-worker-haiku orch-verifier orch-worker-sonnet orch-rechecker	
+real/humanize/skill-v5-haiku-worker	skill v5 (commit 27b8315) with the agent files, Haiku worker	4.32	1079	True	6/6	1/1	1/1	1/1	-	orch-worker-haiku orch-verifier orch-worker-sonnet orch-rechecker	
+real/click/skill-v5-haiku-worker	skill v5 (commit 27b8315) with the agent files, Haiku worker	3.23	839	True	5/5	1/1	1/1	2/2	-	orch-worker-haiku orch-verifier orch-worker-sonnet orch-rechecker	
+real/qs/skill-v5-haiku-worker	skill v5 (commit 27b8315) with the agent files, Haiku worker	3.81	918	True	7/7	3/3	1/1	2/2	-	orch-worker-haiku orch-verifier orch-worker-sonnet orch-rechecker	
+real/humanize/skill-v5-sonnet-worker	skill v5 plus a local rule sending work to the Sonnet worker (not committed)	4.43	1348	True	6/6	1/1	1/1	1/1	-	orch-worker-sonnet orch-verifier orch-worker-sonnet orch-rechecker	
+real/click/skill-v5-sonnet-worker	skill v5 plus a local rule sending work to the Sonnet worker (not committed)	2.90	680	True	5/5	1/1	1/1	2/2	-	orch-worker-sonnet orch-verifier orch-worker-sonnet orch-rechecker	
+real/qs/skill-v5-sonnet-worker	skill v5 plus a local rule sending work to the Sonnet worker (not committed)	4.10	961	True	7/7	3/3	1/1	2/2	-	orch-worker-sonnet orch-verifier orch-worker-sonnet orch-rechecker	
+real/humanize/no-skill-opus	Opus, no skill; prompt asks to plan, delegate, verify	2.32	942	True	6/6	1/1	1/1	1/1	-	general-purpose general-purpose general-purpose	
+real/click/no-skill-opus	Opus, no skill; prompt asks to plan, delegate, verify	1.70	337	True	5/5	1/1	1/1	2/2	-	general-purpose general-purpose	
+real/qs/no-skill-opus	Opus, no skill; prompt asks to plan, delegate, verify	3.04	649	True	7/7	3/3	1/1	2/2	-	general-purpose general-purpose	

@@ -1,0 +1,12 @@
+# Repo notes (click)
+- Source in src/click/, tests in tests/. PYTHONPATH=src is preset. Python 3.11.
+- Tests: `python3 -m pytest -q` → at BASE 2241 passed, 24 skipped, 1 xfailed (stress tests deselected by addopts; normal).
+- Lint/type: `ruff check src tests`, `ruff format --check src tests`, `mypy src`, `pyright src/click/types.py` (1 pre-existing warning about typing_extensions — ignore). All clean at BASE.
+- Param types live in src/click/types.py. Model to copy: `class DateTime(ParamType[datetime])` (~line 522): class docstring, `name = "..."`, `convert(self, value, param, ctx)` that passes through already-converted values, `self.fail(msg, param, ctx)` for errors, `__repr__`.
+- Messages go through gettext: `from gettext import gettext as _` is already imported in types.py; use `_("...").format(...)`.
+- Exports: src/click/__init__.py has `from .types import DateTime as DateTime` (explicit re-export style, alphabetical-ish block).
+- Per-type tests: tests/test_types/test_<Name>.py, plain pytest with `@pytest.mark.parametrize`, calling `type.convert(value, None, None)`; errors via `pytest.raises(click.BadParameter)`. CLI-level tests use the `runner` fixture (CliRunner) from tests/conftest.py.
+- Changelog: CHANGES.md (Markdown), top section "## Version 8.6.0 / Unreleased", bullets using MyST roles like {class}`Option`.
+- Docs: docs/api.md has `.. autoclass:: DateTime`; docs/parameter-types.md lists types in eval-rst blocks (`*   .. autoclass:: DateTime` + `:noindex:`).
+- tests/test_info_dict.py has a parametrized table of types → info dicts (DateTime at ~line 120).
+- No new dependencies. Don't touch .claude/ or .orchestrator/ except your report file.

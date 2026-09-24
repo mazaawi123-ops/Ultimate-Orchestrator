@@ -1,0 +1,46 @@
+{
+  "cost_usd_estimate": 0.6922,
+  "cost_note": "Claude Code local estimate at list price; not a billing record",
+  "num_turns": 9,
+  "subtype": "success",
+  "per_model": {
+    "sonnet": {
+      "input": 60,
+      "output": 22494,
+      "cache_read": 1314542,
+      "cache_write": 60939,
+      "cost_usd_estimate": 0.6922
+    }
+  },
+  "usage_by_agent": {
+    "main|sonnet": {
+      "requests": 17,
+      "input": 34,
+      "output": 119,
+      "cache_read": 928250,
+      "cache_write": 34582
+    },
+    "general-purpose|sonnet": {
+      "requests": 13,
+      "input": 26,
+      "output": 72,
+      "cache_read": 386292,
+      "cache_write": 26357
+    }
+  },
+  "dispatches": [
+    {
+      "agent": "general-purpose",
+      "model_param": null,
+      "description": "Implement truncate() in textkit"
+    },
+    {
+      "agent": "general-purpose",
+      "model_param": null,
+      "description": "Fix wrap() to hard-break long words"
+    }
+  ],
+  "skill_used": false,
+  "wall_seconds": 160,
+  "source": "Sonnet, no skill; prompt asks to plan, delegate, verify"
+}

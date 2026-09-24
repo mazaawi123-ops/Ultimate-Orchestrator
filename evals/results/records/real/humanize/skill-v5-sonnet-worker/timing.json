@@ -1,0 +1,77 @@
+{
+  "cost_usd_estimate": 4.426,
+  "cost_note": "Claude Code local estimate at list price; not a billing record",
+  "num_turns": 2,
+  "subtype": "success",
+  "per_model": {
+    "opus": {
+      "input": 88,
+      "output": 62585,
+      "cache_read": 2462751,
+      "cache_write": 195130,
+      "cost_usd_estimate": 2.9197
+    },
+    "sonnet": {
+      "input": 128,
+      "output": 47202,
+      "cache_read": 3462745,
+      "cache_write": 136595,
+      "cost_usd_estimate": 1.5063
+    }
+  },
+  "usage_by_agent": {
+    "main|opus": {
+      "requests": 23,
+      "input": 52,
+      "output": 1122,
+      "cache_read": 1463246,
+      "cache_write": 66476
+    },
+    "orch-worker-sonnet|sonnet": {
+      "requests": 48,
+      "input": 96,
+      "output": 376,
+      "cache_read": 2706653,
+      "cache_write": 97513
+    },
+    "orch-verifier|opus": {
+      "requests": 18,
+      "input": 36,
+      "output": 153,
+      "cache_read": 999505,
+      "cache_write": 128654
+    },
+    "orch-rechecker|sonnet": {
+      "requests": 16,
+      "input": 32,
+      "output": 125,
+      "cache_read": 756092,
+      "cache_write": 39082
+    }
+  },
+  "dispatches": [
+    {
+      "agent": "orch-worker-sonnet",
+      "model_param": null,
+      "description": "Build parse_size and conjunction"
+    },
+    {
+      "agent": "orch-verifier",
+      "model_param": null,
+      "description": "Verify parse_size and conjunction"
+    },
+    {
+      "agent": "orch-worker-sonnet",
+      "model_param": null,
+      "description": "Fix round 1: parse_size blockers"
+    },
+    {
+      "agent": "orch-rechecker",
+      "model_param": null,
+      "description": "Re-check fix round 1"
+    }
+  ],
+  "skill_used": true,
+  "wall_seconds": 1348,
+  "source": "skill v5 plus a local rule sending work to the Sonnet worker (not committed)"
+}

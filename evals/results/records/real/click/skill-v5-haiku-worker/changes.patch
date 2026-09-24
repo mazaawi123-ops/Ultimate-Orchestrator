@@ -1,0 +1,370 @@
+diff --git a/CHANGES.md b/CHANGES.md
+index 8853860..0f5de1d 100644
+--- a/CHANGES.md
++++ b/CHANGES.md
+@@ -6,6 +6,9 @@ Unreleased
+   keyword, is deprecated and raises `TypeError` in Click 9.0. {pr}`3866`
+ - An {class}`Option` name written as a Python identifier is deprecated when it
+   is not already lower-cased. {pr}`3866`
++- Add the {class}`Duration` parameter type, which converts values such as
++  `90s`, `15m`, `1.5h` or `1h30m` into a {class}`datetime.timedelta`. A plain
++  number is a number of seconds.
+ 
+ ## Version 8.5.1
+ 
+diff --git a/docs/api.md b/docs/api.md
+index df62cf5..23c0d94 100644
+--- a/docs/api.md
++++ b/docs/api.md
+@@ -256,6 +256,10 @@ classes and functions.
+ .. autoclass:: DateTime
+ ```
+ 
++```{eval-rst}
++.. autoclass:: Duration
++```
++
+ ```{eval-rst}
+ .. autoclass:: Tuple
+ ```
+diff --git a/docs/parameter-types.md b/docs/parameter-types.md
+index 470eb07..8a92b06 100644
+--- a/docs/parameter-types.md
++++ b/docs/parameter-types.md
+@@ -133,6 +133,11 @@ The supported parameter {ref}`click-api-types` are
+        :noindex:
+ ```
+ 
++```{eval-rst}
++*   .. autoclass:: Duration
++       :noindex:
++```
++
+ ```{eval-rst}
+ *   .. autoclass:: File
+        :noindex:
+diff --git a/src/click/__init__.py b/src/click/__init__.py
+index a34ab02..61f8c42 100644
+--- a/src/click/__init__.py
++++ b/src/click/__init__.py
+@@ -56,6 +56,7 @@ from .termui import unstyle as unstyle
+ from .types import BOOL as BOOL
+ from .types import Choice as Choice
+ from .types import DateTime as DateTime
++from .types import Duration as Duration
+ from .types import File as File
+ from .types import FLOAT as FLOAT
+ from .types import FloatRange as FloatRange
+diff --git a/src/click/types.py b/src/click/types.py
+index b6e98a9..53fbf89 100644
+--- a/src/click/types.py
++++ b/src/click/types.py
+@@ -4,11 +4,13 @@ import abc
+ import collections.abc as cabc
+ import enum
+ import os
++import re
+ import stat
+ import sys
+ import typing as t
+ import uuid
+ from datetime import datetime
++from datetime import timedelta
+ from gettext import gettext as _
+ from gettext import ngettext
+ 
+@@ -590,6 +592,104 @@ class DateTime(ParamType[datetime]):
+         return "DateTime"
+ 
+ 
++_DURATION_NUMBER = r"[0-9]+(?:\.[0-9]+)?"
++_DURATION_SECONDS_RE = re.compile(_DURATION_NUMBER)
++_DURATION_RE = re.compile(
++    rf"(?:(?P<days>{_DURATION_NUMBER})d)?"
++    rf"(?:(?P<hours>{_DURATION_NUMBER})h)?"
++    rf"(?:(?P<minutes>{_DURATION_NUMBER})m)?"
++    rf"(?:(?P<seconds>{_DURATION_NUMBER})s)?"
++)
++
++
++class Duration(ParamType[timedelta]):
++    """The Duration type converts duration strings into `datetime.timedelta`
++    objects.
++
++    Accepts values in the following formats:
++
++    - A plain number is interpreted as seconds.
++    - A duration string with units: a combination of days (d), hours (h),
++      minutes (m), and seconds (s), in that order. For example, ``1h30m``,
++      ``90s``, or ``1d2h3m4s``.
++    - Decimals are accepted in any unit, such as ``1.5h``.
++    - Already a `datetime.timedelta` object, which is returned unchanged
++      (including a negative one).
++
++    Negative numbers and strings are rejected. A nonzero value that is
++    smaller than one microsecond (and therefore would round down to a zero
++    duration) is also rejected.
++
++    .. versionadded:: 8.6
++    """
++
++    name = "duration"
++
++    def _fail_invalid(
++        self, value: t.Any, param: Parameter | None, ctx: Context | None
++    ) -> t.NoReturn:
++        self.fail(
++            _(
++                "{value!r} is not a valid duration. Use a number of "
++                "seconds or a combination of days, hours, minutes and "
++                "seconds, such as '90s', '1.5h' or '1h30m'."
++            ).format(value=value),
++            param,
++            ctx,
++        )
++
++    def convert(
++        self, value: t.Any, param: Parameter | None, ctx: Context | None
++    ) -> timedelta:
++        if isinstance(value, timedelta):
++            return value
++
++        if isinstance(value, (int, float)) and not isinstance(value, bool):
++            if not value >= 0:
++                self._fail_invalid(value, param, ctx)
++
++            try:
++                result = timedelta(seconds=value)
++            except (OverflowError, ValueError):
++                self._fail_invalid(value, param, ctx)
++
++            if value > 0 and result == timedelta(0):
++                self._fail_invalid(value, param, ctx)
++
++            return result
++
++        if isinstance(value, str):
++            text = value.strip()
++
++            if _DURATION_SECONDS_RE.fullmatch(text):
++                parts = {"seconds": float(text)}
++            else:
++                match = _DURATION_RE.fullmatch(text)
++                if match is None:
++                    self._fail_invalid(value, param, ctx)
++
++                parts = {
++                    k: float(v) for k, v in match.groupdict().items() if v is not None
++                }
++                if not parts:
++                    self._fail_invalid(value, param, ctx)
++
++            try:
++                result = timedelta(**parts)
++            except (OverflowError, ValueError):
++                self._fail_invalid(value, param, ctx)
++
++            if any(v > 0 for v in parts.values()) and result == timedelta(0):
++                self._fail_invalid(value, param, ctx)
++
++            return result
++
++        self._fail_invalid(value, param, ctx)
++
++    def __repr__(self) -> str:
++        return "Duration"
++
++
+ class _NumberParamTypeBase(
+     ParamType[_ValueT_co], t.Generic[_ValueT_contra, _ValueT_co]
+ ):
+diff --git a/tests/test_info_dict.py b/tests/test_info_dict.py
+index 58babcc..769b57c 100644
+--- a/tests/test_info_dict.py
++++ b/tests/test_info_dict.py
+@@ -121,6 +121,11 @@ HELLO_GROUP = (
+             {"param_type": "DateTime", "name": "datetime", "formats": ["%Y-%m-%d"]},
+             id="DateTime ParamType",
+         ),
++        pytest.param(
++            click.Duration(),
++            {"param_type": "Duration", "name": "duration"},
++            id="Duration ParamType",
++        ),
+         pytest.param(*INT_PARAM_TYPE, id="INT ParamType"),
+         pytest.param(
+             click.IntRange(0, 10, clamp=True),
+diff --git a/tests/test_types/test_Duration.py b/tests/test_types/test_Duration.py
+new file mode 100644
+index 0000000..7e5843b
+--- /dev/null
++++ b/tests/test_types/test_Duration.py
+@@ -0,0 +1,168 @@
++from datetime import timedelta
++
++import pytest
++
++import click
++from click.testing import CliRunner
++
++
+<email>(
++    ("value", "expect"),
++    [
++        ("90s", timedelta(seconds=90)),
++        ("15m", timedelta(minutes=15)),
++        ("2h", timedelta(hours=2)),
++        ("1d", timedelta(days=1)),
++        ("1.5h", timedelta(hours=1, minutes=30)),
++        ("1h30m", timedelta(hours=1, minutes=30)),
++        ("1d2h3m4s", timedelta(days=1, hours=2, minutes=3, seconds=4)),
++        ("2h15s", timedelta(hours=2, seconds=15)),
++        ("1.5h30m", timedelta(hours=2)),
++        ("1.1h", timedelta(seconds=3960)),
++        ("0.000001s", timedelta(microseconds=1)),
++        ("90", timedelta(seconds=90)),
++        ("1.5", timedelta(seconds=1.5)),
++        ("0", timedelta(0)),
++        ("0s", timedelta(0)),
++        ("  2h ", timedelta(hours=2)),
++        (90, timedelta(seconds=90)),
++        (1.5, timedelta(seconds=1.5)),
++        (0, timedelta(0)),
++        ("0.0s", timedelta(0)),
++        ("0h0m", timedelta(0)),
++        ("0.000000s", timedelta(0)),
++        (0.0, timedelta(0)),
++        ("0.0000001h", timedelta(microseconds=360)),
++        ("0.0000015s", timedelta(microseconds=2)),
++    ],
++)
++def test_duration_valid(value, expect):
++    result = click.Duration().convert(value, None, None)
++    assert result == expect
++
++
+<email>(
++    ("value",),
++    [
++        (timedelta(minutes=5),),
++        (timedelta(0),),
++        (timedelta(seconds=-5),),
++    ],
++)
++def test_duration_passthrough(value):
++    """timedelta inputs are returned unchanged (identity)."""
++    result = click.Duration().convert(value, None, None)
++    assert result is value
++
++
+<email>(
++    ("value",),
++    [
++        ("",),
++        ("   ",),
++        ("abc",),
++        ("h",),
++        ("1x",),
++        ("1w",),
++        ("1ms",),
++        ("2H",),
++        ("1h 30m",),
++        ("30m1h",),
++        ("1h1h",),
++        ("-5",),
++        ("+5",),
++        ("-1h",),
++        ("1e3",),
++        ("inf",),
++        ("nan",),
++        ("1_000",),
++        (".5h",),
++        ("1.h",),
++        ("1.5.2h",),
++        ("١h",),  # Arabic-Indic digit one + h
++        ("²s",),  # superscript 2 + s
++        ("999999999999d",),
++        ("9" * 400,),
++        (True,),
++        (False,),
++        (None,),
++        (b"90s",),
++        ([1],),
++        (-1,),
++        (-0.5,),
++        (float("nan"),),
++        (float("inf"),),
++        (10**20,),
++        ("0.0000005s",),
++        ("0.0000004s",),
++        (1e-7,),
++        (5e-7,),
++    ],
++)
++def test_duration_invalid(value):
++    """Invalid values raise click.BadParameter."""
++    with pytest.raises(click.BadParameter) as exc_info:
++        click.Duration().convert(value, None, None)
++
++    message = exc_info.value.message
++    assert "is not a valid duration" in message
++    assert repr(value) in message
++
++
++def test_duration_cli():
++    """Test Duration through the CLI."""
++
++    @click.command()
++    @click.option("--timeout", type=click.Duration())
++    def cmd(timeout):
++        click.echo(repr(timeout))
++
++    runner = CliRunner()
++
++    # Valid: 1h30m
++    result = runner.invoke(cmd, ["--timeout", "1h30m"])
++    assert result.exit_code == 0
++    assert "datetime.timedelta(seconds=5400)" in result.output
++
++    # Invalid: 1x
++    result = runner.invoke(cmd, ["--timeout", "1x"])
++    assert result.exit_code == 2
++    assert "Invalid value for '--timeout'" in result.output
++    assert "'1x'" in result.output
++
++
++def test_duration_defaults():
++    """Test Duration with defaults."""
++
++    @click.command()
++    @click.option("--timeout-int", type=click.Duration(), default=90)
++    @click.option("--timeout-str", type=click.Duration(), default="2h")
++    def cmd(timeout_int, timeout_str):
++        click.echo(f"int:{repr(timeout_int)}")
++        click.echo(f"str:{repr(timeout_str)}")
++
++    runner = CliRunner()
++    result = runner.invoke(cmd, [])
++    assert result.exit_code == 0
++    assert "datetime.timedelta(seconds=90)" in result.output
++    assert "datetime.timedelta(seconds=7200)" in result.output
++
++
++def test_duration_repr():
++    """Test repr and name."""
++    d = click.Duration()
++    assert repr(d) == "Duration"
++    assert d.name == "duration"
++
++
++def test_duration_is_param_type():
++    """Test that Duration is a ParamType."""
++    d = click.Duration()
++    assert isinstance(d, click.ParamType)
++
++
++def test_duration_to_info_dict():
++    """Test to_info_dict."""
++    d = click.Duration()
++    info = d.to_info_dict()
++    assert info == {"param_type": "Duration", "name": "duration"}

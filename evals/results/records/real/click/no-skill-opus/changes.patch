@@ -1,0 +1,335 @@
+diff --git a/CHANGES.md b/CHANGES.md
+index 8853860..795f1ae 100644
+--- a/CHANGES.md
++++ b/CHANGES.md
+@@ -6,6 +6,9 @@ Unreleased
+   keyword, is deprecated and raises `TypeError` in Click 9.0. {pr}`3866`
+ - An {class}`Option` name written as a Python identifier is deprecated when it
+   is not already lower-cased. {pr}`3866`
++- Add the {class}`Duration` parameter type, which converts values such as
++  `90s`, `15m`, `1.5h`, or `1h30m` to a {class}`datetime.timedelta`. A plain
++  number is a number of seconds.
+ 
+ ## Version 8.5.1
+ 
+diff --git a/docs/api.md b/docs/api.md
+index df62cf5..23c0d94 100644
+--- a/docs/api.md
++++ b/docs/api.md
+@@ -256,6 +256,10 @@ classes and functions.
+ .. autoclass:: DateTime
+ ```
+ 
++```{eval-rst}
++.. autoclass:: Duration
++```
++
+ ```{eval-rst}
+ .. autoclass:: Tuple
+ ```
+diff --git a/docs/parameter-types.md b/docs/parameter-types.md
+index 470eb07..8a92b06 100644
+--- a/docs/parameter-types.md
++++ b/docs/parameter-types.md
+@@ -133,6 +133,11 @@ The supported parameter {ref}`click-api-types` are
+        :noindex:
+ ```
+ 
++```{eval-rst}
++*   .. autoclass:: Duration
++       :noindex:
++```
++
+ ```{eval-rst}
+ *   .. autoclass:: File
+        :noindex:
+diff --git a/src/click/__init__.py b/src/click/__init__.py
+index a34ab02..61f8c42 100644
+--- a/src/click/__init__.py
++++ b/src/click/__init__.py
+@@ -56,6 +56,7 @@ from .termui import unstyle as unstyle
+ from .types import BOOL as BOOL
+ from .types import Choice as Choice
+ from .types import DateTime as DateTime
++from .types import Duration as Duration
+ from .types import File as File
+ from .types import FLOAT as FLOAT
+ from .types import FloatRange as FloatRange
+diff --git a/src/click/types.py b/src/click/types.py
+index b6e98a9..e3886c2 100644
+--- a/src/click/types.py
++++ b/src/click/types.py
+@@ -4,11 +4,13 @@ import abc
+ import collections.abc as cabc
+ import enum
+ import os
++import re
+ import stat
+ import sys
+ import typing as t
+ import uuid
+ from datetime import datetime
++from datetime import timedelta
+ from gettext import gettext as _
+ from gettext import ngettext
+ 
+@@ -590,6 +592,84 @@ class DateTime(ParamType[datetime]):
+         return "DateTime"
+ 
+ 
++_DURATION_NUMBER = r"(?:\d+(?:\.\d*)?|\.\d+)"
++_DURATION_RE = re.compile(
++    rf"(?P<seconds>{_DURATION_NUMBER})"
++    rf"|(?:(?P<d>{_DURATION_NUMBER})d)?"
++    rf"(?:(?P<h>{_DURATION_NUMBER})h)?"
++    rf"(?:(?P<m>{_DURATION_NUMBER})m)?"
++    rf"(?:(?P<s>{_DURATION_NUMBER})s)?",
++    re.ASCII,
++)
++
++
++class Duration(ParamType[timedelta]):
++    """The Duration type converts duration strings into ``timedelta``
++    objects.
++
++    A duration is a non-negative number followed by a unit: ``d`` (days),
++    ``h`` (hours), ``m`` (minutes), or ``s`` (seconds), such as ``90s``,
++    ``15m``, ``2h``, or ``1d``. Numbers may have a decimal part, such as
++    ``1.5h``. Units can be combined, each at most once and in the order
++    ``d``, ``h``, ``m``, ``s``, without spaces, such as ``1h30m`` or
++    ``1d2h3m4s``. Units are lowercase only.
++
++    A plain number without a unit, such as ``90`` or ``1.5``, is a number of
++    seconds. Leading and trailing whitespace is ignored.
++
++    A ``timedelta`` value is returned unchanged. An ``int`` or ``float``
++    value, such as a ``default``, is a number of seconds.
++
++    .. versionadded:: 8.6.0
++    """
++
++    name = "duration"
++
++    def convert(
++        self, value: t.Any, param: Parameter | None, ctx: Context | None
++    ) -> timedelta:
++        if isinstance(value, timedelta):
++            return value
++
++        try:
++            # bool is a subclass of int, but True is not a duration.
++            if isinstance(value, (int, float)) and not isinstance(value, bool):
++                # Rejects negative, infinite, and NaN values.
++                if 0 <= value < float("inf"):
++                    return timedelta(seconds=value)
++            elif isinstance(value, str):
++                match = _DURATION_RE.fullmatch(value.strip())
++
++                if match is not None and any(match.groups()):
++                    if match["seconds"] is not None:
++                        return timedelta(seconds=float(match["seconds"]))
++
++                    return timedelta(
++                        days=float(match["d"] or 0),
++                        hours=float(match["h"] or 0),
++                        minutes=float(match["m"] or 0),
++                        seconds=float(match["s"] or 0),
++                    )
++        except OverflowError:
++            self.fail(
++                _("{value!r} is too large to be a duration.").format(value=value),
++                param,
++                ctx,
++            )
++
++        self.fail(
++            _(
++                "{value!r} is not a valid duration. Use a number of seconds or"
++                " units d, h, m, s, such as '1h30m'."
++            ).format(value=value),
++            param,
++            ctx,
++        )
++
++    def __repr__(self) -> str:
++        return "Duration"
++
++
+ class _NumberParamTypeBase(
+     ParamType[_ValueT_co], t.Generic[_ValueT_contra, _ValueT_co]
+ ):
+diff --git a/tests/test_info_dict.py b/tests/test_info_dict.py
+index 58babcc..769b57c 100644
+--- a/tests/test_info_dict.py
++++ b/tests/test_info_dict.py
+@@ -121,6 +121,11 @@ HELLO_GROUP = (
+             {"param_type": "DateTime", "name": "datetime", "formats": ["%Y-%m-%d"]},
+             id="DateTime ParamType",
+         ),
++        pytest.param(
++            click.Duration(),
++            {"param_type": "Duration", "name": "duration"},
++            id="Duration ParamType",
++        ),
+         pytest.param(*INT_PARAM_TYPE, id="INT ParamType"),
+         pytest.param(
+             click.IntRange(0, 10, clamp=True),
+diff --git a/tests/test_types/test_Duration.py b/tests/test_types/test_Duration.py
+new file mode 100644
+index 0000000..b3df51b
+--- /dev/null
++++ b/tests/test_types/test_Duration.py
+@@ -0,0 +1,153 @@
++from datetime import timedelta
++
++import pytest
++
++import click
++
++
+<email>(
++    ("value", "expect"),
++    [
++        ("90s", timedelta(seconds=90)),
++        ("15m", timedelta(minutes=15)),
++        ("2h", timedelta(hours=2)),
++        ("1d", timedelta(days=1)),
++        ("0s", timedelta()),
++        ("1.5h", timedelta(hours=1, minutes=30)),
++        (".5h", timedelta(minutes=30)),
++        ("1.h", timedelta(hours=1)),
++        ("0.25m", timedelta(seconds=15)),
++        ("1h30m", timedelta(hours=1, minutes=30)),
++        ("2h15s", timedelta(hours=2, seconds=15)),
++        ("1d2h3m4s", timedelta(days=1, hours=2, minutes=3, seconds=4)),
++        ("1.5h30m", timedelta(hours=2)),
++        ("90", timedelta(seconds=90)),
++        ("1.5", timedelta(seconds=1.5)),
++        (".5", timedelta(seconds=0.5)),
++        ("1.", timedelta(seconds=1)),
++        ("  1h30m  ", timedelta(hours=1, minutes=30)),
++        ("\t90\n", timedelta(seconds=90)),
++        (90, timedelta(seconds=90)),
++        (0, timedelta()),
++        (1.5, timedelta(seconds=1.5)),
++    ],
++)
++def test_convert(value, expect):
++    assert click.Duration().convert(value, None, None) == expect
++
++
++def test_timedelta_identity():
++    value = timedelta(hours=1)
++    assert click.Duration().convert(value, None, None) is value
++
++
+<email>(
++    "value",
++    [
++        "",
++        "   ",
++        "1h 30m",
++        "30m1h",
++        "1h1h",
++        "2H",
++        "1M",
++        "1w",
++        "1ms",
++        "-5s",
++        "-5",
++        "+5",
++        "1e3",
++        "1_000",
++        "inf",
++        "nan",
++        "abc",
++        "h",
++        "1.5.5h",
++        "1h30",
++        ".",
++        ".h",
++        "1h\n30m",
++        "١s",
++        True,
++        False,
++        -1,
++        -0.5,
++        float("inf"),
++        float("nan"),
++        None,
++        ["1h"],
++    ],
++)
++def test_invalid(value):
++    with pytest.raises(click.BadParameter) as exc_info:
++        click.Duration().convert(value, None, None)
++
++    message = exc_info.value.message
++    assert repr(value) in message
++    assert "is not a valid duration" in message
++
++
+<email>("value", ["999999999999d", "9" * 400, 10**20])
++def test_overflow(value):
++    with pytest.raises(click.BadParameter) as exc_info:
++        click.Duration().convert(value, None, None)
++
++    assert repr(value) in exc_info.value.message
++    assert "too large" in exc_info.value.message
++
++
++def test_repr():
++    assert repr(click.Duration()) == "Duration"
++
++
+<email>
++def timeout_cli():
++    @click.command()
++    @click.option("--timeout", type=click.Duration(), default=90)
++    def cli(timeout):
++        assert isinstance(timeout, timedelta)
++        click.echo(timeout.total_seconds())
++
++    return cli
++
++
+<email>(
++    ("args", "expect"),
++    [
++        (["--timeout", "1h30m"], "5400.0"),
++        (["--timeout", "1.5m"], "90.0"),
++        ([], "90.0"),
++    ],
++)
++def test_option(runner, timeout_cli, args, expect):
++    result = runner.invoke(timeout_cli, args)
++    assert result.exit_code == 0, result.output
++    assert result.output == f"{expect}\n"
++
++
+<email>("value", ["30m1h", "999999999999d"])
++def test_option_invalid(runner, timeout_cli, value):
++    result = runner.invoke(timeout_cli, ["--timeout", value])
++    assert result.exit_code == 2
++    assert "Invalid value for '--timeout'" in result.output
++    assert repr(value) in result.output
++    assert "Traceback" not in result.output
++
++
+<email>("default", ["1h", timedelta(hours=1)])
++def test_option_default(runner, default):
++    @click.command()
++    @click.option("--timeout", type=click.Duration(), default=default)
++    def cli(timeout):
++        assert timeout == timedelta(hours=1)
++
++        if isinstance(default, timedelta):
++            assert timeout is default
++
++    result = runner.invoke(cli, [])
++    assert result.exit_code == 0, result.output
++
++
++def test_option_metavar(runner, timeout_cli):
++    result = runner.invoke(timeout_cli, ["--help"])
++    assert "--timeout DURATION" in result.output

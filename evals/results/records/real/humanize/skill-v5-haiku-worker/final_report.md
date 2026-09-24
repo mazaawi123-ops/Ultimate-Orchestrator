@@ -1,0 +1,32 @@
+## Result: done
+Both changes are built and passed independent verification after one fix round.
+
+- **Built:**
+  - `humanize.parse_size(text) -> int` is in `src/humanize/filesize.py` and exported from the package.
+  - It accepts decimal units (kB–QB), binary units (KiB–QiB), GNU units (K–Q and `B`), and `Byte`/`Bytes`. It also takes negatives and scientific notation, which a custom `format` can produce.
+  - It uses exact arithmetic, so `"4.35 kB"` gives 4350 and `"1.0 QiB"` gives exactly 1024**10.
+  - Every failure raises `ValueError("could not parse size: <repr>")`.
+  - `natural_list(items, conjunction="and")` now gives `'a, b or c'` when passed `"or"`. The default output hasn't changed.
+  - I added an example to the README.
+- **Acceptance criteria:** 6 of 6 verified.
+- **Tests:** `python3 -m pytest -q --benchmark-disable` gives 849 passed, 112 skipped. Before the change it was 744 passed, so 105 tests are new. Lint (`ruff check --no-fix src tests && mypy src`) is clean. Clean-room check: not applicable, since nothing calls an external service.
+- **Iterations:**
+  - The first build passed its tests. The verifier then checked about 139k round-trips, about 62k custom-format strings and 300k fuzzed inputs, and failed one criterion: a number over 4,300 digits raised Python's own digit-limit error instead of our message.
+  - It also found two should-fixes. Importing `fractions` at the top of the module slowed every `import humanize`, and the repo deliberately keeps imports lazy. The round-trip test was also too loose: a parser that was 5% off would still pass.
+  - One Sonnet fix round fixed all of these plus two nits. The Sonnet re-check marked every finding addressed and ran a deliberately broken parser (results off by 0.1%) against the new tests; they caught it.
+  - The test count went from 852 to 849 because 30 round-trip cases were merged into loops that now cover about 2,100 values per mode. No test that existed before this change was edited or removed.
+- **Rulings I made** (all in `.orchestrator/plan.md`):
+  - Units are case-sensitive, exactly as `naturalsize` writes them, so `"1.0 KB"` and `"1.0 kb"` raise ValueError. "KB" is ambiguous (kB or KiB), so it fails loudly; this is easy to relax later.
+  - A bare number such as `"1024"` raises ValueError.
+  - Results round to the nearest byte, with ties going to the even number. `"2.9 KiB"` gives 2970.
+  - Space between the number and the unit is optional for every style, and `Byte`/`Bytes`/`B` are all ×1.
+  - Numbers must use ASCII digits. There are no thousands separators, `inf` or `nan`, and the exponent can have at most 3 digits.
+  - Only the English unit names are understood: `naturalsize` output under a non-English locale (e.g. French "1.0 Ko") raises ValueError. The docstring says so.
+  - Input that isn't a string raises ValueError, not TypeError, because you asked for ValueError on anything it can't parse.
+  - `conjunction` is used exactly as passed, and there's still no Oxford comma.
+- **Open items:**
+  - There's no limit on how many digits the number can have. With Python's default digit limit this is already bounded. Only a caller who turns that limit off could make a very long number slow to parse (about 5 s for 1M digits).
+  - `naturalsize` itself loses precision above about 10^100 because it converts to float. That existed before this change and isn't part of it.
+- **Not verified:** how the docs site renders the new docstring (mkdocs wasn't built), and Python versions other than 3.11.
+- **Branch:** `orch/parse-size-conjunction` from `main` at 392aef7, two commits (ce0fcb4, 0b45ba7). Not pushed. To take it: `git merge orch/parse-size-conjunction`.
+- **Mode:** Lite. Agents: a Haiku worker, an Opus verifier, a Sonnet fix worker and a Sonnet re-checker. My estimate was about $2.5–3; the extra fix round probably took it a little over. As you asked, the plan, notes, worker reports and diffs are all still in `.orchestrator/`; git ignores that folder.

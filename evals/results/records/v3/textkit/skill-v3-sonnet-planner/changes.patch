@@ -1,0 +1,153 @@
+diff --git a/src/index.js b/src/index.js
+index 86d8ee8..a4155d7 100644
+--- a/src/index.js
++++ b/src/index.js
+@@ -1,2 +1,3 @@
+ export { slugify } from "./slug.js";
+ export { wrap } from "./wrap.js";
++export { truncate } from "./truncate.js";
+diff --git a/src/truncate.js b/src/truncate.js
+new file mode 100644
+index 0000000..ab06301
+--- /dev/null
++++ b/src/truncate.js
+@@ -0,0 +1,13 @@
++export function truncate(text, max, ellipsis = "…") {
++  const str = String(text);
++  const chars = Array.from(str);           // code-point aware split
++  if (chars.length <= max) return str;
++
++  const ellipsisChars = Array.from(String(ellipsis));
++  if (max <= 0) return "";
++  if (ellipsisChars.length >= max) {
++    return ellipsisChars.slice(0, max).join("");
++  }
++  const keep = max - ellipsisChars.length;
++  return chars.slice(0, keep).join("") + ellipsisChars.join("");
++}
+diff --git a/src/wrap.js b/src/wrap.js
+index a100c02..419ab12 100644
+--- a/src/wrap.js
++++ b/src/wrap.js
+@@ -1,14 +1,33 @@
+-// Hard-wrap text at `width` columns, breaking on spaces.
++// Hard-wrap text at `width` columns, breaking on spaces. Words longer than
++// `width` are split on Unicode code-point boundaries so a surrogate pair is
++// never cut in half, while each resulting line's UTF-16 `.length` still never
++// exceeds `width` (a single code point whose own `.length` already exceeds
++// `width`, e.g. one emoji with width 1, is the one unavoidable exception).
+ export function wrap(text, width = 80) {
++  const w = Math.max(1, width);
+   const words = String(text).split(/\s+/).filter(Boolean);
+   const lines = [];
+   let line = "";
+-  for (const w of words) {
+-    if ((line + " " + w).trim().length > width && line) {
++
++  for (const word of words) {
++    const candidate = (line + " " + word).trim();
++    if (candidate.length > w && line) {
+       lines.push(line);
+-      line = w;
++      line = "";
++    }
++    if (word.length > w) {
++      let chunk = "";
++      for (const cp of Array.from(word)) {
++        if (chunk.length + cp.length > w && chunk) {
++          lines.push(chunk);
++          chunk = cp;
++        } else {
++          chunk += cp;
++        }
++      }
++      line = chunk;
+     } else {
+-      line = (line + " " + w).trim();
++      line = (line + " " + word).trim();
+     }
+   }
+   if (line) lines.push(line);
+diff --git a/test/truncate.test.js b/test/truncate.test.js
+new file mode 100644
+index 0000000..a5e1c61
+--- /dev/null
++++ b/test/truncate.test.js
+@@ -0,0 +1,33 @@
++import { test } from "node:test";
++import assert from "node:assert/strict";
++import { truncate } from "../src/truncate.js";
++
++test("no-op: text shorter than max", () => {
++  assert.equal(truncate("hello", 10), "hello");
++});
++
++test("exact boundary: text length equals max", () => {
++  assert.equal(truncate("hello", 5), "hello");
++});
++
++test("basic truncation with default ellipsis", () => {
++  assert.equal(truncate("hello world", 8), "hello w…");
++});
++
++test("custom ellipsis", () => {
++  assert.equal(truncate("hello world", 8, "..."), "hello...");
++});
++
++test("surrogate-pair safety with emoji", () => {
++  const result = truncate("😀😀😀😀", 3);
++  assert.equal(result, "😀😀…");
++  assert.equal([...result].length, 3);
++});
++
++test("max smaller than ellipsis length", () => {
++  assert.equal(truncate("hello", 0), "");
++});
++
++test("empty string input", () => {
++  assert.equal(truncate("", 5), "");
++});
+diff --git a/test/wrap.test.js b/test/wrap.test.js
+index 9196c90..dfa30e3 100644
+--- a/test/wrap.test.js
++++ b/test/wrap.test.js
+@@ -5,3 +5,39 @@ import { wrap } from "../src/wrap.js";
+ test("wraps at width", () => {
+   assert.equal(wrap("aaa bbb ccc ddd", 7), "aaa bbb\nccc ddd");
+ });
++
++test("splits long word at width boundary", () => {
++  assert.equal(wrap("aaaaaaaaaa", 5), "aaaaa\naaaaa");
++});
++
++test("splits long word in middle of text", () => {
++  assert.equal(wrap("hi aaaaaaaaaa bye", 5), "hi\naaaaa\naaaaa\nbye");
++});
++
++test("no line exceeds width", () => {
++  const result = wrap("hi aaaaaaaaaa bye", 5);
++  const lines = result.split("\n");
++  assert.ok(lines.every(l => l.length <= 5), `All lines should be <= 5 chars, but got: ${JSON.stringify(lines)}`);
++});
++
++test("hard-break respects UTF-16 length for astral characters (emoji)", () => {
++  const result = wrap("😀😀😀😀😀", 5);
++  const lines = result.split("\n");
++  assert.ok(
++    lines.every(l => l.length <= 5),
++    `All lines should have .length <= 5, but got: ${JSON.stringify(lines)} (lengths: ${JSON.stringify(lines.map(l => l.length))})`
++  );
++  // No code points lost or corrupted: all 5 emoji survive.
++  assert.equal(Array.from(result.replace(/\n/g, "")).length, 5);
++  // No lone surrogate: confirms no surrogate pair was split across chunks.
++  assert.ok(
++    !/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(result)
++  );
++});
++
++test("width <= 0 does not hang", () => {
++  const a = wrap("abc", 0);
++  const b = wrap("abc def", -1);
++  assert.equal(typeof a, "string");
++  assert.equal(typeof b, "string");
++});

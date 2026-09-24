@@ -1,0 +1,75 @@
+{
+  "expectations": [
+    {
+      "text": "Full pytest suite passes",
+      "passed": true,
+      "evidence": "................                                                         [100%]\n16 passed in 0.04s"
+    },
+    {
+      "text": "New tests added (suite grew beyond the original 3)",
+      "passed": true,
+      "evidence": "16 tests passed"
+    },
+    {
+      "text": "`add --due` stores ISO date on the item in the JSON file",
+      "passed": true,
+      "evidence": "items=[{'id': 1, 'title': 'pay rent', 'done': False, 'due': '2020-01-01'}, {'id': 2, 'title': 'future', 'done': False, 'due': '2099-01-01'}, {'id': 3, 'title': 'nodate', 'done': False, 'due': None}, {'id': 4, 'title': 'due today', 'done': False, 'due': '2026-09-23'}]"
+    },
+    {
+      "text": "`list` shows the due date next to dated items",
+      "passed": true,
+      "evidence": "[ ] #1 pay rent (due 2020-01-01)\n[ ] #2 future (due 2099-01-01)\n[ ] #3 nodate\n[ ] #4 due today (due 2026-09-23)"
+    },
+    {
+      "text": "`overdue` lists only open items with due < today",
+      "passed": true,
+      "evidence": "rc=0\n[ ] #1 pay rent (due 2020-01-01)"
+    },
+    {
+      "text": "Completed items are excluded from `overdue`",
+      "passed": true,
+      "evidence": "(empty)"
+    },
+    {
+      "text": "Legacy JSON without a due field still loads for list and overdue",
+      "passed": true,
+      "evidence": "[ ] #1 old"
+    },
+    {
+      "text": "An item due today is not listed by `overdue` (only due < today)",
+      "passed": true,
+      "evidence": "rc=0 out=(empty)"
+    },
+    {
+      "text": "An invalid --due date (2026-02-30) is rejected and not stored",
+      "passed": true,
+      "evidence": "rc=1 stored=False out=error: invalid --due date '2026-02-30', expected YYYY-MM-DD"
+    },
+    {
+      "text": "Written plan with explicit, verifiable acceptance criteria exists",
+      "passed": true,
+      "evidence": "plan.md present; acceptance criteria found"
+    },
+    {
+      "text": "Final report cites the test command and its real result",
+      "passed": true,
+      "evidence": "test command and result found in the report"
+    },
+    {
+      "text": "Final report gives per-criterion verdict (N/M verified or per-AC PASS/FAIL)",
+      "passed": true,
+      "evidence": "per-criterion verdicts found"
+    },
+    {
+      "text": "Report surfaces open items / design decisions for the user",
+      "passed": true,
+      "evidence": "found"
+    }
+  ],
+  "summary": {
+    "passed": 13,
+    "failed": 0,
+    "total": 13,
+    "pass_rate": 1.0
+  }
+}

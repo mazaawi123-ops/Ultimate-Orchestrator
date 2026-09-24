@@ -1,0 +1,83 @@
+{
+  "expectations": [
+    {
+      "text": "Full suite passes",
+      "category": "regression",
+      "passed": true,
+      "evidence": "866 passed; rc=0"
+    },
+    {
+      "text": "No existing test weakened",
+      "category": "safety",
+      "passed": true,
+      "evidence": "[]"
+    },
+    {
+      "text": "New tests added (beyond 744)",
+      "category": "artifact",
+      "passed": true,
+      "evidence": "866 passed"
+    },
+    {
+      "text": "parse_size exported from humanize and in __all__",
+      "category": "functional",
+      "passed": true,
+      "evidence": "True"
+    },
+    {
+      "text": "Exact ints for every naturalsize output style",
+      "category": "functional",
+      "passed": true,
+      "evidence": "{\"1 Byte\": 1, \"42 Bytes\": 42, \"0 Bytes\": 0, \"1.5 MB\": 1500000, \"-2.0 kB\": -2000, \"1.0 KiB\": 1024, \"2.5 GiB\": 2684354560, \"1.0K\": 1024, \"42B\": 42}"
+    },
+    {
+      "text": "Large units exact (1.0 YB == 10**24, 1.0 RiB == 1024**9)",
+      "category": "functional",
+      "passed": true,
+      "evidence": "{\"1.0 YB\": 1000000000000000000000000, \"1.0 RiB\": 1237940039285380274899124224}"
+    },
+    {
+      "text": "Unparseable input raises ValueError",
+      "category": "functional",
+      "passed": true,
+      "evidence": "{\"\": \"ValueError\", \"abc\": \"ValueError\", \"5 XB\": \"ValueError\", \"1.2.3 MB\": \"ValueError\", \"MB\": \"ValueError\", \"kB 5\": \"ValueError\"}"
+    },
+    {
+      "text": "Round-trip within display precision",
+      "category": "functional",
+      "passed": true,
+      "evidence": "[]"
+    },
+    {
+      "text": "natural_list conjunction works; default unchanged",
+      "category": "functional",
+      "passed": true,
+      "evidence": "[\"a, b or c\", \"a or b\", \"a, b and c\", \"\", \"a\"]"
+    }
+  ],
+  "by_category": {
+    "regression": {
+      "passed": 1,
+      "total": 1
+    },
+    "safety": {
+      "passed": 1,
+      "total": 1
+    },
+    "artifact": {
+      "passed": 1,
+      "total": 1
+    },
+    "functional": {
+      "passed": 6,
+      "total": 6
+    }
+  },
+  "task_success": true,
+  "summary": {
+    "passed": 9,
+    "failed": 0,
+    "total": 9,
+    "pass_rate": 1.0
+  }
+}

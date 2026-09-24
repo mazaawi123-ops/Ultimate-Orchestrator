@@ -37,7 +37,7 @@ proven optima.
 ## What the helper guarantees
 
 `code-orchestrator/scripts/orch.sh` runs on bash 3.2+, on macOS and Linux. It's tested by
-`tests/helper/` (30 tests).
+`tests/helper/` (31 tests).
 
 | Guarantee | How |
 |---|---|
@@ -56,10 +56,17 @@ proven optima.
 - **The independent review's four reproduced helper flaws are fixed.** The reviewer's own
   script reproduces 4 of 4 on revision 919240501; the same scenarios reproduce 0 of 4 on the
   current helper. See `docs/review/`.
-- **The current routing policy has been piloted on held-out tasks** (`evals/pilot/`).
-  Earlier designs' measurements are in `evals/results/measurements.md`, with their limits
-  stated: dollar figures are Claude Code's local estimates, not bills; the "no skill" runs
-  were prompted to delegate; most configurations ran once.
+- **The graders are self-tested.** For each of the 8 graded tasks, a correct reference must
+  pass every core check, and 37 deliberately broken variants must each fail the checks aimed at
+  them (`evals/README.md`).
+- **Trigger description:** 20/20 on the development prompts; 18/20 on 20 held-out prompts,
+  run once on the final wording (`evals/results/trigger/`).
+- **Routing pilot on held-out tasks:** the design and scripts are in `evals/pilot/`.
+  No results yet.
+- Earlier designs' measurements, with the published run records, are in
+  `evals/results/measurements.md`. Their limits are stated there: dollar figures are Claude
+  Code's local estimates, not bills; the "no skill" runs were prompted to delegate; most
+  configurations ran once.
 
 ## Install
 

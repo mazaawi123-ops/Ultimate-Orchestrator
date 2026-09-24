@@ -1,0 +1,8 @@
+- textkit: zero-dependency ESM string helpers ("type": "module"), no build step, no lint config.
+- Layout: src/<name>.js (one exported function per file), src/index.js re-exports each; test/<name>.test.js.
+- Tests: `npm test` = `node --test test/*.test.js` (Node built-in runner). Baseline: 3 pass, 0 fail.
+- Test style: `import { test } from "node:test"; import assert from "node:assert/strict";` import from "../src/<file>.js"; one-line `test("name", () => assert.equal(...))` where it fits.
+- Code style: 2-space indent, double quotes, semicolons, `String(input)` coercion of text args, named exports only (no default exports), short leading `//` comment per function.
+- Lint: none configured; syntax check with `for f in src/*.js test/*.js; do node --check "$f" || exit 1; done`.
+- Key files: src/wrap.js (greedy word wrap, splits on /\s+/), src/slug.js, src/index.js.
+- "Characters" in this project = Unicode code points (use Array.from(str) / for...of), never UTF-16 units, so surrogate pairs are never split.

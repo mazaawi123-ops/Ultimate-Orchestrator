@@ -1,0 +1,51 @@
+{
+  "cost_usd_estimate": 1.1547,
+  "cost_note": "Claude Code local estimate at list price; not a billing record",
+  "num_turns": 5,
+  "subtype": "success",
+  "per_model": {
+    "sonnet": {
+      "input": 72,
+      "output": 38108,
+      "cache_read": 1619343,
+      "cache_write": 129752,
+      "cost_usd_estimate": 1.1547
+    }
+  },
+  "usage_by_agent": {
+    "main|sonnet": {
+      "requests": 16,
+      "input": 32,
+      "output": 101,
+      "cache_read": 992222,
+      "cache_write": 83509
+    },
+    "general-purpose|sonnet": {
+      "requests": 20,
+      "input": 40,
+      "output": 144,
+      "cache_read": 627121,
+      "cache_write": 46243
+    }
+  },
+  "dispatches": [
+    {
+      "agent": "general-purpose",
+      "model_param": null,
+      "description": "Implement store-side due dates"
+    },
+    {
+      "agent": "general-purpose",
+      "model_param": null,
+      "description": "Implement CLI-side due dates"
+    },
+    {
+      "agent": "general-purpose",
+      "model_param": null,
+      "description": "Independently verify due-dates feature"
+    }
+  ],
+  "skill_used": false,
+  "wall_seconds": 293,
+  "source": "Sonnet, no skill; prompt asks to plan, delegate, verify"
+}

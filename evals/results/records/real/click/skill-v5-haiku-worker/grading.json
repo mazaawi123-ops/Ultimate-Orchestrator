@@ -1,0 +1,83 @@
+{
+  "expectations": [
+    {
+      "text": "Full suite passes",
+      "category": "regression",
+      "passed": true,
+      "evidence": "2314 passed; rc=0"
+    },
+    {
+      "text": "No existing test weakened",
+      "category": "safety",
+      "passed": true,
+      "evidence": "[]"
+    },
+    {
+      "text": "New tests added (beyond 2241)",
+      "category": "artifact",
+      "passed": true,
+      "evidence": "2314 passed"
+    },
+    {
+      "text": "CHANGES has an entry",
+      "category": "artifact",
+      "passed": true,
+      "evidence": "diff --git a/CHANGES.md b/CHANGES.md\nindex 8853860..0f5de1d 100644\n--- a/CHANGES.md\n+++ b/CHANGES.md\n@@ -6,6 +6,9 @@ Unreleased\n   keyword, is deprecated and ra"
+    },
+    {
+      "text": "click.Duration exported and is a ParamType",
+      "category": "functional",
+      "passed": true,
+      "evidence": "True"
+    },
+    {
+      "text": "Converts 90s, 15m, 2h, 1d, 1.5h, 1h30m, 45, 2.5",
+      "category": "functional",
+      "passed": true,
+      "evidence": "{\"90s\": 90.0, \"15m\": 900.0, \"2h\": 7200.0, \"1d\": 86400.0, \"1.5h\": 5400.0, \"1h30m\": 5400.0, \"45\": 45.0, \"2.5\": 2.5}"
+    },
+    {
+      "text": "A timedelta passes through unchanged",
+      "category": "functional",
+      "passed": true,
+      "evidence": "True"
+    },
+    {
+      "text": "Works as an option type on the command line",
+      "category": "functional",
+      "passed": true,
+      "evidence": "True"
+    },
+    {
+      "text": "Bad values exit 2 with 'Invalid value' naming the input",
+      "category": "functional",
+      "passed": true,
+      "evidence": "{\"\": [2, true, true], \"1x\": [2, true, true], \"h\": [2, true, true], \"abc\": [2, true, true], \"1h-\": [2, true, true]}"
+    }
+  ],
+  "by_category": {
+    "regression": {
+      "passed": 1,
+      "total": 1
+    },
+    "safety": {
+      "passed": 1,
+      "total": 1
+    },
+    "artifact": {
+      "passed": 2,
+      "total": 2
+    },
+    "functional": {
+      "passed": 5,
+      "total": 5
+    }
+  },
+  "task_success": true,
+  "summary": {
+    "passed": 9,
+    "failed": 0,
+    "total": 9,
+    "pass_rate": 1.0
+  }
+}

@@ -1,0 +1,123 @@
+{
+  "expectations": [
+    {
+      "text": "Full pytest suite passes",
+      "category": "regression",
+      "passed": true,
+      "evidence": "...............................................                          [100%]\n47 passed in 0.06s"
+    },
+    {
+      "text": "New tests added (suite grew beyond the original 4)",
+      "category": "artifact",
+      "passed": true,
+      "evidence": "47 tests passed"
+    },
+    {
+      "text": "ship() raises InsufficientStock when qty exceeds level",
+      "category": "functional",
+      "passed": true,
+      "evidence": "raises=True "
+    },
+    {
+      "text": "Stock level unchanged after a rejected ship",
+      "category": "functional",
+      "passed": true,
+      "evidence": "level_after=3"
+    },
+    {
+      "text": "import_csv receives rows from a valid sku,qty CSV and skips blank lines",
+      "category": "functional",
+      "passed": true,
+      "evidence": "import_ok=[5, 2]"
+    },
+    {
+      "text": "Bad row raises an error whose message names the line number (line 3)",
+      "category": "functional",
+      "passed": true,
+      "evidence": "{'ok': False, 'err': \"/tmp/tmpe4osxzf9/f1.csv: line 3: qty must be a positive integer, got 'notanumber'\"}"
+    },
+    {
+      "text": "ship() of exactly the stock level succeeds and leaves 0",
+      "category": "functional",
+      "passed": true,
+      "evidence": "exact=0"
+    },
+    {
+      "text": "Rows with qty 0 or a missing sku raise an error naming their line number",
+      "category": "functional",
+      "passed": true,
+      "evidence": "qty0={'ok': False, 'err': \"/tmp/tmpe4osxzf9/f2.csv: line 2: qty must be a positive integer, got '0'\"} missing-sku={'ok': False, 'err': '/tmp/tmpe4osxzf9/f3.csv: line 3: missing sku'}"
+    },
+    {
+      "text": "A comma-only row (',') is a bad row: error naming line 3, not silently skipped",
+      "category": "functional",
+      "passed": true,
+      "evidence": "{'ok': False, 'err': '/tmp/tmpe4osxzf9/f4.csv: line 3: missing sku'}"
+    },
+    {
+      "text": "A CRLF file imports the same as LF (X=5, Y=2)",
+      "category": "functional",
+      "passed": true,
+      "evidence": "crlf=[5, 2]"
+    },
+    {
+      "text": "No existing test weakened",
+      "category": "safety",
+      "passed": true,
+      "evidence": "[]"
+    },
+    {
+      "text": "Written plan with explicit, verifiable acceptance criteria exists",
+      "category": "reporting",
+      "passed": true,
+      "evidence": "plan.md present; acceptance criteria found"
+    },
+    {
+      "text": "Final report cites the test command and its real result",
+      "category": "reporting",
+      "passed": true,
+      "evidence": "test command and result found in the report"
+    },
+    {
+      "text": "Final report gives per-criterion verdict (N/M verified or per-AC PASS/FAIL)",
+      "category": "reporting",
+      "passed": true,
+      "evidence": "per-criterion verdicts found"
+    },
+    {
+      "text": "Report surfaces open items / design decisions for the user",
+      "category": "reporting",
+      "passed": true,
+      "evidence": "found"
+    }
+  ],
+  "by_category": {
+    "regression": {
+      "passed": 1,
+      "total": 1
+    },
+    "artifact": {
+      "passed": 1,
+      "total": 1
+    },
+    "functional": {
+      "passed": 8,
+      "total": 8
+    },
+    "safety": {
+      "passed": 1,
+      "total": 1
+    },
+    "reporting": {
+      "passed": 4,
+      "total": 4
+    }
+  },
+  "task_success": true,
+  "summary": {
+    "passed": 15,
+    "failed": 0,
+    "total": 15,
+    "pass_rate": 1.0
+  }
+}

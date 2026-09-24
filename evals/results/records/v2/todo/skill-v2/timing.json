@@ -1,0 +1,65 @@
+{
+  "cost_usd_estimate": 2.4795,
+  "cost_note": "Claude Code local estimate at list price; not a billing record",
+  "num_turns": 8,
+  "subtype": "success",
+  "per_model": {
+    "opus": {
+      "input": 68,
+      "output": 40196,
+      "cache_read": 1941349,
+      "cache_write": 104359,
+      "cost_usd_estimate": 1.9293
+    },
+    "haiku": {
+      "input": 662,
+      "output": 29573,
+      "cache_read": 3159171,
+      "cache_write": 68597,
+      "cost_usd_estimate": 0.5502
+    }
+  },
+  "usage_by_agent": {
+    "main|opus": {
+      "requests": 22,
+      "input": 46,
+      "output": 269,
+      "cache_read": 1496024,
+      "cache_write": 71677
+    },
+    "model:haiku|haiku": {
+      "requests": 80,
+      "input": 646,
+      "output": 155,
+      "cache_read": 3071894,
+      "cache_write": 67504
+    },
+    "model:opus|opus": {
+      "requests": 10,
+      "input": 20,
+      "output": 82,
+      "cache_read": 396088,
+      "cache_write": 29454
+    }
+  },
+  "dispatches": [
+    {
+      "agent": "model:haiku",
+      "model_param": "haiku",
+      "description": "T1 store due dates"
+    },
+    {
+      "agent": "model:haiku",
+      "model_param": "haiku",
+      "description": "T2 CLI due dates"
+    },
+    {
+      "agent": "model:opus",
+      "model_param": "opus",
+      "description": "Full verify due-dates change"
+    }
+  ],
+  "skill_used": true,
+  "wall_seconds": 636,
+  "source": "skill v2 (commit 756543e), Opus planner, subagents inherit Opus; prompt asks to plan, delegate, verify"
+}

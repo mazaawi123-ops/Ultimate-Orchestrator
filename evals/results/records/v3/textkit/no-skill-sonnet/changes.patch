@@ -1,0 +1,157 @@
+diff --git a/src/index.js b/src/index.js
+index 86d8ee8..a4155d7 100644
+--- a/src/index.js
++++ b/src/index.js
+@@ -1,2 +1,3 @@
+ export { slugify } from "./slug.js";
+ export { wrap } from "./wrap.js";
++export { truncate } from "./truncate.js";
+diff --git a/src/truncate.js b/src/truncate.js
+new file mode 100644
+index 0000000..68e9c7a
+--- /dev/null
++++ b/src/truncate.js
+@@ -0,0 +1,16 @@
++export function truncate(text, max, ellipsis = "…") {
++  const str = String(text);
++  const chars = Array.from(str);
++
++  if (max <= 0) return "";
++
++  if (chars.length <= max) return str;
++
++  const ellipsisChars = Array.from(String(ellipsis));
++
++  if (max <= ellipsisChars.length) {
++    return ellipsisChars.slice(0, max).join("");
++  }
++
++  return chars.slice(0, max - ellipsisChars.length).join("") + ellipsisChars.join("");
++}
+diff --git a/src/wrap.js b/src/wrap.js
+index a100c02..afef924 100644
+--- a/src/wrap.js
++++ b/src/wrap.js
+@@ -1,14 +1,25 @@
+-// Hard-wrap text at `width` columns, breaking on spaces.
++// Hard-wrap text at `width` columns, breaking on spaces. Words longer than
++// `width` are hard-broken into `width`-sized chunks so no output line ever
++// exceeds `width` characters.
+ export function wrap(text, width = 80) {
+   const words = String(text).split(/\s+/).filter(Boolean);
+   const lines = [];
+   let line = "";
+   for (const w of words) {
+-    if ((line + " " + w).trim().length > width && line) {
++    let word = w;
++    while (word.length > width) {
++      if (line) {
++        lines.push(line);
++        line = "";
++      }
++      lines.push(word.slice(0, width));
++      word = word.slice(width);
++    }
++    if ((line + " " + word).trim().length > width && line) {
+       lines.push(line);
+-      line = w;
++      line = word;
+     } else {
+-      line = (line + " " + w).trim();
++      line = (line + " " + word).trim();
+     }
+   }
+   if (line) lines.push(line);
+diff --git a/test/truncate.test.js b/test/truncate.test.js
+new file mode 100644
+index 0000000..f515f36
+--- /dev/null
++++ b/test/truncate.test.js
+@@ -0,0 +1,42 @@
++import { test } from "node:test";
++import assert from "node:assert/strict";
++import { truncate } from "../src/truncate.js";
++
++test("text shorter than max is returned unchanged", () => {
++  assert.equal(truncate("hello", 10), "hello");
++});
++
++test("text longer than max uses default ellipsis", () => {
++  const result = truncate("hello world", 8);
++  assert.equal(result, "hello w…");
++  assert.equal([...result].length, 8);
++});
++
++test("custom ellipsis string", () => {
++  const result = truncate("hello world", 8, "...");
++  assert.equal(result, "hello...");
++  assert.equal([...result].length, 8);
++});
++
++test("does not split an astral character across the cut boundary", () => {
++  const result = truncate("ab😀cd", 4);
++  assert.equal([...result].length, 4);
++  // no lone/broken surrogate: round-tripping through code points is lossless
++  assert.equal([...result].join(""), result);
++  assert.doesNotMatch(result, /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/);
++});
++
++test("max = 0 returns empty string", () => {
++  assert.equal(truncate("hello", 0), "");
++});
++
++test("max smaller than ellipsis length truncates the ellipsis itself", () => {
++  const result = truncate("hello world", 1, "...");
++  assert.equal(result, ".");
++  assert.equal([...result].length, 1);
++});
++
++test("does not throw on empty string input", () => {
++  assert.doesNotThrow(() => truncate("", 5));
++  assert.equal(truncate("", 5), "");
++});
+diff --git a/test/wrap.test.js b/test/wrap.test.js
+index 9196c90..5ec0613 100644
+--- a/test/wrap.test.js
++++ b/test/wrap.test.js
+@@ -5,3 +5,40 @@ import { wrap } from "../src/wrap.js";
+ test("wraps at width", () => {
+   assert.equal(wrap("aaa bbb ccc ddd", 7), "aaa bbb\nccc ddd");
+ });
++
++test("hard-breaks a single word longer than width into width-sized chunks", () => {
++  assert.equal(wrap("aaaaaaaaaa", 5), "aaaaa\naaaaa");
++});
++
++test("hard-breaks a long word surrounded by normal short words", () => {
++  const result = wrap("hi there supercalifragilisticexpialidocious yo done", 7);
++  for (const l of result.split("\n")) {
++    assert.ok(l.length <= 7, `line "${l}" exceeds width`);
++  }
++});
++
++test("evenly-divisible long word produces no dangling empty line", () => {
++  const word = "a".repeat(20);
++  const result = wrap(word, 5);
++  const lines = result.split("\n");
++  assert.ok(lines.every((l) => l.length > 0), "output contains an empty line");
++  assert.equal(lines.length, word.length / 5);
++});
++
++test("invariant: no output line ever exceeds width", () => {
++  const samples = [
++    ["aaa bbb ccc ddd", 7],
++    ["aaaaaaaaaa", 5],
++    ["short words here", 100],
++    ["supercalifragilisticexpialidocious", 10],
++    ["a b supercalifragilisticexpialidocious c d", 6],
++    ["", 5],
++    ["one", 1],
++  ];
++  for (const [text, width] of samples) {
++    const lines = wrap(text, width).split("\n");
++    for (const l of lines) {
++      assert.ok(l.length <= width, `wrap(${JSON.stringify(text)}, ${width}) produced line "${l}" (${l.length} > ${width})`);
++    }
++  }
++});

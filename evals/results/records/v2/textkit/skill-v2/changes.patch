@@ -1,0 +1,401 @@
+diff --git a/src/index.js b/src/index.js
+index 86d8ee8..a4155d7 100644
+--- a/src/index.js
++++ b/src/index.js
+@@ -1,2 +1,3 @@
+ export { slugify } from "./slug.js";
+ export { wrap } from "./wrap.js";
++export { truncate } from "./truncate.js";
+diff --git a/src/truncate.js b/src/truncate.js
+new file mode 100644
+index 0000000..7e1dc48
+--- /dev/null
++++ b/src/truncate.js
+@@ -0,0 +1,15 @@
++// Cut text to max code points including ellipsis, avoiding split surrogates.
++export function truncate(text, max, ellipsis = "…") {
++  if (!Number.isInteger(max) || max < 0) {
++    throw new RangeError("truncate: max must be a non-negative integer");
++  }
++  const chars = Array.from(String(text));
++  const dots = Array.from(String(ellipsis));
++  if (chars.length <= max) {
++    return String(text);
++  }
++  if (max < dots.length) {
++    return chars.slice(0, max).join("");
++  }
++  return chars.slice(0, max - dots.length).join("") + dots.join("");
++}
+diff --git a/src/wrap.js b/src/wrap.js
+index a100c02..9469b0c 100644
+--- a/src/wrap.js
++++ b/src/wrap.js
+@@ -1,16 +1,56 @@
+-// Hard-wrap text at `width` columns, breaking on spaces.
++// Hard-wrap text at `width` columns, breaking on spaces and splitting long words.
+ export function wrap(text, width = 80) {
++  if (!Number.isInteger(width) || width < 1) {
++    throw new RangeError("wrap: width must be a positive integer");
++  }
++
+   const words = String(text).split(/\s+/).filter(Boolean);
+   const lines = [];
+-  let line = "";
++  let line = [];
++
+   for (const w of words) {
+-    if ((line + " " + w).trim().length > width && line) {
+-      lines.push(line);
+-      line = w;
++    const wCodePoints = Array.from(w);
++    const n = wCodePoints.length;
++
++    if (n > width) {
++      // Word is longer than width: push current line, break word into chunks
++      if (line.length > 0) {
++        lines.push(line.join(""));
++        line = [];
++      }
++
++      // Break word into chunks of width, push all but last chunk
++      let i = 0;
++      while (i + width < n) {
++        lines.push(wCodePoints.slice(i, i + width).join(""));
++        i += width;
++      }
++
++      // Last chunk becomes current line
++      line = wCodePoints.slice(i);
+     } else {
+-      line = (line + " " + w).trim();
++      // Word fits within width
++      const currentLength = line.length;
++
++      if (currentLength > 0 && currentLength + 1 + n > width) {
++        // Current line is non-empty and adding word would exceed width
++        lines.push(line.join(""));
++        line = wCodePoints;
++      } else {
++        // Append word to current line
++        if (currentLength > 0) {
++          line.push(" ");
++        }
++        for (const c of wCodePoints) {
++          line.push(c);
++        }
++      }
+     }
+   }
+-  if (line) lines.push(line);
++
++  if (line.length > 0) {
++    lines.push(line.join(""));
++  }
++
+   return lines.join("\n");
+ }
+diff --git a/test/truncate.test.js b/test/truncate.test.js
+new file mode 100644
+index 0000000..0b044b5
+--- /dev/null
++++ b/test/truncate.test.js
+@@ -0,0 +1,102 @@
++import { test } from "node:test";
++import assert from "node:assert/strict";
++import { truncate } from "../src/truncate.js";
++
++test("truncate at max with ellipsis", () => {
++  assert.equal(truncate("hello world", 8), "hello w…");
++});
++
++test("text length equals max", () => {
++  assert.equal(truncate("hello", 5), "hello");
++});
++
++test("text length less than max", () => {
++  assert.equal(truncate("hello", 10), "hello");
++});
++
++test("truncate with custom ellipsis", () => {
++  assert.equal(truncate("hello world", 8, "..."), "hello...");
++});
++
++test("max equals ellipsis length", () => {
++  assert.equal(truncate("hello", 3, "..."), "...");
++});
++
++test("max less than ellipsis length", () => {
++  assert.equal(truncate("hello", 2, "..."), "he");
++});
++
++test("max is 1", () => {
++  assert.equal(truncate("hello", 1), "…");
++});
++
++test("max is 0", () => {
++  assert.equal(truncate("hello", 0), "");
++});
++
++test("empty string with max 0", () => {
++  assert.equal(truncate("", 0), "");
++});
++
++test("empty ellipsis", () => {
++  assert.equal(truncate("hello", 3, ""), "hel");
++});
++
++test("undefined ellipsis uses default", () => {
++  assert.equal(truncate("hello", 4, undefined), "hel…");
++});
++
++test("emoji truncation", () => {
++  assert.equal(truncate("a😀b😀c", 4), "a😀b…");
++});
++
++test("multiple emojis", () => {
++  assert.equal(truncate("😀😀😀", 2), "😀…");
++});
++
++test("emoji fits exactly", () => {
++  assert.equal(truncate("ab😀", 3), "ab😀");
++});
++
++test("emoji as ellipsis", () => {
++  assert.equal(truncate("abcd", 3, "😀"), "ab😀");
++});
++
++test("number coercion", () => {
++  assert.equal(truncate(12345, 3), "12…");
++});
++
++test("throws RangeError for negative max", () => {
++  assert.throws(() => truncate("x", -1), RangeError);
++});
++
++test("throws RangeError for non-integer max", () => {
++  assert.throws(() => truncate("x", 1.5), RangeError);
++});
++
++test("throws RangeError for NaN max", () => {
++  assert.throws(() => truncate("x", NaN), RangeError);
++});
++
++test("throws RangeError for Infinity max", () => {
++  assert.throws(() => truncate("x", Infinity), RangeError);
++});
++
++test("throws RangeError for string max", () => {
++  assert.throws(() => truncate("x", "5"), RangeError);
++});
++
++test("loop test for various max values", () => {
++  const text = "a😀b😀c😀d";
++  for (let max = 0; max <= 8; max++) {
++    const result = truncate(text, max);
++    const resultCodePoints = Array.from(result);
++    assert(resultCodePoints.length <= max, `length ${resultCodePoints.length} exceeds max ${max}`);
++    assert(result.isWellFormed(), `result not well-formed for max ${max}`);
++  }
++});
++
++test("truncate is exported from index", async () => {
++  const mod = await import("../src/index.js");
++  assert.strictEqual(typeof mod.truncate, "function");
++});
+diff --git a/test/wrap.test.js b/test/wrap.test.js
+index 9196c90..4896fef 100644
+--- a/test/wrap.test.js
++++ b/test/wrap.test.js
+@@ -5,3 +5,191 @@ import { wrap } from "../src/wrap.js";
+ test("wraps at width", () => {
+   assert.equal(wrap("aaa bbb ccc ddd", 7), "aaa bbb\nccc ddd");
+ });
++
++// Hard-break long words tests
++test("breaks long word into chunks", () => {
++  assert.equal(wrap("abcdefghij", 4), "abcd\nefgh\nij");
++});
++
++test("breaks exact multiple of width", () => {
++  assert.equal(wrap("abcdefgh", 4), "abcd\nefgh");
++});
++
++test("does not break word of exact width", () => {
++  assert.equal(wrap("abcd", 4), "abcd");
++});
++
++test("breaks long word and joins with next short word", () => {
++  assert.equal(wrap("ab cdefghij kl", 4), "ab\ncdef\nghij\nkl");
++});
++
++test("last chunk of long word can be joined by next word", () => {
++  assert.equal(wrap("abcdef g", 4), "abcd\nef g");
++});
++
++test("handles width of 1", () => {
++  assert.equal(wrap("a abcde", 1), "a\na\nb\nc\nd\ne");
++});
++
++test("handles emoji as single code point", () => {
++  assert.equal(wrap("😀😀😀", 2), "😀😀\n😀");
++});
++
++test("correctly measures emoji width in code points", () => {
++  assert.equal(wrap("😀😀 😀😀", 5), "😀😀 😀😀");
++});
++
++test("handles empty string", () => {
++  assert.equal(wrap("", 5), "");
++});
++
++test("handles whitespace-only string", () => {
++  assert.equal(wrap("   \n\t ", 5), "");
++});
++
++test("trims leading/trailing whitespace", () => {
++  assert.equal(wrap("  hello\nworld  ", 20), "hello world");
++});
++
++test("coerces non-string input", () => {
++  assert.equal(wrap(12345678, 3), "123\n456\n78");
++});
++
++test("default width is 80", () => {
++  const text = "x".repeat(100);
++  const result = wrap(text);
++  const lines = result.split("\n");
++  assert.equal(lines[0].length, 80);
++  assert.equal(lines[1].length, 20);
++});
++
++// RangeError tests for invalid widths
++test("throws RangeError for width 0", () => {
++  assert.throws(() => wrap("x", 0), RangeError);
++});
++
++test("throws RangeError for negative width", () => {
++  assert.throws(() => wrap("x", -1), RangeError);
++});
++
++test("throws RangeError for non-integer width (decimal)", () => {
++  assert.throws(() => wrap("x", 2.5), RangeError);
++});
++
++test("throws RangeError for NaN width", () => {
++  assert.throws(() => wrap("x", NaN), RangeError);
++});
++
++test("throws RangeError for Infinity width", () => {
++  assert.throws(() => wrap("x", Infinity), RangeError);
++});
++
++test("throws RangeError for string width", () => {
++  assert.throws(() => wrap("x", "5"), RangeError);
++});
++
++// Property-based test
++test("property test: all lines respect width limit, no empty lines, no character loss, valid string", () => {
++  const text = "lorem ipsum 😀😀😀😀😀 dolorsitametconsectetur a bb ccc";
++  for (let width = 1; width <= 12; width++) {
++    const result = wrap(text, width);
++    const lines = result.split("\n");
++
++    // (i) Every line satisfies Array.from(line).length <= width
++    for (const line of lines) {
++      assert.ok(Array.from(line).length <= width, `Line "${line}" exceeds width ${width}`);
++    }
++
++    // (ii) No line is empty
++    for (const line of lines) {
++      assert.notEqual(line, "", "Found empty line");
++    }
++
++    // (iii) No character loss (comparing without whitespace)
++    const resultNoSpace = result.replace(/\s+/g, "");
++    const textNoSpace = text.replace(/\s+/g, "");
++    assert.equal(resultNoSpace, textNoSpace, `Character loss at width ${width}`);
++
++    // (iv) result.isWellFormed() is true
++    assert.ok(result.isWellFormed(), `Result is not well-formed at width ${width}`);
++  }
++});
++
++// Regression tests for call-stack overflow on large words / widths (Fix 1, round 1)
++
++test("does not overflow the stack for a huge single word under a huge width", () => {
++  assert.equal(wrap("x".repeat(200000), 1000000), "x".repeat(200000));
++});
++
++test("does not overflow the stack for a huge word joined to a short word", () => {
++  assert.equal(wrap("a " + "x".repeat(200000), 1000000), "a " + "x".repeat(200000));
++});
++
++test("does not overflow the stack for a huge word made of multi-code-point emoji", () => {
++  assert.equal(wrap("😀".repeat(200000), 1000000), "😀".repeat(200000));
++});
++
++test("does not overflow the stack when breaking a huge word into large chunks", () => {
++  assert.equal(wrap("x".repeat(200001), 200000), "x".repeat(200000) + "\nx");
++});
++
++// Old (pre-fix) implementation, copied verbatim from `git show 6ea27ab:src/wrap.js`
++// (only the function name is changed), used to check that the fix does not
++// change wrap's behavior for inputs that do not contain any long words.
++function oldWrap(text, width = 80) {
++  const words = String(text).split(/\s+/).filter(Boolean);
++  const lines = [];
++  let line = "";
++  for (const w of words) {
++    if ((line + " " + w).trim().length > width && line) {
++      lines.push(line);
++      line = w;
++    } else {
++      line = (line + " " + w).trim();
++    }
++  }
++  if (line) lines.push(line);
++  return lines.join("\n");
++}
++
++test("matches the old implementation for inputs with no long words", () => {
++  const texts = [
++    "the quick brown fox",
++    "jumps over a lazy dog",
++    "hello world",
++    "a b c d e f g",
++    "cat sat on the mat",
++    "one two three four five",
++    "red green blue",
++    "up down left right",
++    "yes no maybe",
++    "sun moon star",
++    "hi there pal",
++    "big small tiny huge",
++    "run walk jump crawl",
++    "ab cd ef gh ij",
++    "aaaaa bbbbb ccccc",
++    "x y z",
++    "foo bar baz qux",
++    "apple mango grape kiwi",
++    "cold hot warm cool",
++    "north south east west",
++    "one",
++    "ab",
++    "abcde fghij klmno",
++    "the cat and the hat",
++    "fast slow ready",
++    "red fox blue dog",
++    "aa bb cc dd ee ff gg",
++    "hop skip jump",
++    "top mid low",
++    "day night noon dusk",
++    "ok go now stop",
++  ];
++  const widths = [5, 7, 10, 20];
++  for (const w of widths) {
++    for (const t of texts) {
++      assert.equal(wrap(t, w), oldWrap(t, w), `mismatch for text "${t}" width ${w}`);
++    }
++  }
++});

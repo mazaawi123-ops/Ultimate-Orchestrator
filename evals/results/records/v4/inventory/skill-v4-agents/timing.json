@@ -1,0 +1,91 @@
+{
+  "cost_usd_estimate": 3.0897,
+  "cost_note": "Claude Code local estimate at list price; not a billing record",
+  "num_turns": 6,
+  "subtype": "success",
+  "per_model": {
+    "opus": {
+      "input": 60,
+      "output": 54157,
+      "cache_read": 1571285,
+      "cache_write": 107492,
+      "cost_usd_estimate": 2.1016
+    },
+    "haiku": {
+      "input": 322,
+      "output": 18001,
+      "cache_read": 1520649,
+      "cache_write": 34944,
+      "cost_usd_estimate": 0.2861
+    },
+    "sonnet": {
+      "input": 74,
+      "output": 20240,
+      "cache_read": 1707966,
+      "cache_write": 63171,
+      "cost_usd_estimate": 0.7021
+    }
+  },
+  "usage_by_agent": {
+    "main|opus": {
+      "requests": 18,
+      "input": 38,
+      "output": 385,
+      "cache_read": 1020493,
+      "cache_write": 55496
+    },
+    "orch-worker-haiku|haiku": {
+      "requests": 40,
+      "input": 322,
+      "output": 85,
+      "cache_read": 1520649,
+      "cache_write": 34944
+    },
+    "orch-verifier|opus": {
+      "requests": 11,
+      "input": 22,
+      "output": 73,
+      "cache_read": 550792,
+      "cache_write": 51996
+    },
+    "orch-worker-sonnet|sonnet": {
+      "requests": 21,
+      "input": 42,
+      "output": 180,
+      "cache_read": 1032876,
+      "cache_write": 37302
+    },
+    "orch-rechecker|sonnet": {
+      "requests": 14,
+      "input": 28,
+      "output": 65,
+      "cache_read": 566179,
+      "cache_write": 24875
+    }
+  },
+  "dispatches": [
+    {
+      "agent": "orch-worker-haiku",
+      "model_param": null,
+      "description": "T1: ship fix + import_csv"
+    },
+    {
+      "agent": "orch-verifier",
+      "model_param": null,
+      "description": "Full verification of T1"
+    },
+    {
+      "agent": "orch-worker-sonnet",
+      "model_param": null,
+      "description": "Fix round 1: strict CSV + tests"
+    },
+    {
+      "agent": "orch-rechecker",
+      "model_param": null,
+      "description": "Scoped re-check of fix 1"
+    }
+  ],
+  "skill_used": true,
+  "wall_seconds": 826,
+  "source": "skill v4 (commit 0a162d0) with the agent files: Opus planner, Haiku/Sonnet workers, extra-high Opus verifier"
+}

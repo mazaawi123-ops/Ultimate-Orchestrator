@@ -1,0 +1,51 @@
+{
+  "cost_usd_estimate": 2.3174,
+  "cost_note": "Claude Code local estimate at list price; not a billing record",
+  "num_turns": 3,
+  "subtype": "success",
+  "per_model": {
+    "opus": {
+      "input": 100,
+      "output": 52789,
+      "cache_read": 2015427,
+      "cache_write": 149394,
+      "cost_usd_estimate": 2.3174
+    }
+  },
+  "usage_by_agent": {
+    "main|opus": {
+      "requests": 12,
+      "input": 28,
+      "output": 271,
+      "cache_read": 565770,
+      "cache_write": 37055
+    },
+    "general-purpose|opus": {
+      "requests": 35,
+      "input": 72,
+      "output": 326,
+      "cache_read": 1449657,
+      "cache_write": 112339
+    }
+  },
+  "dispatches": [
+    {
+      "agent": "general-purpose",
+      "model_param": null,
+      "description": "Build parse_size"
+    },
+    {
+      "agent": "general-purpose",
+      "model_param": null,
+      "description": "Build natural_list conjunction"
+    },
+    {
+      "agent": "general-purpose",
+      "model_param": null,
+      "description": "Verify both changes"
+    }
+  ],
+  "skill_used": false,
+  "wall_seconds": 942,
+  "source": "Opus, no skill; prompt asks to plan, delegate, verify"
+}

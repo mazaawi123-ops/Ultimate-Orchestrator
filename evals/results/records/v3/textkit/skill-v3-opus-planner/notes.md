@@ -1,0 +1,8 @@
+- textkit: zero-dependency ESM string helpers ("type": "module" in package.json). Node v22.
+- Layout: src/<fn>.js (one exported function per file), src/index.js re-exports each; test/<fn>.test.js.
+- Test: `npm test` (= `node --test test/*.test.js`). No linter; syntax check: `for f in src/*.js test/*.js; do node --check "$f" || exit 1; done`.
+- Tests use `import { test } from "node:test"; import assert from "node:assert/strict";` and one-line `test("name", () => assert.equal(...))` style. Imports use relative paths with `.js` extension.
+- Code style: double quotes, semicolons, 2-space indent, `export function name(...)`, input coerced with `String(x)`, a one-line `//` comment above the function.
+- Baseline: 3 tests, all pass. No known failures.
+- src/wrap.js: greedy wrap, splits on /\s+/ (collapses all whitespace incl. newlines), joins lines with "\n". Lengths measured in UTF-16 code units (`.length`).
+- No README/API docs to update beyond README.md's one line (leave it alone).

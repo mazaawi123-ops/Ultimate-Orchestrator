@@ -1,0 +1,404 @@
+diff --git a/src/humanize/__init__.py b/src/humanize/__init__.py
+index 4f54bc4..1be41da 100644
+--- a/src/humanize/__init__.py
++++ b/src/humanize/__init__.py
+@@ -11,7 +11,7 @@ __lazy_modules__ = {
+     "humanize.time",
+ }
+ 
+-from humanize.filesize import naturalsize
++from humanize.filesize import naturalsize, parse_size
+ from humanize.i18n import activate, deactivate, decimal_separator, thousands_separator
+ from humanize.lists import natural_list
+ from humanize.number import (
+@@ -52,6 +52,7 @@ __all__ = [
+     "naturalsize",
+     "naturaltime",
+     "ordinal",
++    "parse_size",
+     "precisedelta",
+     "scientific",
+     "thousands_separator",
+diff --git a/src/humanize/filesize.py b/src/humanize/filesize.py
+index 063affe..9cfc171 100644
+--- a/src/humanize/filesize.py
++++ b/src/humanize/filesize.py
+@@ -2,6 +2,9 @@
+ 
+ from __future__ import annotations
+ 
++import re
++from decimal import ROUND_HALF_UP, Decimal, InvalidOperation, localcontext
++
+ __lazy_modules__ = {"humanize.i18n"}
+ 
+ from humanize.i18n import _gettext as _
+@@ -108,3 +111,106 @@ def naturalsize(
+     space = "" if gnu else " "
+     ret: str = format % (bytes_ / (base**exp)) + space + _(suffix[exp - 1])
+     return ret
++
++
++_PARSE_SIZE_RE = re.compile(
++    r"^(?P<number>[+-]?(?:[0-9]+\.[0-9]*|\.[0-9]+|[0-9]+))[ \t]*(?P<unit>[A-Za-z]*)$"
++)
++
++
++def parse_size(text: str) -> int:
++    """Parse a human-readable filesize back into a number of bytes.
++
++    This is the inverse of `naturalsize`: it accepts every string that
++    `naturalsize` produces with its default `format`, namely decimal
++    suffixes (`kB`..`QB`, base 1000), binary suffixes (`KiB`..`QiB`, base
++    1024), GNU-style single-letter suffixes (`K`..`Q`, base 1024), the bare
++    suffix `B`, the words `Byte` / `Bytes`, and a bare number (interpreted as
++    bytes). A custom `format` passed to `naturalsize` (e.g. `"%.1e"`) can
++    produce a mantissa `parse_size` does not understand, and matching is
++    case-sensitive and only the untranslated English forms are recognized;
++    output produced with a non-default `format` or after
++    `humanize.activate(...)` (localized suffixes) raises `ValueError`.
++
++    Examples:
++        ```pycon
++        >>> parse_size("1 Byte")
++        1
++        >>> parse_size("300B")
++        300
++        >>> parse_size("3.0 MB")
++        3000000
++        >>> parse_size("2.9 KiB")
++        2970
++        >>> parse_size("1.0 K")
++        1024
++        >>> parse_size("1024")
++        1024
++
++        ```
++
++    Args:
++        text (str): Human-readable representation of a filesize, as produced
++            by `naturalsize`.
++
++    Returns:
++        int: The number of bytes represented by `text`.
++
++    Raises:
++        TypeError: If `text` is not a `str`.
++        ValueError: If `text` cannot be parsed as a filesize, including
++            malformed numbers, unrecognized or misspelled units, and
++            non-integer byte counts (e.g. `"1.5 Bytes"`).
++    """
++    if not isinstance(text, str):
++        msg = f"parse_size() argument must be str, not {type(text).__name__}"
++        raise TypeError(msg)
++
++    parse_error = f"Could not parse size: {text!r}"
++
++    stripped = text.strip()
++    match = _PARSE_SIZE_RE.match(stripped)
++    if not match:
++        raise ValueError(parse_error)
++
++    number_str = match.group("number")
++    unit = match.group("unit")
++
++    try:
++        number = Decimal(number_str)
++    except InvalidOperation as exc:
++        raise ValueError(parse_error) from exc
++
++    exp: int
++    base: int
++    integral_only = False
++
++    if unit in ("", "B", "Byte", "Bytes"):
++        exp, base = 0, 1
++        integral_only = True
++    elif unit in suffixes["decimal"]:
++        exp = suffixes["decimal"].index(unit) + 1
++        base = 1000
++    elif unit in suffixes["binary"]:
++        exp = suffixes["binary"].index(unit) + 1
++        base = 1024
++    elif len(unit) == 1 and unit in suffixes["gnu"]:
++        exp = suffixes["gnu"].index(unit) + 1
++        base = 1024
++    else:
++        raise ValueError(parse_error)
++
++    if integral_only and number != number.to_integral_value():
++        raise ValueError(parse_error)
++
++    multiplier = base**exp  # exact int, arbitrary precision
++    with localcontext() as ctx:
++        # `number_str` bounds the number of significant digits in `number`;
++        # a generous margin above that keeps the multiplication and the
++        # subsequent quantize exact instead of raising InvalidOperation or
++        # silently double-rounding for very long inputs.
++        ctx.prec = len(number_str) + 40
++        result = (number * Decimal(multiplier)).quantize(
++            Decimal(1), rounding=ROUND_HALF_UP
++        )
++    return int(result)
+diff --git a/src/humanize/lists.py b/src/humanize/lists.py
+index 36e8ab7..8d5b6b2 100644
+--- a/src/humanize/lists.py
++++ b/src/humanize/lists.py
+@@ -10,10 +10,11 @@ if TYPE_CHECKING:
+ __all__ = ["natural_list"]
+ 
+ 
+-def natural_list(items: Iterable[Any]) -> str:
++def natural_list(items: Iterable[Any], conjunction: str = "and") -> str:
+     """Natural list.
+ 
+-    Convert an iterable of items into a human-readable string with commas and 'and'.
++    Convert an iterable of items into a human-readable string with commas and
++    a conjunction (by default 'and').
+ 
+     Examples:
+         >>> natural_list(["one", "two", "three"])
+@@ -22,12 +23,17 @@ def natural_list(items: Iterable[Any]) -> str:
+         'one and two'
+         >>> natural_list(["one"])
+         'one'
++        >>> natural_list(["one", "two", "three"], conjunction="or")
++        'one, two or three'
+ 
+     Args:
+         items (Iterable): An iterable of items.
++        conjunction (str): The word to use before the last item (e.g. "and"
++            or "or"). It is used verbatim, with no translation and no Oxford
++            comma.
+ 
+     Returns:
+-        str: A string with commas and 'and' in the right places.
++        str: A string with commas and the conjunction in the right places.
+     """
+     item_list = [str(item) for item in items]
+     if not item_list:
+@@ -35,6 +41,6 @@ def natural_list(items: Iterable[Any]) -> str:
+     if len(item_list) == 1:
+         return item_list[0]
+     elif len(item_list) == 2:
+-        return f"{item_list[0]} and {item_list[1]}"
++        return f"{item_list[0]} {conjunction} {item_list[1]}"
+     else:
+-        return ", ".join(item_list[:-1]) + f" and {item_list[-1]}"
++        return ", ".join(item_list[:-1]) + f" {conjunction} {item_list[-1]}"
+diff --git a/tests/test_filesize.py b/tests/test_filesize.py
+index e695639..3b3d200 100644
+--- a/tests/test_filesize.py
++++ b/tests/test_filesize.py
+@@ -4,6 +4,8 @@
+ 
+ from __future__ import annotations
+ 
++import time
++
+ import pytest
+ 
+ import humanize
+@@ -103,3 +105,174 @@ def test_naturalsize(test_args: list[int] | list[int | bool], expected: str) ->
+         test_args[0] = f"-{test_args[0]}"
+ 
+     assert humanize.naturalsize(*test_args) == "-" + expected
++
++
+<email>(
++    "text, expected",
++    [
++        ("1 Byte", 1),
++        ("0 Bytes", 0),
++        ("-1 Byte", -1),
++        ("300B", 300),
++        ("1B", 1),
++        ("3.0 MB", 3000000),
++        ("1.0 kB", 1000),
++        ("2.9 KiB", 2970),
++        ("-4.0 KiB", -4096),
++        ("2.9K", 2970),
++        ("1.0 QB", 10**30),
++        ("30000.0 QB", 3 * 10**34),
++        ("1.0 QiB", 1024**10),
++        ("1024", 1024),
++        ("  1.5 kB  ", 1500),
++        ("1.5kB", 1500),
++        ("1.0 K", 1024),
++        ("0.5 KiB", 512),
++        ("1.0005 kB", 1001),
++        ("-1.0005 kB", -1001),
++        ("+2 kB", 2000),
++        (".5 kB", 500),
++        ("5. kB", 5000),
++        ("2 Byte", 2),
++        ("0", 0),
++    ],
++)
++def test_parse_size(text: str, expected: int) -> None:
++    result = humanize.parse_size(text)
++    assert result == expected
++    assert type(result) is int
++
++
+<email>(
++    "text",
++    [
++        "",
++        "   ",
++        "kB",
++        "abc",
++        "1.0 XB",
++        "1 kB extra",
++        "1..0 kB",
++        "1.0 kb",
++        "1.0 KB",
++        "1.0 mb",
++        "1.0 Kib",
++        "inf kB",
++        "nan",
++        "1e3 kB",
++        "1_000 kB",
++        "١٢ kB",
++        "1.5 Bytes",
++        "1.5 B",
++        "1.5",
++        "- 1 kB",
++        "1 k B",
++    ],
++)
++def test_parse_size_value_error(text: str) -> None:
++    with pytest.raises(ValueError, match="Could not parse size"):
++        humanize.parse_size(text)
++
++
+<email>("value", [None, 1024, b"1 kB", 1.5, ["1 kB"]])
++def test_parse_size_type_error(value: object) -> None:
++    with pytest.raises(TypeError):
++        humanize.parse_size(value)  # type: ignore[arg-type]
++
++
+<email>(
++    "value",
++    [
++        0,
++        1,
++        -1,
++        999,
++        -999,
++        1000,
++        1023,
++        1024,
++        999999,
++        10**6,
++        2**20,
++        10**12,
++        2**50,
++        10**30,
++        3 * 10**34,
++        1024**10,
++    ],
++)
+<email>(
++    "binary, gnu",
++    [
++        (False, False),
++        (True, False),
++        (False, True),
++    ],
++)
++def test_parse_size_round_trip(value: int, binary: bool, gnu: bool) -> None:
++    rendered = humanize.naturalsize(value, binary, gnu)
++    parsed = humanize.parse_size(rendered)
++    reformatted = humanize.naturalsize(parsed, binary, gnu)
++    assert reformatted == rendered
++
++    base = 1024 if (binary or gnu) else 1000
++    if abs(value) < base:
++        assert parsed == value
++
++
+<email>(
++    "value",
++    [10**250, 10**300, -(10**300), int(1.7e308)],
++)
+<email>(
++    "binary, gnu",
++    [
++        (False, False),
++        (True, False),
++        (False, True),
++    ],
++)
++def test_parse_size_round_trip_huge(value: int, binary: bool, gnu: bool) -> None:
++    """Very large magnitudes must round-trip exactly (regression for T1 fix 1).
++
++    Previously `ctx.prec = 200` made `quantize` raise `InvalidOperation` for
++    numbers needing more than 200 significant digits.
++    """
++    rendered = humanize.naturalsize(value, binary, gnu)
++    parsed = humanize.parse_size(rendered)
++    reformatted = humanize.naturalsize(parsed, binary, gnu)
++    assert reformatted == rendered
++
++
++def test_parse_size_exact_huge_integer() -> None:
++    text = "1" * 300
++    assert humanize.parse_size(text) == int(text)
++
++
++def test_parse_size_exact_huge_integer_with_unit() -> None:
++    text = "1" * 199 + " kB"
++    assert humanize.parse_size(text) == int("1" * 199) * 1000
++
++
++def test_parse_size_no_double_rounding() -> None:
++    # 0.0004999...9 (250 nines) kB rounds to 0 kB worth of bytes, i.e. 0,
++    # not 1 as it would if the fractional part were rounded to fewer
++    # significant digits before the final quantize.
++    text = "0.0004" + "9" * 250 + " kB"
++    assert humanize.parse_size(text) == 0
++
++
+<email>(
++    "text",
++    [
++        "1" * 50_000 + " x y",
++        "1." + "1" * 50_000 + " kB extra",
++    ],
++)
++def test_parse_size_no_redos(text: str) -> None:
++    """Malformed huge inputs must fail fast, not backtrack quadratically."""
++    start = time.perf_counter()
++    with pytest.raises(ValueError, match="Could not parse size"):
++        humanize.parse_size(text)
++    elapsed = time.perf_counter() - start
++    assert elapsed < 1.0
+diff --git a/tests/test_lists.py b/tests/test_lists.py
+index 9b3c1b7..c420d67 100644
+--- a/tests/test_lists.py
++++ b/tests/test_lists.py
+@@ -29,3 +29,23 @@ import humanize
+ )
+ def test_natural_list(test_args: Iterable[Any], expected: str) -> None:
+     assert humanize.natural_list(*test_args) == expected
++
++
+<email>(
++    "items, conjunction, expected",
++    [
++        (["a", "b", "c"], "or", "a, b or c"),
++        (["a", "b"], "or", "a or b"),
++        (["a"], "or", "a"),
++        ([], "or", ""),
++        (["a", "b", "c"], "and/or", "a, b and/or c"),
++    ],
++)
++def test_natural_list_conjunction(
++    items: Iterable[Any], conjunction: str, expected: str
++) -> None:
++    assert humanize.natural_list(items, conjunction=conjunction) == expected
++
++
++def test_natural_list_conjunction_positional() -> None:
++    assert humanize.natural_list(["a", "b"], "or") == "a or b"

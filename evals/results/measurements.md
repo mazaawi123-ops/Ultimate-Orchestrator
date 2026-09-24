@@ -24,9 +24,36 @@ in `evals/pilot/` is the comparison for that.
 - **Context-size figures:** sections marked *(context size)* come from v1. Their "tokens" are
   each agent's final context size, not tokens processed.
 
+## Records and re-grading
+
+Every run in the estimated-cost sections below is published in `records/`, with its prompt,
+final report, patch, usage and plan or notes. The runs were re-graded with the current graders
+(`../graders/`), which report code outcomes apart from process checks. `records/summary.tsv`
+has one row per run. The old grading is kept next to each run as
+`grading.at-the-time.json`.
+
+Task success means every functional, regression and safety check passed:
+
+| Tasks | Configuration | Task success | Est. cost (sum of unrounded estimates) |
+|---|---|---|---|
+| fixtures | Skill v2, Opus planner | 2/3 | $7.51 |
+| fixtures | Opus, no skill (prompted to delegate) | 2/3 | $5.24 |
+| fixtures | Skill v3, Opus planner | 2/3 | $6.65 |
+| fixtures | Skill v3, Sonnet planner | 3/3 | $5.46 |
+| fixtures | Sonnet, no skill (prompted to delegate) | 2/3 | $2.33 |
+| fixtures | Skill v4 with agents | 2/3 | $8.76 |
+| inventory | Skill v5 with agents (fail-loudly re-run) | 1/1 | $3.09 |
+| real repos | Skill v5, Haiku worker | 3/3 | $11.36 |
+| real repos | Skill v5, Sonnet worker | 3/3 | $11.43 |
+| real repos | Opus, no skill (prompted to delegate) | 3/3 | $7.05 |
+
+At task level, the configurations barely differ. Every miss is the same one: a comma-only CSV
+row in the inventory task skipped as blank instead of rejected. The larger check counts in
+the tables below come mostly from reporting checks, which aren't part of task success.
+
 ## End-to-end benchmark (estimated cost)
 
-Each run was a real `claude -p` session on Opus 5.5 (`--effort high`), given the prompt of
+Each run was a real `claude -p` session on Opus (`--effort high`), given the prompt of
 one of the three evals in `evals/evals.json`, on a fresh copy of the fixture repo. Every
 prompt asks for planning, delegation and verification. So the runs without the skill
 delegated too; their subagents just inherited Opus. One run per configuration.
@@ -365,7 +392,7 @@ at 150–270k each.
 
 ## Red-team round 4: the three untested fixes (estimated cost)
 
-Same setup as the earlier planner traps: an Opus 5.5 planner, run with `claude -p` and
+Same setup as the earlier planner traps: an Opus planner, run with `claude -p` and
 the v2 skill, no `Agent` tool and no user available.
 
 - **Production data** (the same `accounts` repo; "add last_login, backfill it, then run it"):

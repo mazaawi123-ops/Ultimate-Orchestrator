@@ -1,0 +1,248 @@
+{
+ "model": "sonnet",
+ "runs": 3,
+ "score": 18,
+ "total": 20,
+ "results": [
+  {
+   "query": "in my flask app (api/ folder) i need to add rate limiting per api key: a new middleware in api/middleware.py, config values in settings.py, and a 429 response with Retry-After. there are pytest tests under tests/api. can you plan it out, have agents build it and get someone to double check it before i merge",
+   "should_trigger": true,
+   "triggered": 3,
+   "runs": 3,
+   "first_tools": [
+    "skill",
+    "skill",
+    "skill"
+   ],
+   "passed": true
+  },
+  {
+   "query": "We're migrating our payment module from the old `billing_v1` client to `billing_v2`. It touches payments/charge.py, payments/refund.py, payments/webhooks.py and the tests in tests/payments/. I want this done carefully: plan first, then implement, then an independent review against acceptance criteria. Don't push anything.",
+   "should_trigger": true,
+   "triggered": 3,
+   "runs": 3,
+   "first_tools": [
+    "skill",
+    "skill",
+    "skill"
+   ],
+   "passed": true
+  },
+  {
+   "query": "orchestrate this for me: add CSV and JSON export to the reports page. backend endpoint in server/routes/reports.ts, a service in server/services/export.ts, a button in web/src/pages/Reports.tsx, and jest tests for the service. use cheaper models for the grunt work",
+   "should_trigger": true,
+   "triggered": 1,
+   "runs": 3,
+   "first_tools": [
+    "Skill:workflow-authoring",
+    "Bash:",
+    "skill"
+   ],
+   "passed": false
+  },
+  {
+   "query": "Our Django project has a bug where deleting a Team leaves orphaned Membership rows, and the admin page 500s afterwards. Fix it (probably a cascade + a data migration for the existing orphans) and add tests that prove it. Several files involved; please verify properly before you tell me it's done.",
+   "should_trigger": true,
+   "triggered": 3,
+   "runs": 3,
+   "first_tools": [
+    "skill",
+    "skill",
+    "skill"
+   ],
+   "passed": true
+  },
+  {
+   "query": "can you refactor the auth code so the session handling in auth/session.py, auth/middleware.py and auth/views.py all goes through one SessionStore class? keep behaviour the same, the existing tests in tests/test_auth*.py must stay green. use subagents for the implementation",
+   "should_trigger": true,
+   "triggered": 3,
+   "runs": 3,
+   "first_tools": [
+    "skill",
+    "skill",
+    "skill"
+   ],
+   "passed": true
+  },
+  {
+   "query": "I'd like to add i18n to the CLI: move all user-facing strings in cli/*.py into a messages catalog, add a --lang flag, ship en and de. There's a test suite (python -m pytest). Delegate the string extraction to workers and verify it at the end.",
+   "should_trigger": true,
+   "triggered": 3,
+   "runs": 3,
+   "first_tools": [
+    "skill",
+    "skill",
+    "skill"
+   ],
+   "passed": true
+  },
+  {
+   "query": "implement pagination for GET /orders (cursor based, limit param, next_cursor in the response) across the repository layer, the service and the handler, plus tests. it's a go service, tests via go test ./... i want a plan with acceptance criteria before any code gets written",
+   "should_trigger": true,
+   "triggered": 3,
+   "runs": 3,
+   "first_tools": [
+    "skill",
+    "skill",
+    "skill"
+   ],
+   "passed": true
+  },
+  {
+   "query": "hire a team of agents to build the new notifications feature: email + in-app, a Notification model, a sender service with retries, and hooks in the order flow. repo is a rails app with rspec. one planner, workers, a reviewer \u2014 the whole thing",
+   "should_trigger": true,
+   "triggered": 1,
+   "runs": 3,
+   "first_tools": [
+    "Bash:",
+    "Bash:",
+    "skill"
+   ],
+   "passed": false
+  },
+  {
+   "query": "our node monorepo: the `packages/parser` tokenizer mishandles escaped quotes and that breaks `packages/formatter` downstream. fix the tokenizer, update the formatter's handling, add regression tests in both packages (vitest). i want it done properly with a verification pass",
+   "should_trigger": true,
+   "triggered": 3,
+   "runs": 3,
+   "first_tools": [
+    "skill",
+    "skill",
+    "skill"
+   ],
+   "passed": true
+  },
+  {
+   "query": "Add soft delete to the Customer and Invoice models (deleted_at column, default queries exclude deleted rows, an admin toggle to show them), write the alembic migration and tests. Use the plan / build / verify loop please.",
+   "should_trigger": true,
+   "triggered": 3,
+   "runs": 3,
+   "first_tools": [
+    "skill",
+    "skill",
+    "skill"
+   ],
+   "passed": true
+  },
+  {
+   "query": "there's an off-by-one in utils/dates.py line 42, days_between returns one day too many when the end date is inclusive. can you fix that one line?",
+   "should_trigger": false,
+   "triggered": 0,
+   "runs": 3,
+   "first_tools": [
+    "Read:",
+    "Read:",
+    "Read:"
+   ],
+   "passed": true
+  },
+  {
+   "query": "how does the retry logic in our http client work? i'm looking at src/net/client.ts and can't tell when it gives up",
+   "should_trigger": false,
+   "triggered": 0,
+   "runs": 3,
+   "first_tools": [
+    "Read:",
+    "Read:",
+    "Read:"
+   ],
+   "passed": true
+  },
+  {
+   "query": "review PR #214 in our repo for bugs and security issues, leave comments on anything risky. don't change code.",
+   "should_trigger": false,
+   "triggered": 0,
+   "runs": 3,
+   "first_tools": [
+    "Skill:code-review",
+    "Skill:code-review",
+    "Skill:code-review"
+   ],
+   "passed": true
+  },
+  {
+   "query": "set up a kubernetes deployment that orchestrates 3 worker pods and a scheduler for our celery queue, with a helm chart",
+   "should_trigger": false,
+   "triggered": 0,
+   "runs": 3,
+   "first_tools": [
+    "Bash:",
+    "Bash:",
+    "Bash:"
+   ],
+   "passed": true
+  },
+  {
+   "query": "I manage a marketing team of 6. Help me plan how to delegate the Q4 campaign work: who does briefs, who does design, who reviews. Make a RACI table.",
+   "should_trigger": false,
+   "triggered": 0,
+   "runs": 3,
+   "first_tools": [
+    "none",
+    "none",
+    "none"
+   ],
+   "passed": true
+  },
+  {
+   "query": "write a python script that renames all the .jpeg files in ~/Pictures/2025 to .jpg",
+   "should_trigger": false,
+   "triggered": 0,
+   "runs": 3,
+   "first_tools": [
+    "Write:",
+    "Write:",
+    "Write:"
+   ],
+   "passed": true
+  },
+  {
+   "query": "what's the difference between running subagents in parallel vs sequentially in claude code, and when should i use worktrees?",
+   "should_trigger": false,
+   "triggered": 0,
+   "runs": 3,
+   "first_tools": [
+    "Agent:",
+    "Agent:",
+    "Agent:"
+   ],
+   "passed": true
+  },
+  {
+   "query": "rename the variable `usr` to `user` in src/profile.js, it's only used in that file",
+   "should_trigger": false,
+   "triggered": 0,
+   "runs": 3,
+   "first_tools": [
+    "Read:",
+    "Read:",
+    "Bash:"
+   ],
+   "passed": true
+  },
+  {
+   "query": "Write me a design doc for splitting our monolith into services: goals, options, trade-offs, rollout plan. No code yet, it's for the architecture review on Thursday.",
+   "should_trigger": false,
+   "triggered": 0,
+   "runs": 3,
+   "first_tools": [
+    "Bash:",
+    "Skill:anthropic-skills:docs",
+    "Skill:anthropic-skills:docs"
+   ],
+   "passed": true
+  },
+  {
+   "query": "my pytest suite has 3 failing tests after upgrading pydantic to v2, here's the output: `ValidationError: field required (type=value_error.missing)` in tests/test_models.py. what's going on?",
+   "should_trigger": false,
+   "triggered": 0,
+   "runs": 3,
+   "first_tools": [
+    "none",
+    "none",
+    "none"
+   ],
+   "passed": true
+  }
+ ]
+}

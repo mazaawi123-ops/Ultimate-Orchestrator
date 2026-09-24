@@ -1,0 +1,41 @@
+{
+  "cost_usd_estimate": 0.4805,
+  "cost_note": "Claude Code local estimate at list price; not a billing record",
+  "num_turns": 2,
+  "subtype": "success",
+  "per_model": {
+    "sonnet": {
+      "input": 38,
+      "output": 12536,
+      "cache_read": 853227,
+      "cache_write": 58879,
+      "cost_usd_estimate": 0.4805
+    }
+  },
+  "usage_by_agent": {
+    "main|sonnet": {
+      "requests": 16,
+      "input": 32,
+      "output": 104,
+      "cache_read": 792305,
+      "cache_write": 24791
+    },
+    "general-purpose|sonnet": {
+      "requests": 3,
+      "input": 6,
+      "output": 18,
+      "cache_read": 60922,
+      "cache_write": 34088
+    }
+  },
+  "dispatches": [
+    {
+      "agent": "general-purpose",
+      "model_param": null,
+      "description": "Verify inventory bugfix and CSV import"
+    }
+  ],
+  "skill_used": false,
+  "wall_seconds": 101,
+  "source": "Sonnet, no skill; prompt asks to plan, delegate, verify"
+}

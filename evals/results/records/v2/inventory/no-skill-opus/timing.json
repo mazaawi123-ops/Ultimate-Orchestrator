@@ -1,0 +1,51 @@
+{
+  "cost_usd_estimate": 2.3804,
+  "cost_note": "Claude Code local estimate at list price; not a billing record",
+  "num_turns": 5,
+  "subtype": "success",
+  "per_model": {
+    "opus": {
+      "input": 104,
+      "output": 55620,
+      "cache_read": 2209796,
+      "cache_write": 136259,
+      "cost_usd_estimate": 2.3804
+    }
+  },
+  "usage_by_agent": {
+    "main|opus": {
+      "requests": 20,
+      "input": 44,
+      "output": 205,
+      "cache_read": 1048098,
+      "cache_write": 48105
+    },
+    "general-purpose|opus": {
+      "requests": 28,
+      "input": 58,
+      "output": 1033,
+      "cache_read": 1111432,
+      "cache_write": 87512
+    }
+  },
+  "dispatches": [
+    {
+      "agent": "general-purpose",
+      "model_param": null,
+      "description": "Worker A: fix ship oversell"
+    },
+    {
+      "agent": "general-purpose",
+      "model_param": null,
+      "description": "Worker B: add import_csv"
+    },
+    {
+      "agent": "general-purpose",
+      "model_param": null,
+      "description": "Verifier: review and probe changes"
+    }
+  ],
+  "skill_used": false,
+  "wall_seconds": 455,
+  "source": "Opus, no skill; prompt asks to plan, delegate, verify, so it delegated too"
+}

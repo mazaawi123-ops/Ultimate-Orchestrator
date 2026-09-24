@@ -1,0 +1,345 @@
+diff --git a/README.md b/README.md
+index 9b5ce1a..3874fc0 100644
+--- a/README.md
++++ b/README.md
+@@ -384,6 +384,22 @@ var primitiveValues = qs.parse('a=15&b=true&c=null');
+ assert.deepEqual(primitiveValues, { a: '15', b: 'true', c: 'null' });
+ ```
+ 
++To convert numeric values to numbers, set the `parseNumbers` option to `true` (it defaults to `false`).
++A decoded value `v` becomes `Number(v)` only when `v` is already in canonical decimal form, meaning `String(Number(v)) === v` and the number is finite.
++So `'1'`, `'-2'`, `'1.5'` and `'0'` are converted, while `'01'`, `'0x10'`, `'1.50'`, `'-0'`, `'.5'`, `''`, `'NaN'` and `'Infinity'` stay strings.
++The round-trip is the whole rule. `'9007199254740993'` stays a string because `Number` rounds it to `9007199254740992`, but `'123456789012345680000'` converts because it round-trips exactly.
++Exponent forms follow the same rule: `'1e3'` stays a string (JavaScript prints that number as `'1000'`), while `'1e+21'` and `'1e-7'` convert, because that is exactly how JavaScript prints those numbers.
++Only values are converted, never keys. This also applies to array elements, nested values, and values split with the `comma` option.
++Values that are not strings, such as the `null` from `strictNullHandling` or anything a custom `decoder` returns, are left as they are. Values of object input to `qs.parse` are not converted.
++
++```javascript
++var numbers = qs.parse('a=15&b=-2.5&c=007&d=1e3&e[]=1&e[]=x&1=2', { parseNumbers: true });
++assert.deepEqual(numbers, { a: 15, b: -2.5, c: '007', d: '1e3', e: [1, 'x'], 1: 2 });
++
++var commaNumbers = qs.parse('a=1,2,x', { comma: true, parseNumbers: true });
++assert.deepEqual(commaNumbers, { a: [1, 2, 'x'] });
++```
++
+ If you wish to auto-convert values which look like numbers, booleans, and other values into their primitive counterparts, you can use the [query-types Express JS middleware](https://github.com/xpepermint/query-types) which will auto-convert all request query parameters.
+ 
+ ### Stringifying
+diff --git a/lib/parse.js b/lib/parse.js
+index 07a0804..a347c18 100644
+--- a/lib/parse.js
++++ b/lib/parse.js
+@@ -23,6 +23,7 @@ var defaults = {
+     interpretNumericEntities: false,
+     parameterLimit: 1000,
+     parseArrays: true,
++    parseNumbers: false,
+     plainObjects: false,
+     strictDepth: false,
+     strictMerge: true,
+@@ -36,6 +37,16 @@ var interpretNumericEntities = function (str) {
+     });
+ };
+ 
++// Only strings in canonical decimal form (the exact output of `String(Number(str))`) are converted,
++// so e.g. '01', '1e3', '0x10', '' and '1.50' stay strings. `isFinite` also keeps 'NaN' and '(-)Infinity' as strings.
++var parseNumber = function parseNumber(val) {
++    if (typeof val !== 'string') {
++        return val;
++    }
++    var num = Number(val);
++    return isFinite(num) && String(num) === val ? num : val;
++};
++
+ var parseArrayValue = function (val, options, currentArrayLength) {
+     if (val && typeof val === 'string' && options.comma && val.indexOf(',') > -1) {
+         if (options.throwOnLimitExceeded) {
+@@ -141,6 +152,10 @@ var parseValues = function parseQueryStringValues(str, options) {
+             val = interpretNumericEntities(String(val));
+         }
+ 
++        if (options.parseNumbers) {
++            val = utils.maybeMap(val, parseNumber);
++        }
++
+         if (isEmptyBracketKey) {
+             val = isArray(val) ? [val] : val;
+         }
+@@ -340,6 +355,10 @@ var normalizeParseOptions = function normalizeParseOptions(opts) {
+         throw new TypeError('`decodeDotInKeys` option can only be `true` or `false`, when provided');
+     }
+ 
++    if (typeof opts.parseNumbers !== 'undefined' && typeof opts.parseNumbers !== 'boolean') {
++        throw new TypeError('`parseNumbers` option can only be `true` or `false`, when provided');
++    }
++
+     if (opts.decoder !== null && typeof opts.decoder !== 'undefined' && typeof opts.decoder !== 'function') {
+         throw new TypeError('Decoder has to be a function.');
+     }
+@@ -381,6 +400,7 @@ var normalizeParseOptions = function normalizeParseOptions(opts) {
+         interpretNumericEntities: typeof opts.interpretNumericEntities === 'boolean' ? opts.interpretNumericEntities : defaults.interpretNumericEntities,
+         parameterLimit: typeof opts.parameterLimit === 'number' ? opts.parameterLimit : defaults.parameterLimit,
+         parseArrays: opts.parseArrays !== false,
++        parseNumbers: typeof opts.parseNumbers === 'boolean' ? opts.parseNumbers : defaults.parseNumbers,
+         plainObjects: typeof opts.plainObjects === 'boolean' ? opts.plainObjects : defaults.plainObjects,
+         strictDepth: typeof opts.strictDepth === 'boolean' ? !!opts.strictDepth : defaults.strictDepth,
+         strictMerge: typeof opts.strictMerge === 'boolean' ? !!opts.strictMerge : defaults.strictMerge,
+diff --git a/lib/utils.js b/lib/utils.js
+index adde8c0..9ae3e11 100644
+--- a/lib/utils.js
++++ b/lib/utils.js
+@@ -123,7 +123,7 @@ var limitedPair = function limitedPair(first, second, options) {
+ 
+ var merge = function merge(target, source, options) {
+     /* eslint no-param-reassign: 0 */
+-    if (!source) {
++    if (!source && source !== 0) { // `0` can come from the parse `parseNumbers` option, and must merge like '0' does
+         return target;
+     }
+ 
+diff --git a/test/parse.js b/test/parse.js
+index 596fa56..7ed6392 100644
+--- a/test/parse.js
++++ b/test/parse.js
+@@ -1236,6 +1236,225 @@ test('parse()', function (t) {
+         st.end();
+     });
+ 
++    t.test('does not parse numbers by default', function (st) {
++        st.deepEqual(qs.parse('a=1&b=-2&c=1.5&d=0'), { a: '1', b: '-2', c: '1.5', d: '0' });
++        st.deepEqual(qs.parse('a=1&b=-2', { parseNumbers: false }), { a: '1', b: '-2' });
++        st.deepEqual(qs.parse('a=1&b=-2', { parseNumbers: undefined }), { a: '1', b: '-2' });
++
++        st.end();
++    });
++
++    t.test('parses numbers when `parseNumbers` is true', function (st) {
++        [
++            ['1', 1],
++            ['-2', -2],
++            ['1.5', 1.5],
++            ['0', 0],
++            ['0.1', 0.1],
++            ['123456789', 123456789],
++            ['9007199254740991', 9007199254740991],
++            ['123456789012345680000', 123456789012345680000],
++            ['1e+21', 1e21],
++            ['1e-7', 1e-7]
++        ].forEach(function (pair) {
++            st.deepEqual(
++                qs.parse('a=' + encodeURIComponent(pair[0]), { parseNumbers: true }),
++                { a: pair[1] },
++                inspect(pair[0]) + ' converts to ' + inspect(pair[1])
++            );
++        });
++
++        st.deepEqual(qs.parse('a=1&b=-2&c=1.5&d=0', { parseNumbers: true }), { a: 1, b: -2, c: 1.5, d: 0 });
++
++        st.end();
++    });
++
++    t.test('leaves non-canonical numeric strings as strings when `parseNumbers` is true', function (st) {
++        [
++            '01',
++            '1e3',
++            '1e21',
++            '1e-07',
++            '0x10',
++            '',
++            'NaN',
++            'Infinity',
++            '-Infinity',
++            '1.50',
++            '-0',
++            ' 1',
++            '+1',
++            '.5',
++            '1.',
++            '9007199254740993',
++            '123456789012345678901',
++            '1,000',
++            'abc',
++            '1a'
++        ].forEach(function (str) {
++            st.deepEqual(
++                qs.parse('a=' + encodeURIComponent(str), { parseNumbers: true }),
++                { a: str },
++                inspect(str) + ' stays a string'
++            );
++        });
++
++        st.deepEqual(qs.parse('a=+1', { parseNumbers: true }), { a: ' 1' }, 'a literal `+` decodes to a space, so the value stays a string');
++        st.deepEqual(qs.parse('a', { parseNumbers: true }), { a: '' }, 'a missing value stays an empty string');
++
++        st.end();
++    });
++
++    t.test('`parseNumbers` converts values after decoding', function (st) {
++        st.deepEqual(qs.parse('a=%2D2', { parseNumbers: true }), { a: -2 });
++        st.deepEqual(qs.parse('a=%31%2E%35', { parseNumbers: true }), { a: 1.5 });
++        st.deepEqual(qs.parse('a=%201', { parseNumbers: true }), { a: ' 1' });
++
++        st.end();
++    });
++
++    t.test('`parseNumbers` does not change keys', function (st) {
++        [
++            '1=a',
++            'a[1]=b',
++            'a[01]=c',
++            'a[1.5]=d',
++            'a[0]=x&a[1]=y',
++            '1=a&a[1]=b&a[01]=c&a[1.5]=d'
++        ].forEach(function (input) {
++            st.deepEqual(
++                qs.parse(input, { parseNumbers: true }),
++                qs.parse(input),
++                inspect(input) + ': non-numeric values parse to the same structure as with the option off'
++            );
++        });
++
++        st.deepEqual(qs.parse('1=a', { parseNumbers: true }), { 1: 'a' });
++        st.deepEqual(qs.parse('a[1]=b', { parseNumbers: true }), { a: ['b'] }, 'an index key still produces an array');
++        st.deepEqual(qs.parse('a[01]=c', { parseNumbers: true }), { a: { '01': 'c' } }, 'a non-canonical index key stays an object key');
++        st.deepEqual(qs.parse('a[1.5]=d', { parseNumbers: true }), { a: { 1.5: 'd' } });
++        st.deepEqual(qs.parse('1=2&a[1.5]=3', { parseNumbers: true }), { 1: 2, a: { 1.5: 3 } }, 'numeric values under numeric-looking keys convert');
++
++        st.end();
++    });
++
++    t.test('`parseNumbers` works in arrays', function (st) {
++        st.deepEqual(qs.parse('a[]=1&a[]=2', { parseNumbers: true }), { a: [1, 2] });
++        st.deepEqual(qs.parse('a[0]=1&a[1]=x', { parseNumbers: true }), { a: [1, 'x'] });
++        st.deepEqual(qs.parse('a=1&a=2', { parseNumbers: true }), { a: [1, 2] });
++        st.deepEqual(qs.parse('a=0&a=01', { parseNumbers: true }), { a: [0, '01'] });
++        st.deepEqual(qs.parse('a[]=0&a[]=-0', { parseNumbers: true }), { a: [0, '-0'] });
++        st.deepEqual(qs.parse('a=1&a=2', { parseNumbers: true, duplicates: 'last' }), { a: 2 });
++
++        st.end();
++    });
++
++    t.test('`parseNumbers` keeps a `0` value when merging, like the string `\'0\'`', function (st) {
++        st.deepEqual(qs.parse('a[b]=1&a=0', { parseNumbers: true }), { a: [{ b: 1 }, 0] });
++        st.deepEqual(qs.parse('a[b]=1&a=0'), { a: [{ b: '1' }, '0'] });
++        st.deepEqual(qs.parse('a[0]=x&a=0', { parseNumbers: true }), { a: ['x', 0] });
++        st.deepEqual(qs.parse('a=0&a[b]=1', { parseNumbers: true }), { a: [0, { b: 1 }] });
++
++        st.end();
++    });
++
++    t.test('`parseNumbers` works in nested objects', function (st) {
++        st.deepEqual(qs.parse('a[b][c]=3', { parseNumbers: true }), { a: { b: { c: 3 } } });
++        st.deepEqual(qs.parse('a[b]=1&a[c]=x&a[d][]=2', { parseNumbers: true }), { a: { b: 1, c: 'x', d: [2] } });
++        st.deepEqual(qs.parse('a.b=1', { parseNumbers: true, allowDots: true }), { a: { b: 1 } });
++
++        st.end();
++    });
++
++    t.test('`parseNumbers` with `comma: true`', function (st) {
++        st.deepEqual(qs.parse('a=1,2,x', { comma: true, parseNumbers: true }), { a: [1, 2, 'x'] });
++        st.deepEqual(qs.parse('a=1,2,x', { parseNumbers: true }), { a: '1,2,x' }, 'without `comma`, the value stays a string');
++        st.deepEqual(qs.parse('a[]=1,2', { comma: true, parseNumbers: true }), { a: [[1, 2]] });
++        st.deepEqual(qs.parse('a[b]=0,01', { comma: true, parseNumbers: true }), { a: { b: [0, '01'] } });
++        st.deepEqual(qs.parse('a=1&a=2,3', { comma: true, parseNumbers: true }), { a: [1, 2, 3] });
++        st.deepEqual(qs.parse('a=1%2C2', { comma: true, parseNumbers: true }), { a: '1,2' }, 'a percent-encoded comma does not split, and the result is not a number');
++        st.deepEqual(qs.parse('a=1%2C2,3', { comma: true, parseNumbers: true }), { a: ['1,2', 3] });
++        st.deepEqual(qs.parse('a=%2D1,2', { comma: true, parseNumbers: true }), { a: [-1, 2] });
++
++        st.end();
++    });
++
++    t.test('`parseNumbers` with `strictNullHandling`', function (st) {
++        st.deepEqual(qs.parse('a&b=1', { strictNullHandling: true, parseNumbers: true }), { a: null, b: 1 });
++        st.deepEqual(qs.parse('a&b=1', { parseNumbers: true }), { a: '', b: 1 });
++
++        st.end();
++    });
++
++    t.test('`parseNumbers` leaves non-string custom decoder results untouched', function (st) {
++        var decoder = function (str, defaultDecoder, charset, type) {
++            if (type === 'value' && str === 'null') {
++                return null;
++            }
++            if (type === 'value' && str === 'true') {
++                return true;
++            }
++            return defaultDecoder(str, defaultDecoder, charset);
++        };
++        st.deepEqual(
++            qs.parse('a=null&b=true&c=1', { decoder: decoder, parseNumbers: true }),
++            { a: null, b: true, c: 1 }
++        );
++
++        st.end();
++    });
++
++    t.test('`parseNumbers` with `interpretNumericEntities` in iso-8859-1', function (st) {
++        st.deepEqual(
++            qs.parse('a=%26%2349%3B', { charset: 'iso-8859-1', interpretNumericEntities: true, parseNumbers: true }),
++            { a: 1 },
++            'numeric entities are interpreted before numbers are parsed'
++        );
++
++        st.end();
++    });
++
++    t.test('merges a `0` value in object input like other non-empty values', function (st) {
++        st.deepEqual(qs.parse({ 'a[b]': 'x', a: 0 }), { a: [{ b: 'x' }, 0] });
++        st.deepEqual(qs.parse({ 'a[b]': 'x', a: 1 }), { a: [{ b: 'x' }, 1] }, 'same as a value of `1`');
++        st.deepEqual(qs.parse({ 'a[0]': 'x', a: 0 }), { a: ['x', 0] });
++        st.deepEqual(qs.parse({ 'a[0]': 'x', a: 1 }), { a: ['x', 1] }, 'same as a value of `1`');
++
++        st.end();
++    });
++
++    t.test('`parseNumbers` does not convert values of object input', function (st) {
++        st.deepEqual(qs.parse({ a: '1', b: { c: '2' } }, { parseNumbers: true }), { a: '1', b: { c: '2' } });
++        st.deepEqual(qs.parse({ 'a[b]': '1' }, { parseNumbers: true }), { a: { b: '1' } });
++
++        st.end();
++    });
++
++    t.test('throws when `parseNumbers` is not of type boolean', function (st) {
++        [
++            'true',
++            'false',
++            1,
++            0,
++            NaN,
++            null,
++            {},
++            []
++        ].forEach(function (value) {
++            st['throws'](
++                function () { qs.parse('a=1', { parseNumbers: value }); },
++                new TypeError('`parseNumbers` option can only be `true` or `false`, when provided'),
++                inspect(value) + ' throws'
++            );
++        });
++
++        st.doesNotThrow(function () { qs.parse('a=1', { parseNumbers: true }); }, '`true` is accepted');
++        st.doesNotThrow(function () { qs.parse('a=1', { parseNumbers: false }); }, '`false` is accepted');
++        st.doesNotThrow(function () { qs.parse('a=1', { parseNumbers: undefined }); }, '`undefined` is accepted');
++
++        st.end();
++    });
++
+     t.test('does not interpret %uXXXX syntax in iso-8859-1 mode', function (st) {
+         st.deepEqual(qs.parse('%u263A=%u263A', { charset: 'iso-8859-1' }), { '%u263A': '%u263A' });
+         st.end();
+diff --git a/test/utils.js b/test/utils.js
+index d27ad98..deeacf4 100644
+--- a/test/utils.js
++++ b/test/utils.js
+@@ -30,6 +30,11 @@ test('merge()', function (t) {
+     var noOptionsNonObjectSource = utils.merge({ foo: 'baz' }, 'bar');
+     t.deepEqual(noOptionsNonObjectSource, { foo: 'baz', bar: true });
+ 
++    t.deepEqual(utils.merge(['a'], 0), ['a', 0], 'merges a numeric `0` source into an array, like a non-empty string');
++    t.deepEqual(utils.merge({ foo: 'bar' }, 0), { foo: 'bar', 0: true }, 'merges a numeric `0` source into an object without options');
++    t.deepEqual(utils.merge({ foo: 'bar' }, 1), { foo: 'bar', 1: true }, 'merges a numeric `1` source into an object without options, as `0` does');
++    t.deepEqual(utils.merge({ foo: 'bar' }, 0, { strictMerge: true }), [{ foo: 'bar' }, 0], 'merges a numeric `0` source into an object, like a non-empty string');
++
+     var func = function f() {};
+     func();
+     t.deepEqual(
