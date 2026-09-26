@@ -64,14 +64,19 @@ def grade_reviewer(cell, reply):
     base = (cell / "base.txt").read_text().strip()
     verdict = re.search(r"Verdict:\s*\**\s*(PASS|FAIL)", reply, re.I)
     verdict = verdict.group(1).upper() if verdict else "none"
-    # A blocking finding whose text names the weekend/late-run case.
+    # A blocking finding (not "not blocking") whose text names a late or missed run at the
+    # weekend. Checking that days land on Monday is not the daylight-saving finding: that one
+    # is a run at the wrong hour after a spring-forward weekend.
     blocking = False
     for m in re.finditer(r"blocking", reply, re.I):
-        window = reply[m.start(): m.start() + 900]
-        if re.search(r"Saturday|Sunday|weekend|missed Friday|late run|overdue", window, re.I):
+        if re.search(r"\bnot\b|isn't|non-", reply[max(0, m.start() - 40): m.start()], re.I):
+            continue
+        window = reply[m.start(): m.start() + 1200]
+        if re.search(r"Saturday|Sunday|weekend", window, re.I) and re.search(r"missed|late|overdue|asleep|stall|catch-up|down", window, re.I):
             blocking = True
             break
-    dst = bool(re.search(r"DST|daylight|gap hour|spring[- ]forward", reply, re.I))
+    dst = bool(re.search(r"DST|daylight|spring[- ]forward", reply, re.I)
+               and re.search(r"hour late|an hour|one hour|wrong (hour|time)|03:30|03:15|off by", reply, re.I))
     clean = tree_clean(cell / "repo", "HEAD") and not sh("git status --porcelain", cell / "repo")[1].strip()
     score = 0.4 * (verdict == "FAIL") + 0.4 * blocking + 0.1 * dst + 0.1 * clean
     return round(score, 2), {"verdict": verdict, "missed_friday_blocking": blocking, "dst_edge_found": dst, "tree_untouched": clean}
@@ -126,10 +131,12 @@ def researcher_truth(schedule_repo):
                 callees = calls_in(fn)
             elif "_schedule_next_run" in calls_in(fn):
                 callers.add(f"{cls.name}.{fn.name}")
-            if cls.name == "Job" and any(isinstance(n, ast.Assign) and any(isinstance(t, ast.Attribute) and t.attr == "unit"
-                                                                       and isinstance(t.value, ast.Name) and t.value.id == "self" for t in n.targets)
-                                         for n in ast.walk(fn)):
-                setters.add(fn.name)
+            if cls.name == "Job":
+                for n in ast.walk(fn):  # plain and annotated assignments to self.unit
+                    targets = n.targets if isinstance(n, ast.Assign) else [n.target] if isinstance(n, ast.AnnAssign) else []
+                    if any(isinstance(x, ast.Attribute) and x.attr == "unit" and isinstance(x.value, ast.Name) and x.value.id == "self" for x in targets):
+                        setters.add(fn.name)
+                        break
     _, out = sh("python3 -m pytest -v -p no:cacheprovider test_schedule.py", schedule_repo)
     skipped = {m.group(1) for m in re.finditer(r"::(test_\w+)\s+SKIPPED", out)}
     return {"callers": callers, "callees": callees, "unit_setters": setters, "pytz_skipped_tests": skipped}

@@ -1,0 +1,16 @@
+I ran the full suite here without pytz (`import pytz` raises ModuleNotFoundError): 40 passed, 41 skipped, 0 failed. Every skip message is "pytz unavailable".
+
+- **callers:** only `Job.do` (schedule/__init__.py:657) and `Job.run` (:693) call `self._schedule_next_run()`. The only other match, at :671, is inside an assert message string. No module-level function or `Scheduler` method calls it directly.
+- **callees:** these are in the body at :700–748.
+  - `ScheduleValueError` at :705 and :723, and `ScheduleError` at :711
+  - `random.randint` at :712 and `datetime.datetime.now` at :717
+  - `_move_to_next_weekday`, a module-level function, at :724
+  - `self._move_to_at_time` at :727 and `datetime.timedelta` at :729
+  - `self._correct_utc_offset` at :736
+  - `next_run.astimezone` at :744 and `next_run.replace` at :746
+- **unit_setters:** `self.unit =` appears only at :333, :344, :355, :366 and :377. Those are the properties `seconds`, `minutes`, `hours`, `days` and `weeks`. The singular forms and the weekday properties (for example `monday` at :381–389) only return `self.weeks`, so they set the unit through another method.
+- **pytz_skipped_tests:** I took the list from `pytest -v` SKIPPED output, not from reading the source. Most of these skip through the `make_tz_mock_job` helper (test_schedule.py:100–106), and a few call `skipTest` inline (:510–530, :560–572). `test_align_utc_offset_no_timezone` sits near a `skipTest` at :1164 but actually runs and passes without pytz, so I left it out.
+
+```json
+{"callers": ["Job.do", "Job.run"], "callees": ["ScheduleValueError", "ScheduleError", "randint", "now", "_move_to_next_weekday", "_move_to_at_time", "timedelta", "_correct_utc_offset", "astimezone", "replace"], "unit_setters": ["Job.seconds", "Job.minutes", "Job.hours", "Job.days", "Job.weeks"], "pytz_skipped_tests": ["test_align_utc_offset_after_fold_fixate", "test_align_utc_offset_no_change", "test_align_utc_offset_with_dst_fold", "test_align_utc_offset_with_dst_fold_fixate_1", "test_align_utc_offset_with_dst_fold_fixate_2", "test_align_utc_offset_with_dst_gap", "test_next_run_time_hour_end", "test_next_run_time_hour_end_katmandu", "test_next_run_time_hour_end_london", "test_next_run_time_minute_end_katmhandu", "test_next_run_time_minute_end_london", "test_tz", "test_tz_daily_different_simultaneous_dst_change", "test_tz_daily_dst", "test_tz_daily_dst_ending_point", "test_tz_daily_dst_overlap_hour", "test_tz_daily_dst_skip_hour", "test_tz_daily_dst_starting_point", "test_tz_daily_end_month_offset", "test_tz_daily_end_year_cross_continent", "test_tz_daily_exact_future_scheduling", "test_tz_daily_exact_seconds_precision", "test_tz_daily_half_hour_offset", "test_tz_daily_issue_592", "test_tz_daily_issue_605", "test_tz_daily_issue_608_before_dst_end", "test_tz_daily_issue_608_mid_dst", "test_tz_daily_issue_608_post_dst", "test_tz_daily_issue_608_pre_dst", "test_tz_daily_leap_year", "test_tz_daily_midnight", "test_tz_daily_new_year_offset", "test_tz_daily_opposite_dst_change", "test_tz_daily_skip_dst_change", "test_tz_daily_utc", "test_tz_hourly_intermediate_conversion", "test_tz_invalid_timezone_exceptions", "test_tz_minutes_year_round", "test_tz_weekly_large_interval_backward", "test_tz_weekly_large_interval_forward", "test_tz_weekly_sunday_conversion"]}
+```

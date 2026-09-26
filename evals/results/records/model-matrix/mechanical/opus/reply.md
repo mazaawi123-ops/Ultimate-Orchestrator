@@ -1,0 +1,6 @@
+STATUS: DONE_WITH_CONCERNS
+Commits: 40636cb
+Tests: `python3 -m pytest -q` → 40 passed, 41 skipped (same as before)
+Material assumptions: I renamed the definition (`schedule/__init__.py:916`), the one call site (line 724) and the three `schedule._move_to_next_weekday(...)` calls in `test_schedule.py` (lines 1254, 1261, 1268). A search for the old name as a whole word now finds nothing, and the new name is in all 5 places.
+Remaining problems: three test methods still contain the old name as part of their names: `test_move_to_next_weekday_today`, `test_move_to_next_weekday_tommorrow` and `test_move_to_next_weekday_nextweek` (lines 1252, 1259, 1266). A plain text search for `_move_to_next_weekday` still finds them, so "appears nowhere" is only true for whole-word matches. I left them alone because they are test names rather than references to the helper, and the brief says no other names change. If you want the plain text search to come back empty too, the fix is renaming those three methods.
+Evidence: the test output and grep results above are from this session; `git show 40636cb` shows the diff (5 lines changed).

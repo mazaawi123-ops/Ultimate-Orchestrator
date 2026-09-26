@@ -54,8 +54,8 @@ model_lines() {  # model role
 role_cfg() {  # role -> BASE_AGENT DISALLOWED MAXTURNS TOOLS CAP REPO BRIEF
   case "$1" in
     reviewer) BASE_AGENT=orch-verifier; DISALLOWED="Agent, Edit, Write, NotebookEdit"; MAXTURNS=80; TOOLS="Bash,Read,Glob,Grep"; CAP=6; SRC=$SCHED; BRIEF=$REC/brief-new-wording.txt ;;
-    worker) BASE_AGENT=orch-worker-sonnet; DISALLOWED="Agent"; MAXTURNS=150; TOOLS="Bash,Read,Write,Edit,Glob,Grep,TodoWrite"; CAP=8; SRC=$MORE; BRIEF=$BRIEFS/worker.txt ;;
-    mechanical) BASE_AGENT=orch-worker-haiku; DISALLOWED="Agent"; MAXTURNS=120; TOOLS="Bash,Read,Write,Edit,Glob,Grep,TodoWrite"; CAP=3; SRC=$SCHED; BRIEF=$BRIEFS/mechanical.txt ;;
+    worker) BASE_AGENT=orch-worker; DISALLOWED="Agent"; MAXTURNS=150; TOOLS="Bash,Read,Write,Edit,Glob,Grep,TodoWrite"; CAP=8; SRC=$MORE; BRIEF=$BRIEFS/worker.txt ;;
+    mechanical) BASE_AGENT=orch-mechanic; DISALLOWED="Agent"; MAXTURNS=120; TOOLS="Bash,Read,Write,Edit,Glob,Grep,TodoWrite"; CAP=3; SRC=$SCHED; BRIEF=$BRIEFS/mechanical.txt ;;
     researcher) BASE_AGENT=orch-researcher; DISALLOWED="Agent, Edit, Write, NotebookEdit"; MAXTURNS=60; TOOLS="Bash,Read,Glob,Grep"; CAP=3; SRC=$SCHED; BRIEF=$BRIEFS/researcher.txt ;;
     *) echo "unknown role $1" >&2; exit 2 ;;
   esac

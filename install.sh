@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install the code-orchestrator skill and its four agents for your user account.
+# Install the code-orchestrator skill and its five agents for your user account.
 # Usage, from this repo's folder:  bash install.sh
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
