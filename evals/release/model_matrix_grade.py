@@ -27,7 +27,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "graders"))
 import grade_repos  # noqa: E402
 
-OLD, NEW, NEW_SITES = "_move_to_next_weekday", "_advance_to_weekday", 19
+OLD, NEW, NEW_SITES = "_move_to_next_weekday", "_advance_to_weekday", 8  # git grep -o at BASE
 
 
 def sh(cmd, cwd, timeout=900):
