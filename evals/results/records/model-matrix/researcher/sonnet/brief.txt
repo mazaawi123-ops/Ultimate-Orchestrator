@@ -1,0 +1,27 @@
+You are investigating a repo for the main session, which will plan a change from your
+answers. Read and run what you need; never modify tracked files, and don't delegate.
+
+## Repo
+<workspace>/matrix/researcher/sonnet/repo (the Python library `schedule`; everything is in schedule/__init__.py, with the tests
+in test_schedule.py at the top level). Tests run with `python3 -m pytest -q`; pytz is not
+installed here.
+
+## Questions
+1. `callers`: every function or method in schedule/__init__.py that calls
+   `Job._schedule_next_run`. Give each as `Class.method`, or the bare name for a module-level
+   function.
+2. `callees`: every function, method, constructor or exception class that
+   `Job._schedule_next_run` itself calls or instantiates, directly in its own body (not what
+   those calls go on to call). Give the last dotted component only, for example `now` for
+   `datetime.datetime.now(...)`.
+3. `unit_setters`: every method of `Job` whose own body assigns `self.unit` directly (not
+   through another method).
+4. `pytz_skipped_tests`: the name of every test function in test_schedule.py that is skipped
+   when pytz is not installed. Names only, like `test_tz_something`.
+
+## Reply
+End your reply with one fenced ```json block holding exactly these four keys, each a list of
+strings, nothing else:
+{"callers": [...], "callees": [...], "unit_setters": [...], "pytz_skipped_tests": [...]}
+Before the block, at most 10 lines: the evidence for each answer (file:line), and anything
+you couldn't settle.

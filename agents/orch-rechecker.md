@@ -1,8 +1,8 @@
 ---
 name: orch-rechecker
-description: "Targeted re-reviewer after a repair: were the findings addressed, and did the fix break anything nearby (Sonnet, high effort). Only for use by the code-orchestrator skill's main session, which dispatches it with a filled brief."
-model: sonnet
-effort: high
+description: "Targeted re-reviewer after a repair: were the findings addressed, and did the fix break anything nearby (Opus 5.5, medium effort). Only for use by the code-orchestrator skill's main session, which dispatches it with a filled brief."
+model: claude-opus-5-5
+effort: medium
 disallowedTools: Agent, Edit, Write, NotebookEdit
 maxTurns: 60
 ---

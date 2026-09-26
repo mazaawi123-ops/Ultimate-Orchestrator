@@ -1,8 +1,8 @@
 ---
-name: orch-verifier
-description: "Independent reviewer: checks a frozen candidate against the user's original request, the contracts and the criteria (Opus 5.5, medium effort; raise `effort` to xhigh for high-stakes changes). Only for use by the code-orchestrator skill's main session, which dispatches it with a filled brief."
-model: claude-opus-5-5
-effort: medium
+name: cmp-reviewer-sonnet
+description: "reviewer role, sonnet candidate (model comparison)"
+model: sonnet
+effort: high
 disallowedTools: Agent, Edit, Write, NotebookEdit
 maxTurns: 80
 ---

@@ -1,1 +1,0 @@
-../../agents/orch-worker-sonnet.md

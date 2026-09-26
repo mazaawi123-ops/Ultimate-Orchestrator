@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install the code-orchestrator skill and its four agents for your user account.
+# Install the code-orchestrator skill and its five agents for your user account.
 # Usage, from this repo's folder:  bash install.sh
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
@@ -10,4 +10,4 @@ cp "$here"/agents/*.md ~/.claude/agents/
 echo "Installed:"
 echo "  ~/.claude/skills/code-orchestrator"
 for f in "$here"/agents/*.md; do echo "  ~/.claude/agents/$(basename "$f")"; done
-echo "In Claude Code, plan with: /model opus  then  /effort high"
+echo "Pick the main session's model with /model and /effort; each agent's model is set in its file."
