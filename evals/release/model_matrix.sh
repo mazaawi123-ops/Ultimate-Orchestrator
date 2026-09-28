@@ -39,7 +39,7 @@ done
 BASE_SCHED=82a43db1b938d8fdf60103bd41f329e06c8d3651
 BASE_MORE=b5e3886a37209bb880f17d82fbf4ba00ece0e41e
 KEEP='^(claude|environment-manager|env-manager|hsperfdata|node-compile-cache|pytest-of-root|cc-socks|code-sign|codesign|mcp-config|editor-|orch-weekday-venv|tmp)'
-[ -z "$(git -C "$ROOT" status --porcelain -- agents code-orchestrator)" ] || { echo "commit the skill and agents first, so the comparison names an exact version" >&2; exit 2; }
+[ -z "$(git -C "$ROOT" status --porcelain -- code-orchestrator)" ] || { echo "commit the skill and agents first, so the comparison names an exact version" >&2; exit 2; }
 mkdir -p "$OUT"; OUT=$(cd "$OUT" && pwd -P)
 printf '{"skill_commit":"%s","claude_version":"%s","started":"%s"}\n' "$(git -C "$ROOT" rev-parse HEAD)" \
   "$(claude --version 2>/dev/null | head -1)" "$(date -u +%FT%TZ)" > "$OUT/matrix.json"
@@ -63,7 +63,7 @@ role_cfg() {  # role -> BASE_AGENT DISALLOWED MAXTURNS TOOLS CAP REPO BRIEF
     *) echo "unknown role $1" >&2; exit 2 ;;
   esac
 }
-agent_body() { awk 'f==2 { print } /^---$/ { f++ }' "$ROOT/agents/$1.md"; }
+agent_body() { awk 'f==2 { print } /^---$/ { f++ }' "$ROOT/code-orchestrator/agents/$1.md"; }
 
 prepare_cell() {  # role model
   local role=$1 model=$2 d=$OUT/$1/$2 base cand patch

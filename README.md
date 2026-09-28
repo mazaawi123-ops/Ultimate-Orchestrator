@@ -29,7 +29,9 @@ That gives three routes:
 | `orch-verifier` | Opus 5.5, high effort: independent review (raise to xhigh in the file for high-stakes changes) |
 | `orch-rechecker` | Sonnet 5.5, medium effort: targeted re-review after a risky repair |
 
-The agent files in `agents/` set each role's model, effort, turn cap and tool limits. The
+The agent files in `code-orchestrator/agents/` set each role's model, effort, turn cap and
+tool limits. They ship inside the skill; `install.sh` or the skill's own
+`scripts/install-agents.sh` copies them to where Claude Code loads agents. The
 runtime enforces those limits: reviewers have no Edit, Write or Agent tools, and no agent can
 delegate further. Bash can still write, so reviewers aren't strictly read-only. The helper
 catches any change they make to the tree. The model and effort choices are the owner's,
@@ -133,8 +135,9 @@ its result. That's what happened to one pilot run.
 code-orchestrator/               the skill (installed)
   SKILL.md                       routing, stop-and-ask, the loop, report, agents
   scripts/orch.sh                the helper
+  scripts/install-agents.sh      copies the agents to ~/.claude/agents (or a repo's .claude/agents)
   references/                    run-record, worker-brief, reviewer-brief (loaded only when needed)
-agents/                          the five agents: model, effort, tool limits, turn caps
+  agents/                        the five agents: model, effort, tool limits, turn caps
 install.sh
 code-orchestrator.single-file.md the skill as one file (tools/build_single_file.py rebuilds it)
 tests/helper/                    helper regression tests and the review's reproductions

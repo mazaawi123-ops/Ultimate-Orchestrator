@@ -1,1 +1,1 @@
-../../agents/orch-verifier.md
+../../code-orchestrator/agents/orch-verifier.md

@@ -182,7 +182,7 @@ and count as acceptable only if the requirement allows them.
 
 The main session is whatever model the user chose. Keep it.
 
-| Agent (`subagent_type`) | Use | Set in `agents/` |
+| Agent (`subagent_type`) | Use | Set in this skill's `agents/` |
 |---|---|---|
 | `orch-researcher` | a read-only investigation before you plan: where things live, who calls what, which tests cover it; questions with checkable answers | Opus 5.5, high effort; no Edit/Write/Agent tools |
 | `orch-worker` | a substantial delegated piece; a repair that needs a second pair of hands | Sonnet 5.5, extra-high effort; no nested agents |
@@ -198,7 +198,14 @@ These settings are the owner's choice, informed by one comparison run per role
 roles is measured yet. In it, Opus 5.5 at medium effort caught the reviewer task's flaw
 (high is a step up from that), Sonnet 5 at high effort passed the flawed candidate, and
 Sonnet 5 alone of the cheaper models completed the mechanical rename. One sample each, so
-treat them as the current best guess, not proven optima. If the agents aren't installed,
+treat them as the current best guess, not proven optima.
+
+**Installing the agents.** They ship with this skill, in `agents/`. Claude Code loads agents
+only from `~/.claude/agents/` or a repo's `.claude/agents/`, not from inside a skill. If the
+`orch-*` agents aren't available when you're about to delegate, ask the user once, then run
+`bash <skill-dir>/scripts/install-agents.sh` (every project) or add `--project <repo>` (that
+repo only; commit or git-ignore the files, or `orch.sh check` will count them as
+leftovers). Claude Code picks them up for the next agent it starts. If the user declines,
 pass `model` instead and say the effort was the default.
 
 **Agents in the background.** Claude Code can move a long-running agent to the background,
@@ -222,6 +229,7 @@ done.
 
 - `scripts/orch.sh`: start, check, run, fresh, tests, diff, record, repair, gate, finish,
   and the parallel-worker commands
+- `agents/`: the five agent definitions; `scripts/install-agents.sh` installs them
 - `references/run-record.md`: the durable record, for delegated, reviewed or interruptible work
 - `references/worker-brief.md`: read only when delegating
 - `references/reviewer-brief.md`: read only for an independent review or re-check

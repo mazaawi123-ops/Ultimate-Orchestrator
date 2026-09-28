@@ -1,1 +1,1 @@
-../../agents/orch-researcher.md
+../../code-orchestrator/agents/orch-researcher.md

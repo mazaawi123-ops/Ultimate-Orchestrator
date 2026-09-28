@@ -31,7 +31,7 @@ for arm in "${ARMS[@]}"; do
   cand=$(git -C "$d/repo" rev-parse HEAD); patch=$d/repo/.orchestrator/review/candidate-${cand:0:12}.patch
   mkdir -p "$(dirname "$patch")" "$d/repo/.claude/agents"
   git -C "$d/repo" diff "$BASE" "$cand" > "$patch"
-  cp "$ROOT"/agents/*.md "$d/repo/.claude/agents/"
+  cp "$ROOT"/code-orchestrator/agents/*.md "$d/repo/.claude/agents/"
   printf '.claude/\n.orchestrator/\n' >> "$d/repo/.git/info/exclude"
   sed -e "s#{REPO}#$d/repo#g" -e "s#{CANDIDATE}#$cand#g" -e "s#{PATCH}#$patch#g" "$REC/brief-$arm.txt" > "$d/brief.txt"
   [ "$PREPARE_ONLY" = 1 ] && { echo "$arm prepared: $d (candidate $cand)"; continue; }

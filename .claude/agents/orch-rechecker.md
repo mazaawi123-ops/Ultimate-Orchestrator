@@ -1,1 +1,1 @@
-../../agents/orch-rechecker.md
+../../code-orchestrator/agents/orch-rechecker.md

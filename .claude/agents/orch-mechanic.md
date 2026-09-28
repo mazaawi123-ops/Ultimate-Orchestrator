@@ -1,1 +1,1 @@
-../../agents/orch-mechanic.md
+../../code-orchestrator/agents/orch-mechanic.md
