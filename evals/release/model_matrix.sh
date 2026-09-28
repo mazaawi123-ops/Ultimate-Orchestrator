@@ -17,7 +17,9 @@
 #   model    frontmatter
 #   fable    model: claude-fable-5-1, effort: xhigh
 #   opus     model: claude-opus-5-5,  effort: medium
-#   sonnet   model: sonnet, effort: high for the reviewer, medium otherwise (the skill's current settings)
+#   sonnet   model: claude-sonnet-5, effort: high for the reviewer, medium otherwise (the recorded run
+#            used the `sonnet` alias, which then meant Sonnet 5; it now means Sonnet 5.5)
+#   sonnet55 model: claude-sonnet-5-5, effort: xhigh (not in the recorded run; --models sonnet55)
 #   haiku    model: haiku (Haiku 4.5 takes no effort setting)
 #
 # usage: model_matrix.sh <schedule repo> <more-itertools repo> <out dir> [--prepare-only]
@@ -46,7 +48,8 @@ model_lines() {  # model role
   case "$1" in
     fable) echo "model: claude-fable-5-1"; echo "effort: xhigh" ;;
     opus) echo "model: claude-opus-5-5"; echo "effort: medium" ;;
-    sonnet) echo "model: sonnet"; if [ "$2" = reviewer ]; then echo "effort: high"; else echo "effort: medium"; fi ;;
+    sonnet) echo "model: claude-sonnet-5"; if [ "$2" = reviewer ]; then echo "effort: high"; else echo "effort: medium"; fi ;;
+    sonnet55) echo "model: claude-sonnet-5-5"; echo "effort: xhigh" ;;
     haiku) echo "model: haiku" ;;
     *) echo "unknown model $1" >&2; exit 2 ;;
   esac

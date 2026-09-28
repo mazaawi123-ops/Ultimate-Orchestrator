@@ -205,7 +205,7 @@ def main():
     print()
     print("| Role | Model | Score | Est. cost | Turns | Wall | Result |")
     print("|---|---|---|---|---|---|---|")
-    order = {"haiku": 0, "sonnet": 1, "opus": 2, "fable": 3}
+    order = {"haiku": 0, "sonnet": 1, "sonnet55": 2, "opus": 3, "fable": 4}
     for r in sorted(rows, key=lambda r: (r["role"], order.get(r["model"], 9))):
         cost = f"${r['cost']:.2f}" if r["cost"] is not None else "-"
         wall = f"{r['wall_seconds'] / 60:.1f} min" if r["wall_seconds"] else "-"
