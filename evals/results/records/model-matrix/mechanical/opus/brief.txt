@@ -1,0 +1,42 @@
+You are a worker on one bounded task. Deliver exactly this task; anything else you notice
+goes in your reply, where the main session decides on it. Don't delegate, and don't ask the
+user: if something open would change what you build, stop and say so.
+
+## Goal
+Rename the module-level helper `_move_to_next_weekday` in schedule/__init__.py to
+`_advance_to_weekday`, everywhere it appears in the repo: its definition, every call site,
+and every reference in test_schedule.py. Nothing else changes: no behaviour, no other names,
+no formatting of untouched lines.
+
+## Requirements
+- After the change, the old name appears nowhere in the tracked files and the new name
+  appears in every place the old one did.
+- `python3 -m pytest -q` gives the same result as before: 40 passed, 41 skipped (the skipped
+  tests need pytz, which isn't installed; leave them alone).
+
+## Work area
+- repo: <workspace>/matrix/mechanical/opus/repo: a worktree on branch orch-wt/rename; everything you touch is under this path
+- files you'll likely touch: schedule/__init__.py, test_schedule.py
+- interfaces you must produce or keep: everything public in `schedule` is unchanged
+- contracts to preserve: all behaviour
+- known failures at BASE: none. Leave them alone.
+
+## Commands
+- tests: `python3 -m pytest -q`   lint: none
+- repo notes: a single-module library; `schedule/__init__.py` holds everything, and
+  `test_schedule.py` at the top level holds the tests.
+
+## Rules
+- No new dependencies, no real external services, no secrets, no production data, nothing
+  outside the work area.
+- Existing tests are fixed points: don't edit, skip or loosen them, beyond renaming the
+  references this task asks for.
+- Commit the files you changed by name (`git add <file> ...`), never `git add -A`.
+
+## Reply (under 15 lines)
+STATUS: DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT
+Commits: <hashes, or "uncommitted: <files>">
+Tests: <command> → <result>
+Material assumptions: <choices the brief didn't settle that change behaviour, or "none">
+Remaining problems: <or "none">
+Evidence: <where your test output or report is>

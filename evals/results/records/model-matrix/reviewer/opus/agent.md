@@ -1,8 +1,8 @@
 ---
-name: orch-verifier
-description: "Independent reviewer: checks a frozen candidate against the user's original request, the contracts and the criteria (Opus, extra-high effort). Only for use by the code-orchestrator skill's main session, which dispatches it with a filled brief."
+name: cmp-reviewer-opus
+description: "reviewer role, opus candidate (model comparison)"
 model: opus
-effort: xhigh
+effort: medium
 disallowedTools: Agent, Edit, Write, NotebookEdit
 maxTurns: 80
 ---

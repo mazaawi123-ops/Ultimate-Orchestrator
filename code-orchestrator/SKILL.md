@@ -182,19 +182,31 @@ and count as acceptable only if the requirement allows them.
 
 The main session is whatever model the user chose. Keep it.
 
-| Agent (`subagent_type`) | Use | Set in `agents/` |
+| Agent (`subagent_type`) | Use | Set in this skill's `agents/` |
 |---|---|---|
-| `orch-worker-haiku` | a bounded mechanical task, where writing the brief is clearly less work than doing it | Haiku; no nested agents |
-| `orch-worker-sonnet` | a substantial delegated piece; a repair that needs a second pair of hands | Sonnet, medium effort; no nested agents |
-| `orch-verifier` | the independent review | Opus, extra-high effort; no Edit/Write/Agent tools |
-| `orch-rechecker` | a targeted re-review after a risky repair | Sonnet, high effort; no Edit/Write/Agent tools |
+| `orch-researcher` | a read-only investigation before you plan: where things live, who calls what, which tests cover it; questions with checkable answers | Opus 5.5, high effort; no Edit/Write/Agent tools |
+| `orch-worker` | a substantial delegated piece; a repair that needs a second pair of hands | Sonnet 5.5, extra-high effort; no nested agents |
+| `orch-mechanic` | a bounded mechanical task (a rename, a formatting pass), where writing the brief is clearly less work than doing it | Sonnet 5.5, medium effort; no nested agents |
+| `orch-verifier` | the independent review | Opus 5.5, high effort; no Edit/Write/Agent tools. Raise `effort` to xhigh in the file for high-stakes changes: at xhigh it found an optional daylight-saving edge that medium missed, at about 4x the cost |
+| `orch-rechecker` | a targeted re-review after a risky repair | Sonnet 5.5, medium effort; no Edit/Write/Agent tools. Give it the exact findings to re-check: as a first reviewer, Sonnet 5 missed a flaw Opus caught |
 
 The runtime enforces the tool limits and turn caps in these files: a probe agent couldn't
 call Write or Agent, and it stopped at its turn cap. But Bash can still write files. So
 reviewers aren't strictly read-only: `orch.sh gate` catches any change they make to the tree.
-These model and effort settings are candidates, not proven optima: extra-high review effort
-hasn't yet shown a measurable gain. If the agents aren't installed, pass `model` instead and
-say the effort was the default.
+These settings are the owner's choice, informed by one comparison run per role
+(`evals/results/model-matrix.md`). That run predates Sonnet 5.5, so none of the Sonnet 5.5
+roles is measured yet. In it, Opus 5.5 at medium effort caught the reviewer task's flaw
+(high is a step up from that), Sonnet 5 at high effort passed the flawed candidate, and
+Sonnet 5 alone of the cheaper models completed the mechanical rename. One sample each, so
+treat them as the current best guess, not proven optima.
+
+**Installing the agents.** They ship with this skill, in `agents/`. Claude Code loads agents
+only from `~/.claude/agents/` or a repo's `.claude/agents/`, not from inside a skill. If the
+`orch-*` agents aren't available when you're about to delegate, ask the user once, then run
+`bash <skill-dir>/scripts/install-agents.sh` (every project) or add `--project <repo>` (that
+repo only; commit or git-ignore the files, or `orch.sh check` will count them as
+leftovers). Claude Code picks them up for the next agent it starts. If the user declines,
+pass `model` instead and say the effort was the default.
 
 **Agents in the background.** Claude Code can move a long-running agent to the background,
 even one you dispatched in the foreground. In a headless session (`claude -p`), after your
@@ -217,6 +229,7 @@ done.
 
 - `scripts/orch.sh`: start, check, run, fresh, tests, diff, record, repair, gate, finish,
   and the parallel-worker commands
+- `agents/`: the five agent definitions; `scripts/install-agents.sh` installs them
 - `references/run-record.md`: the durable record, for delegated, reviewed or interruptible work
 - `references/worker-brief.md`: read only when delegating
 - `references/reviewer-brief.md`: read only for an independent review or re-check

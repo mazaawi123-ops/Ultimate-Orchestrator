@@ -1,0 +1,147 @@
+diff --git a/more_itertools/more.py b/more_itertools/more.py
+index 0fed997..333c198 100755
+--- a/more_itertools/more.py
++++ b/more_itertools/more.py
+@@ -1024,7 +1024,7 @@ def unique_to_each(*iterables):
+     return [list(filter(uniques.__contains__, it)) for it in pool]
+ 
+ 
+-def windowed(seq, n, fillvalue=None, step=1):
++def windowed(seq, n, fillvalue=None, step=1, *, strict=False):
+     """Return a sliding window of width *n* over the given iterable.
+ 
+         >>> all_windows = windowed([1, 2, 3, 4, 5], 3)
+@@ -1042,6 +1042,17 @@ def windowed(seq, n, fillvalue=None, step=1):
+         >>> list(windowed([1, 2, 3, 4, 5, 6], 3, fillvalue='!', step=2))
+         [(1, 2, 3), (3, 4, 5), (5, 6, '!')]
+ 
++    If *strict* is ``True``, a window that would need *fillvalue* padding is
++    never yielded: ``ValueError`` is raised instead, after the complete
++    windows before it have been yielded (like ``zip(strict=True)``):
++
++        >>> list(windowed([1, 2, 3, 4], 2, strict=True))
++        [(1, 2), (2, 3), (3, 4)]
++        >>> list(windowed([1, 2, 3], 2, step=2, strict=True))
++        Traceback (most recent call last):
++        ...
++        ValueError: iterable ended before the window was complete
++
+     To slide into the iterable's items, use :func:`chain` to add filler items
+     to the left:
+ 
+@@ -1065,17 +1076,25 @@ def windowed(seq, n, fillvalue=None, step=1):
+     if not window:
+         return
+     if len(window) < n:
++        if strict:
++            raise ValueError('iterable ended before the window was complete')
+         yield tuple(window) + ((fillvalue,) * (n - len(window)))
+         return
+     yield tuple(window)
+ 
+     # Create the filler for the next windows. The padding ensures
+-    # we have just enough elements to fill the last window.
+-    padding = (fillvalue,) * (n - 1 if step >= n else step - 1)
++    # we have just enough elements to fill the last window. In strict mode
++    # the padding is a sentinel, so a padded window can be detected: the
++    # padding comes after every real item, so once any padding has been
++    # appended the newest item in the window is always padding.
++    pad = _marker if strict else fillvalue
++    padding = (pad,) * (n - 1 if step >= n else step - 1)
+     filler = map(window.append, chain(iterator, padding))
+ 
+     # Generate the rest of the windows
+     for _ in islice(filler, step - 1, None, step):
++        if strict and window[-1] is _marker:
++            raise ValueError('iterable ended before the window was complete')
+         yield tuple(window)
+ 
+ 
+diff --git a/more_itertools/more.pyi b/more_itertools/more.pyi
+index 927cb21..3e68a95 100644
+--- a/more_itertools/more.pyi
++++ b/more_itertools/more.pyi
+@@ -244,11 +244,16 @@ def intersperse(
+ def unique_to_each(*iterables: Iterable[_T]) -> list[list[_T]]: ...
+ @overload
+ def windowed(
+-    seq: Iterable[_T], n: int, *, step: int = ...
++    seq: Iterable[_T], n: int, *, step: int = ..., strict: bool = ...
+ ) -> Iterator[tuple[_T | None, ...]]: ...
+ @overload
+ def windowed(
+-    seq: Iterable[_T], n: int, fillvalue: _U, step: int = ...
++    seq: Iterable[_T],
++    n: int,
++    fillvalue: _U,
++    step: int = ...,
++    *,
++    strict: bool = ...,
+ ) -> Iterator[tuple[_T | _U, ...]]: ...
+ def substrings(iterable: Iterable[_T]) -> Iterator[tuple[_T, ...]]: ...
+ def substrings_indexes(
+diff --git a/tests/test_more.py b/tests/test_more.py
+index 3d5e8d3..5e32948 100644
+--- a/tests/test_more.py
++++ b/tests/test_more.py
+@@ -946,6 +946,60 @@ class WindowedTests(TestCase):
+         expected = []
+         self.assertEqual(actual, expected)
+ 
++    def test_strict(self):
++        iterable = [1, 2, 3, 4, 5, 6, 7]
++        for n, step, expected in [
++            (3, 1, [(1, 2, 3), (2, 3, 4), (3, 4, 5), (4, 5, 6), (5, 6, 7)]),
++            (3, 2, [(1, 2, 3), (3, 4, 5), (5, 6, 7)]),  # n > step
++            (3, 4, [(1, 2, 3), (5, 6, 7)]),  # lines up nicely
++            (3, 7, [(1, 2, 3)]),  # step past the end
++            (7, 1, [(1, 2, 3, 4, 5, 6, 7)]),  # n == len(iterable)
++            (7, 8, [(1, 2, 3, 4, 5, 6, 7)]),  # step > len(iterable)
++        ]:
++            with self.subTest(n=n, step=step):
++                actual = list(mi.windowed(iterable, n, step=step, strict=True))
++                self.assertEqual(actual, expected)
++
++    def test_strict_raises(self):
++        # The complete windows are yielded, then ValueError is raised for
++        # the window that would need fillvalue padding
++        iterable = [1, 2, 3, 4, 5, 6, 7]
++        for n, step, expected in [
++            (8, 1, []),  # n > len(iterable)
++            (3, 3, [(1, 2, 3), (4, 5, 6)]),  # n == step
++            (3, 5, [(1, 2, 3)]),  # off by one
++            (3, 6, [(1, 2, 3)]),  # off by two
++            (2, 2, [(1, 2), (3, 4), (5, 6)]),  # one item short
++        ]:
++            with self.subTest(n=n, step=step):
++                it = mi.windowed(
++                    iterable, n, fillvalue='!', step=step, strict=True
++                )
++                actual = []
++                with self.assertRaises(ValueError):
++                    for window in it:
++                        actual.append(window)
++                self.assertEqual(actual, expected)
++
++    def test_strict_false(self):
++        # strict=False is the default and pads with fillvalue
++        actual = list(
++            mi.windowed([1, 2, 3], 2, fillvalue='!', step=2, strict=False)
++        )
++        expected = [(1, 2), (3, '!')]
++        self.assertEqual(actual, expected)
++
++    def test_strict_empty_seq(self):
++        actual = list(mi.windowed([], 3, strict=True))
++        expected = []
++        self.assertEqual(actual, expected)
++
++    def test_strict_lazy(self):
++        it = mi.windowed(count(), 3, step=2, strict=True)
++        actual = mi.take(3, it)
++        expected = [(0, 1, 2), (2, 3, 4), (4, 5, 6)]
++        self.assertEqual(actual, expected)
++
+ 
+ class SubstringsTests(TestCase):
+     def test_basic(self):

@@ -13,15 +13,15 @@ set -u
 HERE=$(cd "$(dirname "$0")" && pwd); ROOT=$(cd "$HERE/../.." && pwd)
 REPOS=$1; OUT=$2; OLD=$3; REPEATS=${4:-2}; PAR=${5:-6}
 mkdir -p "$OUT"
-[ -z "$(git -C "$ROOT" status --porcelain -- code-orchestrator agents)" ] || { echo "commit the skill first, so the pilot names an exact version" >&2; exit 2; }
+[ -z "$(git -C "$ROOT" status --porcelain -- code-orchestrator)" ] || { echo "commit the skill first, so the pilot names an exact version" >&2; exit 2; }
 printf '{"skill_commit":"%s","old_skill_sha256":"%s","claude_version":"%s","started":"%s","repeats":%s}\n' \
   "$(git -C "$ROOT" rev-parse HEAD)" "$(cat "$OLD/code-orchestrator/SKILL.md" | shasum -a 256 | cut -c1-16)" \
   "$(claude --version 2>/dev/null | head -1)" "$(date -u +%FT%TZ)" "$REPEATS" > "$OUT/pilot.json"
 jobs=()
 for run in $(seq 1 "$REPEATS"); do
   for id in p1 p2; do
-    jobs+=("$id|direct|$run|$ROOT/code-orchestrator|$ROOT/agents|Use the code-orchestrator skill in Direct mode (no delegation, no independent review).")
-    jobs+=("$id|reviewed|$run|$ROOT/code-orchestrator|$ROOT/agents|Use the code-orchestrator skill in Reviewed mode (you build; one independent review).")
+    jobs+=("$id|direct|$run|$ROOT/code-orchestrator|$ROOT/code-orchestrator/agents|Use the code-orchestrator skill in Direct mode (no delegation, no independent review).")
+    jobs+=("$id|reviewed|$run|$ROOT/code-orchestrator|$ROOT/code-orchestrator/agents|Use the code-orchestrator skill in Reviewed mode (you build; one independent review).")
     jobs+=("$id|hierarchy|$run|$OLD/code-orchestrator|$OLD/agents|Use the code-orchestrator skill.")
   done
 done

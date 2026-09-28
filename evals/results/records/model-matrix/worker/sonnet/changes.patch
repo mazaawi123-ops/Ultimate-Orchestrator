@@ -1,0 +1,153 @@
+diff --git a/more_itertools/more.py b/more_itertools/more.py
+index 0fed997..afb8836 100755
+--- a/more_itertools/more.py
++++ b/more_itertools/more.py
+@@ -1024,7 +1024,7 @@ def unique_to_each(*iterables):
+     return [list(filter(uniques.__contains__, it)) for it in pool]
+ 
+ 
+-def windowed(seq, n, fillvalue=None, step=1):
++def windowed(seq, n, fillvalue=None, step=1, strict=False):
+     """Return a sliding window of width *n* over the given iterable.
+ 
+         >>> all_windows = windowed([1, 2, 3, 4, 5], 3)
+@@ -1050,6 +1050,18 @@ def windowed(seq, n, fillvalue=None, step=1):
+         >>> padding = [None] * (n - 1)
+         >>> list(windowed(chain(padding, iterable), 3))
+         [(None, None, 1), (None, 1, 2), (1, 2, 3), (2, 3, 4)]
++
++    If *strict* is ``True``, then ``ValueError`` will be raised if there are
++    any elements of the iterable left over after the last complete window
++    -- that is, if a window would need to be padded with *fillvalue*. The
++    complete windows found before that point are still yielded, just as
++    with :func:`zip` when ``strict=True``.
++
++        >>> list(windowed([1, 2, 3], 4, strict=True))
++        Traceback (most recent call last):
++        ...
++        ValueError: iterable is not divisible by n
++
+     """
+     if n <= 0:
+         raise ValueError('n must be > 0')
+@@ -1065,18 +1077,37 @@ def windowed(seq, n, fillvalue=None, step=1):
+     if not window:
+         return
+     if len(window) < n:
++        if strict:
++            raise ValueError('iterable is not divisible by n')
+         yield tuple(window) + ((fillvalue,) * (n - len(window)))
+         return
+     yield tuple(window)
+ 
+     # Create the filler for the next windows. The padding ensures
+     # we have just enough elements to fill the last window.
+-    padding = (fillvalue,) * (n - 1 if step >= n else step - 1)
+-    filler = map(window.append, chain(iterator, padding))
+-
+-    # Generate the rest of the windows
+-    for _ in islice(filler, step - 1, None, step):
+-        yield tuple(window)
++    padding_size = n - 1 if step >= n else step - 1
++    if not strict:
++        padding = (fillvalue,) * padding_size
++        filler = map(window.append, chain(iterator, padding))
++        # Generate the rest of the windows
++        for _ in islice(filler, step - 1, None, step):
++            yield tuple(window)
++    elif padding_size:
++        # In strict mode, use a private sentinel (rather than fillvalue,
++        # which may collide with a genuine value) to detect when a window
++        # would need padding, and raise instead of yielding it.
++        marker = object()
++        filler = map(
++            window.append, chain(iterator, repeat(marker, padding_size))
++        )
++        for _ in islice(filler, step - 1, None, step):
++            if marker in window:
++                raise ValueError('iterable is not divisible by n')
++            yield tuple(window)
++    else:
++        filler = map(window.append, iterator)
++        for _ in islice(filler, step - 1, None, step):
++            yield tuple(window)
+ 
+ 
+ def substrings(iterable):
+diff --git a/more_itertools/more.pyi b/more_itertools/more.pyi
+index 927cb21..c365522 100644
+--- a/more_itertools/more.pyi
++++ b/more_itertools/more.pyi
+@@ -244,11 +244,15 @@ def intersperse(
+ def unique_to_each(*iterables: Iterable[_T]) -> list[list[_T]]: ...
+ @overload
+ def windowed(
+-    seq: Iterable[_T], n: int, *, step: int = ...
++    seq: Iterable[_T], n: int, *, step: int = ..., strict: bool = ...
+ ) -> Iterator[tuple[_T | None, ...]]: ...
+ @overload
+ def windowed(
+-    seq: Iterable[_T], n: int, fillvalue: _U, step: int = ...
++    seq: Iterable[_T],
++    n: int,
++    fillvalue: _U,
++    step: int = ...,
++    strict: bool = ...,
+ ) -> Iterator[tuple[_T | _U, ...]]: ...
+ def substrings(iterable: Iterable[_T]) -> Iterator[tuple[_T, ...]]: ...
+ def substrings_indexes(
+diff --git a/tests/test_more.py b/tests/test_more.py
+index 3d5e8d3..e8705ab 100644
+--- a/tests/test_more.py
++++ b/tests/test_more.py
+@@ -946,6 +946,50 @@ class WindowedTests(TestCase):
+         expected = []
+         self.assertEqual(actual, expected)
+ 
++    def test_strict_short_first_window(self):
++        # No window is ever complete, so nothing is yielded before the
++        # error.
++        with self.assertRaises(ValueError):
++            list(mi.windowed([1, 2, 3], 4, strict=True))
++
++    def test_strict_evenly_divisible(self):
++        # No window ever needs padding, so strict=True changes nothing.
++        actual = list(mi.windowed([1, 2, 3, 4, 5], 5, strict=True))
++        expected = [(1, 2, 3, 4, 5)]
++        self.assertEqual(actual, expected)
++
++    def test_strict_step_not_evenly_divisible(self):
++        iterable = [1, 2, 3, 4, 5, 6, 7]
++        windows = mi.windowed(iterable, 3, step=3, strict=True)
++        self.assertEqual(next(windows), (1, 2, 3))
++        self.assertEqual(next(windows), (4, 5, 6))
++        with self.assertRaises(ValueError):
++            next(windows)
++
++    def test_strict_step_evenly_divisible(self):
++        # n and step line up perfectly -- no leftover elements, no error
++        iterable = [1, 2, 3, 4, 5, 6, 7]
++        actual = list(mi.windowed(iterable, 3, step=4, strict=True))
++        expected = [(1, 2, 3), (5, 6, 7)]
++        self.assertEqual(actual, expected)
++
++    def test_strict_fillvalue_collision(self):
++        # A genuine element that happens to equal fillvalue must not be
++        # mistaken for padding.
++        iterable = [1, 2, 3, None, 5, 6]
++        actual = list(
++            mi.windowed(iterable, 3, fillvalue=None, step=3, strict=True)
++        )
++        expected = [(1, 2, 3), (None, 5, 6)]
++        self.assertEqual(actual, expected)
++
++    def test_strict_lazy(self):
++        # strict=True must still work on an infinite iterator, as long as
++        # no window actually needs padding.
++        actual = mi.take(3, mi.windowed(count(), 4, strict=True))
++        expected = [(0, 1, 2, 3), (1, 2, 3, 4), (2, 3, 4, 5)]
++        self.assertEqual(actual, expected)
++
+ 
+ class SubstringsTests(TestCase):
+     def test_basic(self):

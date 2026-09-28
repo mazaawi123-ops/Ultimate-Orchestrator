@@ -22,17 +22,21 @@ That gives three routes:
 
 | Role | Model and effort (this repo's settings) |
 |---|---|
-| Main session | whatever you choose. Mo's setting is `/model opus`, then `/effort high` |
-| `orch-worker-haiku` | Haiku: bounded mechanical tasks |
-| `orch-worker-sonnet` | Sonnet, medium effort: substantial delegated pieces, repairs |
-| `orch-verifier` | Opus, extra-high effort: independent review |
-| `orch-rechecker` | Sonnet, high effort: targeted re-review after a risky repair |
+| Main session | whatever you choose. Mo's setting is `/model claude-fable-5-1`, then `/effort xhigh` |
+| `orch-researcher` | Opus 5.5, high effort: read-only investigation before planning |
+| `orch-worker` | Sonnet 5.5, extra-high effort: substantial delegated pieces, repairs |
+| `orch-mechanic` | Sonnet 5.5, medium effort: bounded mechanical tasks |
+| `orch-verifier` | Opus 5.5, high effort: independent review (raise to xhigh in the file for high-stakes changes) |
+| `orch-rechecker` | Sonnet 5.5, medium effort: targeted re-review after a risky repair |
 
-The agent files in `agents/` set each role's model, effort, turn cap and tool limits. The
+The agent files in `code-orchestrator/agents/` set each role's model, effort, turn cap and
+tool limits. They ship inside the skill; `install.sh` or the skill's own
+`scripts/install-agents.sh` copies them to where Claude Code loads agents. The
 runtime enforces those limits: reviewers have no Edit, Write or Agent tools, and no agent can
 delegate further. Bash can still write, so reviewers aren't strictly read-only. The helper
-catches any change they make to the tree. The model and effort choices are candidates, not
-proven optima.
+catches any change they make to the tree. The model and effort choices are the owner's,
+informed by one comparison run per role (`evals/results/model-matrix.md`). That run predates
+Sonnet 5.5, so the Sonnet 5.5 roles aren't measured yet.
 
 ## What the helper guarantees
 
@@ -89,6 +93,16 @@ proven optima.
     - Direct finished Done, with every gate and CI check passing.
     - A production check with no authorization finished Partial. The credentials file's
       access time shows no process read it.
+- **Which model for which role** (`evals/results/model-matrix.md`): one real session per role
+  and model (Fable 5.1 xhigh, Opus 5.5 medium, Sonnet 5, Haiku 4.5) on a fixed task with an
+  objective grader.
+  - Reviewer, on a candidate with a known flaw: Opus 5.5 and Fable both caught it; Sonnet
+    and Haiku passed it. Opus 5.5 at medium cost a quarter of Fable at xhigh.
+  - Worker: all four passed every hidden check; Opus 5.5 was cheapest and fastest.
+  - Mechanical rename: only Sonnet 5 and Fable finished it; Haiku reported a partial rename
+    as complete.
+  - Researcher: Fable alone answered everything; Opus 5.5 and Haiku missed one item.
+  - One sample per cell.
 - Earlier designs' measurements, with the published run records, are in
   `evals/results/measurements.md`. Their limits are stated there: dollar figures are Claude
   Code's local estimates, not bills; the "no skill" runs were prompted to delegate; most
@@ -121,8 +135,9 @@ its result. That's what happened to one pilot run.
 code-orchestrator/               the skill (installed)
   SKILL.md                       routing, stop-and-ask, the loop, report, agents
   scripts/orch.sh                the helper
+  scripts/install-agents.sh      copies the agents to ~/.claude/agents (or a repo's .claude/agents)
   references/                    run-record, worker-brief, reviewer-brief (loaded only when needed)
-agents/                          the four agents: model, effort, tool limits, turn caps
+  agents/                        the five agents: model, effort, tool limits, turn caps
 install.sh
 code-orchestrator.single-file.md the skill as one file (tools/build_single_file.py rebuilds it)
 tests/helper/                    helper regression tests and the review's reproductions

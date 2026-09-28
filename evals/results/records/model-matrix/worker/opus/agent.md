@@ -1,7 +1,7 @@
 ---
-name: orch-worker-sonnet
-description: "Worker for a substantial delegated coding task or a repair (Sonnet, medium effort). Only for use by the code-orchestrator skill's main session, which dispatches it with a filled brief."
-model: sonnet
+name: cmp-worker-opus
+description: "worker role, opus candidate (model comparison)"
+model: opus
 effort: medium
 disallowedTools: Agent
 maxTurns: 150
