@@ -1,8 +1,8 @@
 ---
 name: orch-worker
-description: "Worker for a substantial delegated coding task or a repair (Opus 5.5, medium effort). Only for use by the code-orchestrator skill's main session, which dispatches it with a filled brief."
-model: claude-opus-5-5
-effort: medium
+description: "Worker for a substantial delegated coding task or a repair (Sonnet 5.5, extra-high effort). Only for use by the code-orchestrator skill's main session, which dispatches it with a filled brief."
+model: claude-sonnet-5-5
+effort: xhigh
 disallowedTools: Agent
 maxTurns: 150
 ---

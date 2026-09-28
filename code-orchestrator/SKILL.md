@@ -185,7 +185,7 @@ The main session is whatever model the user chose. Keep it.
 | Agent (`subagent_type`) | Use | Set in `agents/` |
 |---|---|---|
 | `orch-researcher` | a read-only investigation before you plan: where things live, who calls what, which tests cover it; questions with checkable answers | Opus 5.5, medium effort; no Edit/Write/Agent tools |
-| `orch-worker` | a substantial delegated piece; a repair that needs a second pair of hands | Opus 5.5, medium effort; no nested agents |
+| `orch-worker` | a substantial delegated piece; a repair that needs a second pair of hands | Sonnet 5.5, extra-high effort; no nested agents |
 | `orch-mechanic` | a bounded mechanical task (a rename, a formatting pass), where writing the brief is clearly less work than doing it | Sonnet 5, medium effort; no nested agents |
 | `orch-verifier` | the independent review | Opus 5.5, medium effort; no Edit/Write/Agent tools. Raise `effort` to xhigh in the file for high-stakes changes: it found an optional daylight-saving edge that medium missed, at about 4x the cost |
 | `orch-rechecker` | a targeted re-review after a risky repair | Opus 5.5, medium effort; no Edit/Write/Agent tools |
@@ -193,11 +193,13 @@ The main session is whatever model the user chose. Keep it.
 The runtime enforces the tool limits and turn caps in these files: a probe agent couldn't
 call Write or Agent, and it stopped at its turn cap. But Bash can still write files. So
 reviewers aren't strictly read-only: `orch.sh gate` catches any change they make to the tree.
-These settings come from one comparison run per role (`evals/results/model-matrix.md`):
-Opus 5.5 at medium effort matched or beat Fable 5.1 at xhigh, Sonnet 5 and Haiku 4.5 on
-three of the four tasks at the lowest cost, and Sonnet 5 alone completed the mechanical
-rename. One sample each, so treat them as the current best guess, not proven optima. If the
-agents aren't installed, pass `model` instead and say the effort was the default.
+Most of these settings come from one comparison run per role
+(`evals/results/model-matrix.md`): Opus 5.5 at medium effort matched or beat Fable 5.1 at
+xhigh, Sonnet 5 and Haiku 4.5 on three of the four tasks at the lowest cost, and Sonnet 5
+alone completed the mechanical rename. The worker's Sonnet 5.5 at extra-high effort is the
+owner's choice, made after that run and not yet measured in it. One sample each, so treat
+them as the current best guess, not proven optima. If the agents aren't installed, pass
+`model` instead and say the effort was the default.
 
 **Agents in the background.** Claude Code can move a long-running agent to the background,
 even one you dispatched in the foreground. In a headless session (`claude -p`), after your

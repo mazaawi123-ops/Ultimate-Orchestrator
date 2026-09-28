@@ -51,6 +51,11 @@ Opus 5.5 at **xhigh** found the blocking case and the daylight-saving edge, at $
 | Reviewer | `orch-verifier` | Opus 5.5, medium | caught the blocking flaw at a quarter of Fable's cost; xhigh in the same file is the upgrade for high-stakes changes (it also found the optional edge) |
 | Re-checker | `orch-rechecker` | Opus 5.5, medium | not tested in this role; chosen because Sonnet at high effort passed the flawed candidate as a reviewer, and Opus 5.5 at medium cost the same ($0.32 vs $0.33) |
 
+**Update, 2026-09-28:** the owner set `orch-worker` to Sonnet 5.5 at extra-high effort.
+Sonnet 5.5 was released after this comparison, so it isn't in the table above; the worker
+row there describes the earlier choice. The `sonnet` alias in Claude Code now resolves to
+Sonnet 5.5, so `orch-mechanic` names `claude-sonnet-5` explicitly to stay on the tested model.
+
 Haiku 4.5 has no role left: it missed the review flaw, did a partial rename and reported it
 as complete, and was the slowest worker.
 
