@@ -1,8 +1,8 @@
 ---
 name: orch-researcher
-description: "Read-only investigator: answers specific questions about a repo with file:line evidence, before the main session plans or briefs a worker (Opus 5.5, medium effort). Only for use by the code-orchestrator skill's main session, which dispatches it with a filled brief."
+description: "Read-only investigator: answers specific questions about a repo with file:line evidence, before the main session plans or briefs a worker (Opus 5.5, high effort). Only for use by the code-orchestrator skill's main session, which dispatches it with a filled brief."
 model: claude-opus-5-5
-effort: medium
+effort: high
 disallowedTools: Agent, Edit, Write, NotebookEdit
 maxTurns: 60
 ---

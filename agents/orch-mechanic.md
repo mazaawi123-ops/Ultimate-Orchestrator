@@ -1,7 +1,7 @@
 ---
 name: orch-mechanic
-description: "Worker for a bounded, mechanical coding task such as a rename or a formatting pass (Sonnet 5, medium effort). Only for use by the code-orchestrator skill's main session, which dispatches it with a filled brief."
-model: claude-sonnet-5
+description: "Worker for a bounded, mechanical coding task such as a rename or a formatting pass (Sonnet 5.5, medium effort). Only for use by the code-orchestrator skill's main session, which dispatches it with a filled brief."
+model: claude-sonnet-5-5
 effort: medium
 disallowedTools: Agent
 maxTurns: 120

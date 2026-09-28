@@ -23,19 +23,18 @@ That gives three routes:
 | Role | Model and effort (this repo's settings) |
 |---|---|
 | Main session | whatever you choose. Mo's setting is `/model claude-fable-5-1`, then `/effort xhigh` |
-| `orch-researcher` | Opus 5.5, medium effort: read-only investigation before planning |
+| `orch-researcher` | Opus 5.5, high effort: read-only investigation before planning |
 | `orch-worker` | Sonnet 5.5, extra-high effort: substantial delegated pieces, repairs |
-| `orch-mechanic` | Sonnet 5, medium effort: bounded mechanical tasks |
-| `orch-verifier` | Opus 5.5, medium effort: independent review (raise to xhigh in the file for high-stakes changes) |
-| `orch-rechecker` | Opus 5.5, medium effort: targeted re-review after a risky repair |
+| `orch-mechanic` | Sonnet 5.5, medium effort: bounded mechanical tasks |
+| `orch-verifier` | Opus 5.5, high effort: independent review (raise to xhigh in the file for high-stakes changes) |
+| `orch-rechecker` | Sonnet 5.5, medium effort: targeted re-review after a risky repair |
 
 The agent files in `agents/` set each role's model, effort, turn cap and tool limits. The
 runtime enforces those limits: reviewers have no Edit, Write or Agent tools, and no agent can
 delegate further. Bash can still write, so reviewers aren't strictly read-only. The helper
-catches any change they make to the tree. The model and effort choices come from one
-comparison run per role (`evals/results/model-matrix.md`), except the worker's Sonnet 5.5 at
-extra-high effort, which was chosen after that run and isn't measured yet. One sample each,
-so they are the current best guess, not proven optima.
+catches any change they make to the tree. The model and effort choices are the owner's,
+informed by one comparison run per role (`evals/results/model-matrix.md`). That run predates
+Sonnet 5.5, so the Sonnet 5.5 roles aren't measured yet.
 
 ## What the helper guarantees
 
